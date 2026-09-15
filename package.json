@@ -1,0 +1,20 @@
+{
+  "name": "hitl",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Installs a human-in-the-loop delivery workflow for Claude Code into a repository.",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "vitest run --config scripts/vitest.config.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6",
+    "vitest": "^4.1.10"
+  }
+}

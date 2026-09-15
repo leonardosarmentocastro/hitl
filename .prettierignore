@@ -1,0 +1,7 @@
+node_modules/
+pnpm-lock.yaml
+
+# Prose is not formatted: the doctrine, the prompts under .claude/ and the templates are
+# read as instructions, and a formatter changing a table or escaping a name in them is a
+# behaviour change nothing tests.
+*.md

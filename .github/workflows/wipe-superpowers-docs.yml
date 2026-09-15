@@ -1,0 +1,24 @@
+name: Wipe superpowers docs
+
+# Specs and plans are transient per-feature artifacts. They ride into main with the
+# feature merge; this removes them from main's working tree immediately after.
+# History still contains them — that is accepted (see the spec's §Goal).
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wipe-superpowers-docs
+  cancel-in-progress: false
+
+jobs:
+  wipe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remove docs/superpowers if present
+        run: scripts/wipe-superpowers-docs.sh --push

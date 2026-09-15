@@ -1,0 +1,6 @@
+node_modules/
+
+# Review output and dry-run scratch space are never committed.
+.claude/reviews/
+.claude/fixtures/scratch/
+.claude/settings.local.json
