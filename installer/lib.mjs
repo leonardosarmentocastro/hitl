@@ -192,6 +192,25 @@ and fixed by subagents, with a human deciding at every gate. The doctrine is \`H
   Matt Pocock's skills is the recommended start for a feature whose shape is unclear.`;
 }
 
+export const NO_GATES_LINE =
+  "none yet — the first TDD task adds the harness and names its command here";
+
+/** The AGENTS.md block: local gates, plus the pilots list when effective-date is chosen. */
+export function agentsBlock(gates, testing = []) {
+  const lines = ["## Local gates", ""];
+  if (gates.length === 0) lines.push(NO_GATES_LINE);
+  else for (const g of gates) lines.push(`- \`${g}\``);
+  if (testing.includes("effective-date")) {
+    lines.push(
+      "",
+      "## Effective-date pilots",
+      "",
+      "- (none yet — name the area a new rule applies to first, one per line)",
+    );
+  }
+  return lines.join("\n");
+}
+
 export function gitignoreBlock() {
   return `# hitl: review output and dry-run scratch space are never committed.
 .claude/reviews/

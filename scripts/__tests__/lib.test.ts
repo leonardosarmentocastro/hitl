@@ -123,3 +123,24 @@ describe("composeHitl", () => {
     expect(out.endsWith("\n\n")).toBe(false);
   });
 });
+
+import { agentsBlock } from "../../installer/lib.mjs";
+
+describe("agentsBlock", () => {
+  it("lists one bullet per gate", () => {
+    expect(agentsBlock(["pnpm test", "pnpm lint"])).toBe(
+      "## Local gates\n\n- `pnpm test`\n- `pnpm lint`",
+    );
+  });
+  it("writes the none-yet line when there is no gate", () => {
+    expect(agentsBlock([])).toBe(
+      "## Local gates\n\nnone yet — the first TDD task adds the harness and names its command here",
+    );
+  });
+  it("adds the pilots section only when effective-date is chosen", () => {
+    expect(agentsBlock(["pnpm test"], ["e2e"])).not.toContain("## Effective-date pilots");
+    expect(agentsBlock(["pnpm test"], ["effective-date"])).toBe(
+      "## Local gates\n\n- `pnpm test`\n\n## Effective-date pilots\n\n- (none yet — name the area a new rule applies to first, one per line)",
+    );
+  });
+});

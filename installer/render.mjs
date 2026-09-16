@@ -3,11 +3,12 @@
 // collision, bad settings.json); otherwise writes every owned file, the appended blocks, the
 // merged hook and the manifest, and prints one JSON report. Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import {
   CI_CHOICES,
   DEFAULT_CHOICES,
   MANIFEST_PATH,
+  agentsBlock,
   collisions,
   foreignFiles,
   gitignoreBlock,
@@ -88,6 +89,12 @@ export function run(args) {
     append(
       ".gitignore",
       withMarkerBlock(readIfPresent(join(repo, ".gitignore")), gitignoreBlock()),
+    );
+    const agentsExisting =
+      readIfPresent(join(repo, "AGENTS.md")) ?? `# ${basename(repo)} — agent working agreements\n`;
+    append(
+      "AGENTS.md",
+      withMarkerBlock(agentsExisting, agentsBlock(choices.gates ?? [], choices.testing)),
     );
     if (settings.added) {
       writeFile(repo, ".claude/settings.json", settings.text);

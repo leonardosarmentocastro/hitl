@@ -292,3 +292,39 @@ describe("render.mjs --mode check", () => {
     expect(check(repo).json).toEqual({ refused: "manifest-present", version: "0.1.0" });
   });
 });
+
+describe("render.mjs and AGENTS.md", () => {
+  it("creates AGENTS.md as a stub plus the gates block when absent", () => {
+    const repo = tempRepo();
+    const r = render(repo, { ...ANSWERS, gates: ["pnpm test", "pnpm lint"] });
+    const text = readFileSync(join(repo, "AGENTS.md"), "utf8");
+    expect(text.startsWith(`# ${repo.split("/").pop()} — agent working agreements\n`)).toBe(true);
+    expect(text).toContain(
+      "<!-- hitl:start -->\n## Local gates\n\n- `pnpm test`\n- `pnpm lint`\n<!-- hitl:end -->\n",
+    );
+    expect(r.json.appended).toContain("AGENTS.md");
+    expect(r.json.wrote).not.toContain("AGENTS.md");
+  });
+
+  it("keeps an existing AGENTS.md above the block", () => {
+    const repo = tempRepo({ "AGENTS.md": "# app\n\nOurs.\n" });
+    render(repo);
+    const text = readFileSync(join(repo, "AGENTS.md"), "utf8");
+    expect(text.startsWith("# app\n\nOurs.\n\n<!-- hitl:start -->")).toBe(true);
+  });
+
+  it("writes the none-yet line when gates is empty", () => {
+    const repo = tempRepo();
+    render(repo, { ...ANSWERS, gates: [] });
+    expect(readFileSync(join(repo, "AGENTS.md"), "utf8")).toContain(
+      "none yet — the first TDD task adds the harness and names its command here",
+    );
+  });
+
+  it("never records gates in the manifest", () => {
+    const repo = tempRepo();
+    render(repo, { ...ANSWERS, gates: ["pnpm test"] });
+    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    expect(manifest).not.toHaveProperty("gates");
+  });
+});
