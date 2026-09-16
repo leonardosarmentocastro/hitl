@@ -87,3 +87,33 @@ export function readManifest(repoRoot) {
   const p = join(repoRoot, MANIFEST_PATH);
   return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null;
 }
+export const THIS_REPO_CHOICES = {
+  provider: "github",
+  ci: "github-actions",
+  testing: [],
+  gates: ["pnpm test", "pnpm format:check"],
+};
+
+/** HITL.md = the core doctrine, then "## Testing and gates" + the chosen fragments in TESTING_ORDER. */
+export function composeHitl(pluginRoot, testing) {
+  const core = readFileSync(join(pluginRoot, "templates/HITL.md"), "utf8");
+  const chosen = TESTING_ORDER.filter((t) => testing.includes(t));
+  if (chosen.length === 0) return core;
+  const fragments = chosen.map((t) =>
+    readFileSync(join(pluginRoot, `templates/testing/${t}.md`), "utf8").trimEnd(),
+  );
+  return `${core.trimEnd()}\n\n## Testing and gates\n\n${fragments.join("\n\n")}\n`;
+}
+
+/** Every owned file rendered for the choices: repoPath -> { content, executable }. */
+export function renderAll(pluginRoot, choices) {
+  const out = new Map();
+  for (const f of ownedFiles(choices)) {
+    const content =
+      f.template === null
+        ? composeHitl(pluginRoot, choices.testing)
+        : readFileSync(join(pluginRoot, "templates", f.template), "utf8");
+    out.set(f.repoPath, { content, executable: f.executable });
+  }
+  return out;
+}
