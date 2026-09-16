@@ -14,6 +14,8 @@ import {
 } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
+const REFRESH =
+  "a template changed: regenerate .claude/hitl.json — see AGENTS.md, 'Refreshing this repository's manifest'";
 
 describe("this repository's manifest", () => {
   const manifest = readManifest(ROOT);
@@ -28,12 +30,12 @@ describe("this repository's manifest", () => {
   });
 
   it("hashes exactly the owned files", () => {
-    expect(Object.keys(manifest.files).sort()).toEqual([...rendered.keys()].sort());
+    expect(Object.keys(manifest.files).sort(), REFRESH).toEqual([...rendered.keys()].sort());
   });
 
   for (const [path, { content }] of renderAll(ROOT, THIS_REPO_CHOICES)) {
     it(`${path} hash equals its render`, () => {
-      expect(manifest.files[path]).toBe(sha256(content));
+      expect(manifest.files[path], REFRESH).toBe(sha256(content));
     });
   }
 
@@ -53,13 +55,13 @@ describe("this repository's manifest", () => {
       ],
       { encoding: "utf8" },
     );
-    expect(r.status, r.stderr).toBe(0);
+    expect(r.status, `${r.stdout}${r.stderr}\n${REFRESH}`).toBe(0);
     const files: { path: string; state: string }[] = JSON.parse(r.stdout).files;
     const byPath = Object.fromEntries(files.map((f) => [f.path, f.state]));
     expect(byPath[".claude/review-context.md"]).toBe("locally edited");
     for (const f of files) {
       if (f.path === ".claude/review-context.md") continue;
-      expect(f.state, f.path).toBe("unchanged");
+      expect(f.state, `${f.path}: ${REFRESH}`).toBe("unchanged");
     }
   });
 });

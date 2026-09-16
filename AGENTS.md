@@ -24,6 +24,18 @@ proves this repository equals its own render. `pnpm format:check` is Prettier at
 `printWidth: 100`; Markdown is never formatted, because the prompts, doctrine and templates
 are read as instructions. Both run before a PR opens.
 
+**Refreshing this repository's manifest.** A change under `templates/` changes the render, so
+the self-manifest test fails until `.claude/hitl.json` is regenerated. `adopt.mjs` refuses
+while a manifest exists, so delete it first; from the repository root:
+
+```bash
+rm .claude/hitl.json
+node --input-type=module -e 'import { THIS_REPO_CHOICES as c } from "./installer/lib.mjs"; console.log(JSON.stringify(c))' > /tmp/hitl-answers.json
+node installer/adopt.mjs --repo . --plugin-root . --answers /tmp/hitl-answers.json
+```
+
+Commit the regenerated manifest with the template change.
+
 ## Test-driven development, here
 
 - Everything under `scripts/`, `installer/` and `.claude/hooks/` has behaviour of its own
