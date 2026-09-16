@@ -26,7 +26,7 @@ function installShim() {
   return dir;
 }
 
-function shim(args: string[], mode = "ok") {
+function shim(args: string[], mode = "ok", extraEnv: Record<string, string> = {}) {
   const dir = installShim();
   const log = join(dir, "gh.log");
   writeFileSync(log, "");
@@ -37,6 +37,7 @@ function shim(args: string[], mode = "ok") {
       PATH: `${FAKE_GH_DIR}:${process.env.PATH}`,
       FAKE_GH_LOG: log,
       FAKE_GH_MODE: mode,
+      ...extraEnv,
     },
   });
   const calls = readFileSync(log, "utf8").trim().split("\n").filter(Boolean);
@@ -83,6 +84,45 @@ describe("pr.sh list", () => {
     expect((r.json as { state: string }[])[1].state).toBe("merged");
     expect(r.calls[0]).toMatch(/^pr list --state all --limit \d+ --json .* --jq /);
     expect(r.calls[0]).toContain("feat/x-slice-");
+  });
+
+  it("narrows on the server by head and keeps only exact prefix matches", () => {
+    const r = shim(["list", "--head-prefix", "feat/x-slice-"], "raw");
+    expect(r.status).toBe(0);
+    expect(r.calls[0]).toContain("--search head:feat/x-slice- ");
+    expect(r.json).toEqual([
+      {
+        number: 12,
+        url: "https://github.com/o/r/pull/12",
+        head: "feat/x-slice-1-api",
+        base: "feat/x",
+        state: "open",
+        draft: false,
+        title: "t",
+        body: "",
+      },
+    ]);
+  });
+
+  it("fails loudly instead of returning a list cut off at the limit", () => {
+    const r = shim(["list", "--head-prefix", "feat/x-slice-"], "raw", {
+      FAKE_GH_LIST_TOTAL: "500",
+    });
+    expect(r.status).toBe(2);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toMatch(/more than \d+ PRs/);
+  });
+
+  it("matches a prefix containing a quote or backslash literally", () => {
+    const r = shim(["list", "--head-prefix", 'feat/x"q'], "raw");
+    expect(r.status).toBe(0);
+    expect(r.calls[0]).toContain('startswith("feat/x\\"q")');
+    expect((r.json as { number: number }[]).map((p) => p.number)).toEqual([14]);
+
+    const b = shim(["list", "--head-prefix", "feat\\"], "raw");
+    expect(b.status).toBe(0);
+    expect(b.calls[0]).toContain('startswith("feat\\\\")');
+    expect(b.json).toEqual([]);
   });
 
   it("passes --state through", () => {

@@ -28,11 +28,21 @@ backend_view() {
   gh_or_2 pr view "$1" --json "$RECORD_FIELDS,reviews,comments" --jq "$VIEW_JQ"
 }
 
-# gh's search qualifiers do not prefix-match branch names reliably, so fetch and filter.
+LIST_LIMIT=200
+
+# `head:<prefix>` narrows on the server (GitHub's search prefix-matches it); `startswith` is
+# the exact check. Fetching one past the limit tells a complete list from a cut-off one, and a
+# cut-off list is an error, never a partial answer. gh's --jq has no --arg, so the prefix is
+# escaped into the string literal by hand; a prefix search cannot quote is not sent to search.
 backend_list() {
-  local prefix=$1 state=$2
-  gh_or_2 pr list --state "$state" --limit 200 --json "$RECORD_FIELDS" \
-    --jq "[.[] | select(.headRefName | startswith(\"$prefix\")) | $RECORD_JQ]"
+  local prefix=$1 state=$2 lit
+  lit=${prefix//\\/\\\\}
+  lit=${lit//\"/\\\"}
+  local args=(pr list --state "$state" --limit $((LIST_LIMIT + 1)) --json "$RECORD_FIELDS")
+  [[ $prefix == *\"* ]] || args+=(--search "head:$prefix")
+  gh_or_2 "${args[@]}" --jq "if length > $LIST_LIMIT
+    then error(\"pr.sh list: more than $LIST_LIMIT PRs match; the list would be incomplete\")
+    else [.[] | select(.headRefName | startswith(\"$lit\")) | $RECORD_JQ] end"
 }
 
 backend_create() {
