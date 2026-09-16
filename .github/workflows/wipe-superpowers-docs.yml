@@ -21,4 +21,4 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Remove docs/superpowers if present
-        run: scripts/wipe-superpowers-docs.sh --push
+        run: scripts/hitl/wipe-superpowers-docs.sh --push
