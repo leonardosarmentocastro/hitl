@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import {
   MANIFEST_PATH,
   collisions,
+  foreignFiles,
   gitignoreBlock,
   manifestFor,
   mergeSettings,
@@ -46,35 +47,51 @@ export function run(args) {
   const choices = JSON.parse(readFileSync(answersPath, "utf8"));
   const version = pluginVersion(pluginRoot);
 
-  // Task 5 adds the refusals here, before the first write: manifest present, collisions,
-  // unparsable settings. This task writes an empty repository only.
+  const manifest = readManifest(repo);
+  if (manifest) return { code: 3, out: { refused: "manifest-present", version: manifest.version } };
+  const hits = collisions(repo, choices);
+  if (hits.length > 0) return { code: 3, out: { refused: "collision", paths: hits } };
   const settingsPath = join(repo, ".claude/settings.json");
-  const hookEntry = JSON.parse(readFileSync(join(pluginRoot, "templates/claude/settings.hook.json"), "utf8"));
-  const settings = mergeSettings(readIfPresent(settingsPath), hookEntry);
+  let settings;
+  try {
+    const hookEntry = JSON.parse(readFileSync(join(pluginRoot, "templates/claude/settings.hook.json"), "utf8"));
+    settings = mergeSettings(readIfPresent(settingsPath), hookEntry);
+  } catch (e) {
+    return { code: 3, out: { refused: "settings-unparsable", error: String(e.message) } };
+  }
+  const foreign = foreignFiles(repo, choices);
 
-  // Writes.
   const rendered = renderAll(pluginRoot, choices);
   const wrote = [];
-  for (const [rel, { content, executable }] of rendered) {
-    writeFile(repo, rel, content, executable);
-    wrote.push(rel);
-  }
   const appended = [];
   const kept = [];
-  const append = (rel, result) => {
-    if (result.changed) {
-      writeFile(repo, rel, result.text);
-      appended.push(rel);
-    } else kept.push(rel);
-  };
-  append("CLAUDE.md", withClaudeLine(readIfPresent(join(repo, "CLAUDE.md"))));
-  append("README.md", withMarkerBlock(readIfPresent(join(repo, "README.md")), readmeBlock(version)));
-  append(".gitignore", withMarkerBlock(readIfPresent(join(repo, ".gitignore")), gitignoreBlock()));
-  if (settings.added) writeFile(repo, ".claude/settings.json", settings.text); // never reformat a file we did not change
-  const manifestOut = manifestFor(version, choices, rendered);
-  writeFile(repo, MANIFEST_PATH, `${JSON.stringify(manifestOut, null, 2)}\n`);
+  let manifestOut;
+  try {
+    for (const [rel, { content, executable }] of rendered) {
+      writeFile(repo, rel, content, executable);
+      wrote.push(rel);
+    }
+    const append = (rel, result) => {
+      if (result.changed) {
+        writeFile(repo, rel, result.text);
+        appended.push(rel);
+      } else kept.push(rel);
+    };
+    append("CLAUDE.md", withClaudeLine(readIfPresent(join(repo, "CLAUDE.md"))));
+    append("README.md", withMarkerBlock(readIfPresent(join(repo, "README.md")), readmeBlock(version)));
+    append(".gitignore", withMarkerBlock(readIfPresent(join(repo, ".gitignore")), gitignoreBlock()));
+    if (settings.added) writeFile(repo, ".claude/settings.json", settings.text);
+    manifestOut = manifestFor(version, choices, rendered);
+    writeFile(repo, MANIFEST_PATH, `${JSON.stringify(manifestOut, null, 2)}\n`);
+  } catch (e) {
+    // Init is not transactional: say what landed so the human can remove it and re-run.
+    return { code: 2, out: { error: String(e.message), wrote: [...wrote, ...appended] } };
+  }
 
-  return { code: 0, out: { wrote, appended, kept, settings: settings.added ? "added" : "present", manifest: manifestOut } };
+  return {
+    code: 0,
+    out: { wrote, appended, kept, foreign, settings: settings.added ? "added" : "present", manifest: manifestOut },
+  };
 }
 
 const args = parseArgs(process.argv.slice(2));

@@ -1,6 +1,6 @@
 // Shared code for every installer script. Zero dependencies; Node 20+.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 export const TESTING_ORDER = ["e2e", "tiers", "ci", "hooks", "effective-date"];
@@ -192,4 +192,19 @@ export function manifestFor(version, choices, rendered) {
   const files = {};
   for (const p of [...rendered.keys()].sort()) files[p] = sha256(rendered.get(p).content);
   return { version, provider: choices.provider, ci: choices.ci, testing: [...choices.testing], files };
+}
+
+/** The repository's own files inside the three shared .claude/ directories: not owned, left alone. */
+export function foreignFiles(repoRoot, choices) {
+  const owned = new Set(ownedFiles(choices).map((f) => f.repoPath));
+  const out = [];
+  for (const dir of [".claude/agents", ".claude/commands", ".claude/hooks"]) {
+    const abs = join(repoRoot, dir);
+    if (!existsSync(abs)) continue;
+    for (const name of readdirSync(abs)) {
+      const rel = `${dir}/${name}`;
+      if (!owned.has(rel)) out.push(rel);
+    }
+  }
+  return out.sort();
 }

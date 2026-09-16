@@ -1,6 +1,15 @@
 // scripts/__tests__/render.test.ts
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -114,5 +123,82 @@ describe("render.mjs on an empty repository", () => {
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
     expect(manifest.ci).toBe("none");
     expect(Object.keys(manifest.files)).toHaveLength(19);
+  });
+});
+
+
+function tree(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((p) => !p.startsWith(".git/") && p !== ".git")
+    .sort();
+}
+
+describe("render.mjs refusals", () => {
+  it("refuses a second run with the installed version and writes nothing", () => {
+    const repo = tempRepo();
+    render(repo);
+    const before = tree(repo);
+    const r = render(repo);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "manifest-present", version: "0.1.0" });
+    expect(tree(repo)).toEqual(before);
+  });
+
+  it("refuses on an owned filename inside .claude/commands but not on a foreign one", () => {
+    const foreign = tempRepo({ ".claude/commands/deploy.md": "mine\n" });
+    const ok = render(foreign);
+    expect(ok.status).toBe(0);
+    expect(ok.json.foreign).toEqual([".claude/commands/deploy.md"]);
+    expect(readFileSync(join(foreign, ".claude/commands/deploy.md"), "utf8")).toBe("mine\n");
+
+    const owned = tempRepo({ ".claude/commands/review-spec.md": "old\n" });
+    const r = render(owned);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "collision", paths: [".claude/commands/review-spec.md"] });
+    expect(existsSync(join(owned, "HITL.md"))).toBe(false);
+  });
+
+  it("refuses on scripts/hitl/ and .claude/fixtures/ as directories", () => {
+    const repo = tempRepo({ "scripts/hitl/other.sh": "", ".claude/fixtures/mine.md": "" });
+    const r = render(repo);
+    expect(r.status).toBe(3);
+    expect(r.json.refused).toBe("collision");
+    expect(r.json.paths).toEqual(expect.arrayContaining(["scripts/hitl", ".claude/fixtures"]));
+  });
+
+  it("refuses on HITL.md, review-context.md and the workflow as files", () => {
+    for (const p of [
+      "HITL.md",
+      ".claude/review-context.md",
+      ".github/workflows/wipe-superpowers-docs.yml",
+    ]) {
+      const repo = tempRepo({ [p]: "x\n" });
+      const r = render(repo);
+      expect(r.status, p).toBe(3);
+      expect(r.json.paths, p).toEqual([p]);
+    }
+  });
+
+  it("refuses an unparsable settings.json before writing anything", () => {
+    const repo = tempRepo({ ".claude/settings.json": "{ not json" });
+    const before = tree(repo);
+    const r = render(repo);
+    expect(r.status).toBe(3);
+    expect(r.json.refused).toBe("settings-unparsable");
+    expect(tree(repo)).toEqual(before);
+  });
+
+  // Root ignores directory modes, so this cannot go red under root (some CI images).
+  it.skipIf(process.getuid?.() === 0)("reports the files written before a mid-write failure", () => {
+    const repo = tempRepo();
+    mkdirSync(join(repo, "scripts"));
+    chmodSync(join(repo, "scripts"), 0o555); // scripts/hitl/ cannot be created
+    const r = render(repo);
+    expect(r.status).toBe(2);
+    expect(r.json.error).toMatch(/EACCES|permission/i);
+    expect(r.json.wrote).toContain("HITL.md");
+    expect(r.json.wrote).not.toContain("scripts/hitl/wipe-superpowers-docs.sh");
+    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+    chmodSync(join(repo, "scripts"), 0o755);
   });
 });
