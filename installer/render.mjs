@@ -1,17 +1,19 @@
 #!/usr/bin/env node
-// /hitl:init's writer. Refuses before its first write (unknown ci, manifest present,
+// /hitl:init's writer (`--mode check` runs the refusals only and writes nothing). Refuses before its first write (unknown ci, manifest present,
 // collision, bad settings.json); otherwise writes every owned file, the appended blocks, the
 // merged hook and the manifest, and prints one JSON report. Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   CI_CHOICES,
+  DEFAULT_CHOICES,
   MANIFEST_PATH,
   collisions,
   foreignFiles,
   gitignoreBlock,
   manifestFor,
   mergeSettings,
+  parseArgs,
   pluginVersion,
   readManifest,
   readmeBlock,
@@ -19,17 +21,6 @@ import {
   withClaudeLine,
   withMarkerBlock,
 } from "./lib.mjs";
-
-export function parseArgs(argv) {
-  const args = {};
-  for (let i = 0; i < argv.length; i += 2) {
-    const key = argv[i];
-    const value = argv[i + 1];
-    if (!key?.startsWith("--") || value === undefined) return null;
-    args[key.slice(2)] = value;
-  }
-  return args;
-}
 
 function readIfPresent(path) {
   return existsSync(path) ? readFileSync(path, "utf8") : null;
@@ -42,11 +33,15 @@ function writeFile(repoRoot, rel, text, executable = false) {
   if (executable) chmodSync(abs, 0o755);
 }
 
+const USAGE = "usage: --repo <dir> --plugin-root <dir> [--mode write|check] [--answers <file>]";
+
 export function run(args) {
   const { repo, "plugin-root": pluginRoot, answers: answersPath } = args;
-  if (!repo || !pluginRoot || !answersPath)
-    return { code: 1, out: { error: "usage: --repo <dir> --plugin-root <dir> --answers <file>" } };
-  const choices = JSON.parse(readFileSync(answersPath, "utf8"));
+  const mode = args.mode ?? "write";
+  if (!repo || !pluginRoot || !["write", "check"].includes(mode))
+    return { code: 1, out: { error: USAGE } };
+  if (mode === "write" && !answersPath) return { code: 1, out: { error: USAGE } };
+  const choices = answersPath ? JSON.parse(readFileSync(answersPath, "utf8")) : DEFAULT_CHOICES;
   const version = pluginVersion(pluginRoot);
   if (!CI_CHOICES.includes(choices.ci))
     return { code: 3, out: { refused: "unknown-ci", ci: choices.ci, allowed: CI_CHOICES } };
@@ -65,6 +60,7 @@ export function run(args) {
   } catch (e) {
     return { code: 3, out: { refused: "settings-unparsable", error: String(e.message) } };
   }
+  if (mode === "check") return { code: 0, out: { ok: true } };
   const foreign = foreignFiles(repo, choices);
 
   const rendered = renderAll(pluginRoot, choices);
@@ -127,8 +123,6 @@ export function run(args) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const result = args
-  ? run(args)
-  : { code: 1, out: { error: "usage: --repo <dir> --plugin-root <dir> --answers <file>" } };
+const result = args ? run(args) : { code: 1, out: { error: USAGE } };
 process.stdout.write(`${JSON.stringify(result.out, null, 2)}\n`);
 process.exit(result.code);

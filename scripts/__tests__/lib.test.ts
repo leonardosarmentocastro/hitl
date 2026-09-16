@@ -64,3 +64,23 @@ describe("installer/lib primitives", () => {
     expect(byPath[".claude/agents/fixer.md"].template).toBe("claude/agents/fixer.md");
   });
 });
+
+import { DEFAULT_CHOICES, parseArgs } from "../../installer/lib.mjs";
+
+describe("parseArgs", () => {
+  it("reads --key value pairs", () => {
+    expect(parseArgs(["--repo", "/r", "--mode", "check"])).toEqual({ repo: "/r", mode: "check" });
+  });
+  it("returns null on a dangling flag or a non-flag token", () => {
+    expect(parseArgs(["--repo"])).toBeNull();
+    expect(parseArgs(["repo", "/r"])).toBeNull();
+  });
+  it("exposes the default choices used by check mode", () => {
+    expect(DEFAULT_CHOICES).toEqual({
+      provider: "github",
+      ci: "github-actions",
+      testing: [],
+      gates: [],
+    });
+  });
+});

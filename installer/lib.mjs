@@ -8,6 +8,19 @@ export const OWNED_DIRS = ["scripts/hitl", ".claude/fixtures"];
 export const MANIFEST_PATH = ".claude/hitl.json";
 /** The `ci` values the installer supports; any other value is refused before a write. */
 export const CI_CHOICES = ["github-actions", "none"];
+export const DEFAULT_CHOICES = { provider: "github", ci: "github-actions", testing: [], gates: [] };
+
+/** `--key value` pairs → object; null on a dangling flag or a token without `--`. */
+export function parseArgs(argv) {
+  const args = {};
+  for (let i = 0; i < argv.length; i += 2) {
+    const key = argv[i];
+    const value = argv[i + 1];
+    if (!key?.startsWith("--") || value === undefined) return null;
+    args[key.slice(2)] = value;
+  }
+  return args;
+}
 
 const AGENTS = [
   "spec-reviewer",

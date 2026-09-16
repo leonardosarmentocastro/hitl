@@ -256,3 +256,39 @@ describe("render.mjs refusals", () => {
     expect(r.json.wrote).not.toContain(".claude/hitl.json");
   });
 });
+
+function check(repo: string) {
+  const r = spawnSync(
+    "node",
+    [RENDER, "--repo", repo, "--plugin-root", PLUGIN_ROOT, "--mode", "check"],
+    {
+      encoding: "utf8",
+    },
+  );
+  return { ...r, json: r.stdout ? JSON.parse(r.stdout) : null };
+}
+
+describe("render.mjs --mode check", () => {
+  it("reports ok on a clean repository and writes nothing", () => {
+    const repo = tempRepo({ "README.md": "# app\n" });
+    const before = tree(repo);
+    const r = check(repo);
+    expect(r.status).toBe(0);
+    expect(r.json).toEqual({ ok: true });
+    expect(tree(repo)).toEqual(before);
+  });
+
+  it("refuses on a collision with the same JSON as a write would, and writes nothing", () => {
+    const repo = tempRepo({ "HITL.md": "x\n" });
+    const r = check(repo);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "collision", paths: ["HITL.md"] });
+    expect(tree(repo)).toEqual(["HITL.md"]);
+  });
+
+  it("refuses on a present manifest", () => {
+    const repo = tempRepo();
+    render(repo);
+    expect(check(repo).json).toEqual({ refused: "manifest-present", version: "0.1.0" });
+  });
+});
