@@ -130,28 +130,45 @@ export async function run(args) {
 
   const files = [];
   const writes = []; // { path, content, executable } or { path, delete: true }
-  const paths = [...latest.keys()].filter((p) => p in manifest.files).sort();
+  const paths = [...new Set([...Object.keys(manifest.files), ...latest.keys()])].sort();
   for (const path of paths) {
+    const inRecorded = path in manifest.files;
+    const inLatest = latest.has(path);
     const abs = join(repo, path);
     const repoText = existsSync(abs) ? readFileSync(abs, "utf8") : null;
     const entry = { path };
-    const r = repoText === null ? null : sha256(repoText);
-    const rec = manifest.files[path];
-    const lat = sha256(latest.get(path).content);
-    if (r === rec && rec === lat) entry.state = "unchanged";
-    else if (r === rec) {
-      entry.state = "upstream changed";
+    if (!inRecorded) {
+      entry.state = "new upstream";
       writes.push({ path, ...latest.get(path) });
-    } else if (rec === lat) entry.state = "locally edited";
-    else if (r === lat) entry.state = "already applied";
-    else {
-      const recordedText = recorded.get(path)?.content;
-      if (recordedText === undefined)
-        return { code: 3, out: { refused: "manifest-mismatch", paths: [path] } };
-      const m = mergeThree(repoText, recordedText, latest.get(path).content);
-      entry.state = "both";
-      entry.merged = m.merged;
-      writes.push({ path, content: m.text, executable: latest.get(path).executable });
+    } else if (!inLatest) {
+      entry.state = "removed upstream";
+      if (repoText === null) entry.local = "absent";
+      else if (sha256(repoText) === manifest.files[path]) {
+        entry.local = "same";
+        writes.push({ path, delete: true });
+      } else entry.local = "edited";
+    } else if (repoText === null) {
+      entry.state = "missing locally";
+      writes.push({ path, ...latest.get(path) });
+    } else {
+      const r = sha256(repoText);
+      const rec = manifest.files[path];
+      const lat = sha256(latest.get(path).content);
+      if (r === rec && rec === lat) entry.state = "unchanged";
+      else if (r === rec) {
+        entry.state = "upstream changed";
+        writes.push({ path, ...latest.get(path) });
+      } else if (rec === lat) entry.state = "locally edited";
+      else if (r === lat) entry.state = "already applied";
+      else {
+        const recordedText = recorded.get(path)?.content;
+        if (recordedText === undefined)
+          return { code: 3, out: { refused: "manifest-mismatch", paths: [path] } };
+        const m = mergeThree(repoText, recordedText, latest.get(path).content);
+        entry.state = "both";
+        entry.merged = m.merged;
+        writes.push({ path, content: m.text, executable: latest.get(path).executable });
+      }
     }
     files.push(entry);
   }

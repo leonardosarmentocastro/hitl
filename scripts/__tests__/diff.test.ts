@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
+import { sha256 } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 const DIFF = join(ROOT, "installer/diff.mjs");
@@ -190,5 +191,47 @@ describe("diff.mjs at the same version reads the plugin root, not the tag", () =
     expect(r.json.recorded).toBe("0.1.0");
     expect(r.json.latest).toBe("0.1.0");
     expect(r.json.files.every((f: any) => f.state === "unchanged")).toBe(true);
+  });
+});
+
+describe("diff.mjs absent cases", () => {
+  it("reports a deleted owned file as missing locally", () => {
+    const repo = installedRepo(mk);
+    rmSync(join(repo, ".claude/commands/handover.md"));
+    expect(stateOf(diff(repo, plugin, mk).json, ".claude/commands/handover.md").state).toBe(
+      "missing locally",
+    );
+  });
+
+  it("reports a file the manifest never recorded as new upstream", () => {
+    const repo = installedRepo(mk);
+    editManifest(repo, (m) => delete m.files[".claude/commands/handover.md"]);
+    expect(stateOf(diff(repo, plugin, mk).json, ".claude/commands/handover.md").state).toBe(
+      "new upstream",
+    );
+  });
+
+  it("reports a recorded file with no template at latest as removed upstream, same or edited", () => {
+    const repo = installedRepo(mk);
+    writeFileSync(join(repo, "scripts/hitl/gone.sh"), "gone\n");
+    editManifest(repo, (m) => (m.files["scripts/hitl/gone.sh"] = "2a1c9f3b" + "0".repeat(56)));
+    // A wrong hash first: the repo file is "edited" relative to the record.
+    let f = stateOf(diff(repo, plugin, mk).json, "scripts/hitl/gone.sh");
+    expect(f.state).toBe("removed upstream");
+    expect(f.local).toBe("edited");
+    // Now the right hash: the repo file is what was installed.
+    editManifest(repo, (m) => (m.files["scripts/hitl/gone.sh"] = sha256("gone\n")));
+    f = stateOf(diff(repo, plugin, mk).json, "scripts/hitl/gone.sh");
+    expect(f.local).toBe("same");
+    rmSync(join(repo, "scripts/hitl/gone.sh"));
+    expect(stateOf(diff(repo, plugin, mk).json, "scripts/hitl/gone.sh").local).toBe("absent");
+  });
+
+  it("never reports the wipe workflow for a repository that declined it (ci: none)", () => {
+    const repo = installedRepo(mk, { ...ANSWERS, ci: "none" });
+    const r = diff(repo, plugin, mk);
+    expect(r.status).toBe(0);
+    expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
+    expect(stateOf(r.json, ".github/workflows/wipe-superpowers-docs.yml")).toBeUndefined();
   });
 });
