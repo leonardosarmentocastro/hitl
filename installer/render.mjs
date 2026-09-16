@@ -69,6 +69,7 @@ export function run(args) {
   const appended = [];
   const kept = [];
   let manifestOut;
+  let settingsWritten = false;
   try {
     for (const [rel, { content, executable }] of rendered) {
       writeFile(repo, rel, content, executable);
@@ -89,12 +90,24 @@ export function run(args) {
       ".gitignore",
       withMarkerBlock(readIfPresent(join(repo, ".gitignore")), gitignoreBlock()),
     );
-    if (settings.added) writeFile(repo, ".claude/settings.json", settings.text);
+    if (settings.added) {
+      writeFile(repo, ".claude/settings.json", settings.text);
+      settingsWritten = true;
+    }
     manifestOut = manifestFor(version, choices, rendered);
     writeFile(repo, MANIFEST_PATH, `${JSON.stringify(manifestOut, null, 2)}\n`);
   } catch (e) {
     // Init is not transactional: say what landed so the human can remove it and re-run.
-    return { code: 2, out: { error: String(e.message), wrote: [...wrote, ...appended] } };
+    // `wrote` holds only files init created; `appended` files may be the repository's own.
+    return {
+      code: 2,
+      out: {
+        error: String(e.message),
+        wrote,
+        appended,
+        settings: settingsWritten ? "added" : "untouched",
+      },
+    };
   }
 
   return {

@@ -58,8 +58,15 @@ Read the JSON it prints and act on the exit code:
   Nothing was written." Stop.
 - `3` with `refused: "settings-unparsable"` → print the error and "fix `.claude/settings.json`
   and re-run; nothing was written." Stop.
-- `2` with a `wrote` list → a write failed midway. Print the error, list the files in
-  `wrote`, and say "init is not transactional: remove these files and re-run". Stop.
+- `2` with a `wrote` list → a write failed midway. Print the error, then say "init is not
+  transactional", and:
+  - list the files in `wrote` and say "remove these files, and `.claude/hitl.json` if it
+    exists, then re-run" — these are the only files to remove;
+  - list the files in `appended` (if any) and say "a hitl block was added to these files;
+    leave them as they are — a re-run sees the block and skips them";
+  - if `settings` is `"added"`, say "the Stop hook was added to `.claude/settings.json`;
+    leave it — a re-run sees it and skips it".
+  Stop.
 - `1` or `2` otherwise → print the output verbatim and stop.
 - `0` → continue.
 

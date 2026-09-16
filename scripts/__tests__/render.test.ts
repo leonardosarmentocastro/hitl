@@ -8,6 +8,7 @@ import {
   readFileSync,
   readdirSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -207,4 +208,36 @@ describe("render.mjs refusals", () => {
       chmodSync(join(repo, "scripts"), 0o755);
     },
   );
+
+  it.skipIf(process.getuid?.() === 0)(
+    "reports appended files apart from created ones when a later write fails",
+    () => {
+      const repo = tempRepo({
+        "README.md": "# app\n",
+        ".claude/settings.json": JSON.stringify({ permissions: { allow: [] } }),
+      });
+      chmodSync(join(repo, ".claude/settings.json"), 0o444); // the settings write fails
+      const r = render(repo);
+      expect(r.status).toBe(2);
+      expect(r.json.wrote).toContain("HITL.md");
+      expect(r.json.wrote).not.toContain("README.md");
+      expect(r.json.appended).toEqual(
+        expect.arrayContaining(["CLAUDE.md", "README.md", ".gitignore"]),
+      );
+      expect(r.json.settings).toBe("untouched");
+      expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+      chmodSync(join(repo, ".claude/settings.json"), 0o644);
+    },
+  );
+
+  it("reports settings as added when only the manifest write fails", () => {
+    const repo = tempRepo();
+    mkdirSync(join(repo, ".claude"));
+    // A dangling link reads as absent, and writing through it fails.
+    symlinkSync(join(repo, "missing-dir", "hitl.json"), join(repo, ".claude/hitl.json"));
+    const r = render(repo);
+    expect(r.status).toBe(2);
+    expect(r.json.settings).toBe("added");
+    expect(r.json.wrote).not.toContain(".claude/hitl.json");
+  });
 });
