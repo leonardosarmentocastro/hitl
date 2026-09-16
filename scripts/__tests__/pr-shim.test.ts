@@ -109,3 +109,86 @@ describe("pr.sh exit contract", () => {
     }
   });
 });
+
+function bodyFile(text = "What — x\n") {
+  const p = join(mkdtempSync(join(tmpdir(), "hitl-body-")), "body.md");
+  writeFileSync(p, text);
+  return p;
+}
+
+describe("pr.sh create", () => {
+  it("creates and returns the record", () => {
+    const body = bodyFile();
+    const r = shim([
+      "create",
+      "--base",
+      "feat/x",
+      "--head",
+      "feat/x-slice-1-api",
+      "--title",
+      "Slice 1: api",
+      "--body-file",
+      body,
+      "--draft",
+    ]);
+    expect(r.status).toBe(0);
+    expect(r.json).toEqual(RECORD);
+    expect(r.calls[0]).toBe(
+      `pr create --base feat/x --head feat/x-slice-1-api --title Slice 1: api --body-file ${body} --draft`,
+    );
+    expect(r.calls[1]).toMatch(/^pr view feat\/x-slice-1-api --json /);
+  });
+
+  it("omits --draft unless asked", () => {
+    const r = shim([
+      "create",
+      "--base",
+      "feat/x",
+      "--head",
+      "feat/x-slice-1-api",
+      "--title",
+      "t",
+      "--body-file",
+      bodyFile(),
+    ]);
+    expect(r.status).toBe(0);
+    expect(r.calls[0]).not.toContain("--draft");
+  });
+
+  it("exits 3 with the existing record when the head already has a PR", () => {
+    const r = shim(
+      [
+        "create",
+        "--base",
+        "feat/x",
+        "--head",
+        "feat/x-slice-1-api",
+        "--title",
+        "t",
+        "--body-file",
+        bodyFile(),
+      ],
+      "exists",
+    );
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual(RECORD);
+  });
+});
+
+describe("pr.sh edit and comment", () => {
+  it("edit replaces the body and returns the record", () => {
+    const body = bodyFile();
+    const r = shim(["edit", "12", "--body-file", body]);
+    expect(r.status).toBe(0);
+    expect(r.json).toEqual(RECORD);
+    expect(r.calls[0]).toBe(`pr edit 12 --body-file ${body}`);
+  });
+
+  it("comment appends and returns the record", () => {
+    const body = bodyFile("## Review decisions\n");
+    const r = shim(["comment", "12", "--body-file", body]);
+    expect(r.status).toBe(0);
+    expect(r.json).toEqual(RECORD);
+    expect(r.calls[0]).toBe(`pr comment 12 --body-file ${body}`);
+  });
+});
