@@ -73,6 +73,18 @@ describe("adopt.mjs", () => {
     expect(r.json).toEqual({ refused: "manifest-present", version: "0.1.0" });
   });
 
+  it("refuses an unknown ci before writing, as render.mjs does", () => {
+    const repo = ejectedRepo();
+    const r = run(ADOPT, repo, { ...ANSWERS, ci: "gitlab" });
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({
+      refused: "unknown-ci",
+      ci: "gitlab",
+      allowed: ["github-actions", "none"],
+    });
+    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+  });
+
   it("refuses when nothing owned exists", () => {
     const repo = mkdtempSync(join(tmpdir(), "hitl-empty-"));
     const r = run(ADOPT, repo);

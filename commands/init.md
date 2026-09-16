@@ -58,6 +58,8 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
      Run `/hitl:init`." Stop. (Unreachable after step 4's check; kept as the script's own
      guard.)
    - exit `3`, `refused: "manifest-present"` → as step 2. Stop.
+   - exit `3`, `refused: "unknown-ci"` → "the answers named ci `<ci>`, which must be one of
+     <allowed>; this is an init error, not the repository's. Nothing was written." Stop.
    - exit `0` → report: "manifest written to `.claude/hitl.json` at hitl <version>. It records
      the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
      else was touched. Never commit.
