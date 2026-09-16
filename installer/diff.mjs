@@ -51,19 +51,24 @@ export async function recordedRender(manifest, pluginRoot, marketplace, choices)
   );
   if (probe.status !== 0) return null;
   const snapshot = mkdtempSync(join(tmpdir(), "hitl-recorded-"));
-  const tar = execFileSync("git", [
-    "-C",
-    marketplace,
-    "archive",
-    "--format=tar",
-    tag,
-    "templates",
-    "installer",
-    ".claude-plugin",
-  ]);
-  execFileSync("tar", ["-x", "-C", snapshot], { input: tar });
-  const lib = await import(pathToFileURL(join(snapshot, "installer/lib.mjs")).href);
-  return lib.renderAll(snapshot, choices);
+  try {
+    const tar = execFileSync("git", [
+      "-C",
+      marketplace,
+      "archive",
+      "--format=tar",
+      tag,
+      "templates",
+      "installer",
+      ".claude-plugin",
+    ]);
+    execFileSync("tar", ["-x", "-C", snapshot], { input: tar });
+    const lib = await import(pathToFileURL(join(snapshot, "installer/lib.mjs")).href);
+    // renderAll reads every template into memory, so the snapshot can go once it returns.
+    return lib.renderAll(snapshot, choices);
+  } finally {
+    rmSync(snapshot, { recursive: true, force: true });
+  }
 }
 
 /** Three-way merge of the repository's text against the recorded and latest renders. */

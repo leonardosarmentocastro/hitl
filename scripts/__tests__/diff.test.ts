@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -179,6 +180,20 @@ describe("diff.mjs across versions (recorded 0.1.0 from the tag, latest 0.2.0)",
     const f = stateOf(diff(repo, plugin, mk).json, FIXER);
     expect(f.state).toBe("both");
     expect(f.merged).toBe("conflict");
+  });
+});
+
+describe("diff.mjs temp files", () => {
+  it("removes the recorded-version snapshot it extracts", () => {
+    const repo = installedRepo(mk);
+    const tmp = mkdtempSync(join(tmpdir(), "hitl-tmpdir-"));
+    const r = spawnSync(
+      "node",
+      [DIFF, "--repo", repo, "--plugin-root", plugin, "--marketplace", mk],
+      { encoding: "utf8", env: { ...process.env, TMPDIR: tmp } },
+    );
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(readdirSync(tmp)).toEqual([]);
   });
 });
 
