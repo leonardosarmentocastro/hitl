@@ -76,8 +76,11 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plu
   fragment text from `${CLAUDE_PLUGIN_ROOT}/templates/testing/`, keep `## Testing and gates`
   under its anchor, then update `testing` in `.claude/hitl.json`". Stop.
 - exit `3`, `refused: "no-manifest"` → "run `/hitl:init --adopt` first". Stop.
-- exit `0` → report `wrote`, `removed`, `kept` (a kept workflow was edited locally and is
-  left for the human) and the new `testing` and `ci`. Do not commit.
+- exit `0` → report `wrote`, `removed`, `kept` and the new `testing` and `ci`. A kept
+  workflow differs from what hitl rendered and is left for the human. A kept `AGENTS.md`
+  either still carries `## Effective-date pilots` after `effective-date` was removed (the
+  humans' list is theirs to delete) or has no hitl block to add that section to (add it by
+  hand). Do not commit.
 
 ## Never
 

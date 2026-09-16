@@ -1,6 +1,6 @@
 // scripts/__tests__/customize-testing.test.ts
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -31,6 +31,7 @@ function customize(repo: string, testing: string, ci: string) {
 const manifestOf = (repo: string) =>
   JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
 const hitlOf = (repo: string) => readFileSync(join(repo, "HITL.md"), "utf8");
+const agentsOf = (repo: string) => readFileSync(join(repo, "AGENTS.md"), "utf8");
 
 describe("customize-testing.mjs", () => {
   it("adds fragments and the workflow, and updates the manifest", () => {
@@ -107,5 +108,65 @@ describe("customize-testing.mjs", () => {
     const r = customize(repo, "stories", "none");
     expect(r.status).toBe(3);
     expect(r.json).toEqual({ refused: "unknown-fragment", id: "stories" });
+  });
+
+  it("adds the effective-date pilots section inside the AGENTS.md hitl block", () => {
+    const repo = installedRepo("none", ["e2e"]);
+    expect(agentsOf(repo)).not.toContain("hitl:knob effective-date-pilots");
+    const r = customize(repo, "e2e,effective-date", "none");
+    expect(r.status).toBe(0);
+    const agents = agentsOf(repo);
+    expect(agents.indexOf("<!-- hitl:knob effective-date-pilots -->")).toBeGreaterThan(-1);
+    expect(agents.indexOf("<!-- hitl:knob effective-date-pilots -->")).toBeLessThan(
+      agents.indexOf("<!-- hitl:end -->"),
+    );
+    const block = (text: string) => text.slice(text.indexOf("<!-- hitl:start -->"));
+    expect(block(agents)).toBe(block(agentsOf(installedRepo("none", ["e2e", "effective-date"]))));
+    expect(r.json.wrote).toEqual(expect.arrayContaining(["HITL.md", "AGENTS.md"]));
+  });
+
+  it("does not add the pilots section twice", () => {
+    const repo = installedRepo("none", ["effective-date"]);
+    const before = agentsOf(repo);
+    const r = customize(repo, "e2e,effective-date", "none");
+    expect(r.status).toBe(0);
+    expect(agentsOf(repo)).toBe(before);
+    expect(r.json.wrote).not.toContain("AGENTS.md");
+    expect(r.json.kept).not.toContain("AGENTS.md");
+  });
+
+  it("keeps the pilots section when effective-date is removed and reports it", () => {
+    const repo = installedRepo("none", ["effective-date"]);
+    const before = agentsOf(repo);
+    const r = customize(repo, "", "none");
+    expect(r.status).toBe(0);
+    expect(agentsOf(repo)).toBe(before);
+    expect(r.json.kept).toEqual(["AGENTS.md"]);
+  });
+
+  it("does not report an unchanged installed workflow as kept", () => {
+    const repo = installedRepo("github-actions", []);
+    const r = customize(repo, "e2e", "github-actions");
+    expect(r.status).toBe(0);
+    expect(r.json.kept).toEqual([]);
+    expect(r.json.wrote).toEqual(["HITL.md"]);
+  });
+
+  it("keeps a locally edited workflow when the wipe job stays installed", () => {
+    const repo = installedRepo("github-actions", []);
+    writeFileSync(join(repo, WORKFLOW), "name: mine\n");
+    const r = customize(repo, "e2e", "github-actions");
+    expect(r.status).toBe(0);
+    expect(r.json.kept).toEqual([WORKFLOW]);
+  });
+
+  it("refuses when the repository has no manifest", () => {
+    const repo = installedRepo();
+    rmSync(join(repo, ".claude/hitl.json"));
+    const before = hitlOf(repo);
+    const r = customize(repo, "e2e", "none");
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "no-manifest" });
+    expect(hitlOf(repo)).toBe(before);
   });
 });

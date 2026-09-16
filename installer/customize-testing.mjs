@@ -6,8 +6,11 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  BLOCK_END,
+  BLOCK_START,
   MANIFEST_PATH,
   TESTING_ORDER,
+  agentsBlock,
   compareVersions,
   composeHitl,
   manifestFor,
@@ -19,6 +22,7 @@ import {
 } from "./lib.mjs";
 
 const WORKFLOW = ".github/workflows/wipe-superpowers-docs.yml";
+const PILOTS_ANCHOR = "<!-- hitl:knob effective-date-pilots -->";
 const USAGE = "usage: --repo <dir> --plugin-root <dir> --testing <a,b|''> --ci github-actions|none";
 
 export function run(args) {
@@ -63,13 +67,30 @@ export function run(args) {
   writeFileSync(hitlPath, rendered.get("HITL.md").content);
   wrote.push("HITL.md");
 
+  // The effective-date fragment points at a pilots section in the AGENTS.md hitl block: add it
+  // when missing; on removal leave the humans' list in place and report it.
+  const agentsPath = join(repo, "AGENTS.md");
+  const agents = existsSync(agentsPath) ? readFileSync(agentsPath, "utf8") : null;
+  const hasPilots = agents !== null && agents.includes(PILOTS_ANCHOR);
+  if (choices.testing.includes("effective-date") && !hasPilots) {
+    const end = agents === null ? -1 : agents.indexOf(BLOCK_END);
+    if (end > -1 && agents.lastIndexOf(BLOCK_START, end) > -1) {
+      const block = agentsBlock([], ["effective-date"]);
+      const section = block.slice(block.indexOf(PILOTS_ANCHOR));
+      const before = agents.slice(0, end).replace(/\n*$/, "\n");
+      writeFileSync(agentsPath, `${before}\n${section}\n${agents.slice(end)}`);
+      wrote.push("AGENTS.md");
+    } else kept.push("AGENTS.md");
+  } else if (!choices.testing.includes("effective-date") && hasPilots) kept.push("AGENTS.md");
+
   const workflowPath = join(repo, WORKFLOW);
   if (ci === "github-actions") {
     if (!existsSync(workflowPath)) {
       mkdirSync(dirname(workflowPath), { recursive: true });
       writeFileSync(workflowPath, rendered.get(WORKFLOW).content);
       wrote.push(WORKFLOW);
-    } else kept.push(WORKFLOW);
+    } else if (readFileSync(workflowPath, "utf8") !== rendered.get(WORKFLOW).content)
+      kept.push(WORKFLOW);
   } else if (existsSync(workflowPath)) {
     const recordedHash = manifest.files[WORKFLOW];
     if (recordedHash && sha256(readFileSync(workflowPath, "utf8")) === recordedHash) {
