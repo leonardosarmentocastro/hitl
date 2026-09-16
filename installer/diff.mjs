@@ -175,7 +175,48 @@ export async function run(args) {
 
   const report = { recorded: manifest.version, latest: latestVersion, files };
   if (!apply) return { code: 0, out: report };
-  return { code: 2, out: { error: "--apply arrives in Task 4" } };
+  if (writes.length === 0 && manifest.version === latestVersion)
+    return { code: 0, out: { nothing: true, ...report } };
+
+  for (const w of writes) {
+    const abs = join(repo, w.path);
+    if (w.delete) {
+      unlinkSync(abs);
+      continue;
+    }
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, w.content);
+    if (w.executable) chmodSync(abs, 0o755);
+  }
+
+  // The manifest describes the templates, never the repository's edits: a locally edited or
+  // conflicted file is recorded at the latest render's hash, which is what lets the next diff
+  // still classify it as locally edited rather than as unchanged.
+  const next = manifestFor(latestVersion, choices, latest);
+  writeFileSync(join(repo, MANIFEST_PATH), `${JSON.stringify(next, null, 2)}\n`);
+
+  const readmePath = join(repo, "README.md");
+  if (existsSync(readmePath)) {
+    const readme = readFileSync(readmePath, "utf8");
+    const start = readme.indexOf(BLOCK_START);
+    const end = readme.indexOf(BLOCK_END);
+    if (start !== -1 && end > start) {
+      const block = readme
+        .slice(start, end)
+        .replace(`Installed by hitl ${manifest.version}`, `Installed by hitl ${latestVersion}`);
+      writeFileSync(readmePath, readme.slice(0, start) + block + readme.slice(end));
+    }
+  }
+
+  return {
+    code: 0,
+    out: {
+      ...report,
+      applied: true,
+      written: writes.filter((w) => !w.delete).map((w) => w.path),
+      deleted: writes.filter((w) => w.delete).map((w) => w.path),
+    },
+  };
 }
 
 const args = parseArgs(process.argv.slice(2), ["apply"]);

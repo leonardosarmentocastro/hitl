@@ -235,3 +235,63 @@ describe("diff.mjs absent cases", () => {
     expect(stateOf(r.json, ".github/workflows/wipe-superpowers-docs.yml")).toBeUndefined();
   });
 });
+
+describe("diff.mjs --apply", () => {
+  it("writes the upstream change, bumps the manifest and the README version, deletes what was removed", () => {
+    const repo = installedRepo(mk);
+    writeFileSync(join(repo, "scripts/hitl/gone.sh"), "gone\n");
+    editManifest(repo, (m) => (m.files["scripts/hitl/gone.sh"] = sha256("gone\n")));
+    appendFileSync(join(repo, HANDOVER), "\nOurs.\n");
+
+    const r = diff(repo, plugin, mk, true);
+    expect(r.status).toBe(0);
+    expect(r.json.applied).toBe(true);
+    expect(r.json.written).toEqual([FIXER]);
+    expect(r.json.deleted).toEqual(["scripts/hitl/gone.sh"]);
+
+    expect(readFileSync(join(repo, FIXER), "utf8")).toContain("Upstream added this line in 0.2.0.");
+    expect(existsSync(join(repo, "scripts/hitl/gone.sh"))).toBe(false);
+    expect(readFileSync(join(repo, HANDOVER), "utf8")).toContain("Ours."); // locally edited: kept
+
+    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    expect(manifest.version).toBe("0.2.0");
+    expect(manifest.files).not.toHaveProperty("scripts/hitl/gone.sh");
+    expect(manifest.files[FIXER]).toBe(
+      sha256(readFileSync(join(plugin, "templates/claude/agents/fixer.md"), "utf8")),
+    );
+    // The manifest records the template, never the local edit.
+    expect(manifest.files[HANDOVER]).toBe(
+      sha256(readFileSync(join(plugin, "templates/claude/agents/handover.md"), "utf8")),
+    );
+
+    const readme = readFileSync(join(repo, "README.md"), "utf8");
+    expect(readme).toContain("Installed by hitl 0.2.0");
+    expect(readme).not.toContain("Installed by hitl 0.1.0");
+
+    // A second diff now sees only the local edit.
+    const again = diff(repo, plugin, mk).json;
+    expect(again.recorded).toBe("0.2.0");
+    expect(stateOf(again, FIXER).state).toBe("unchanged");
+    expect(stateOf(again, HANDOVER).state).toBe("locally edited");
+  });
+
+  it("writes a conflicted file with its hunks and reports it", () => {
+    const repo = installedRepo(mk);
+    appendFileSync(join(repo, FIXER), "\nOurs, at the end.\n");
+    const r = diff(repo, plugin, mk, true);
+    expect(stateOf(r.json, FIXER).merged).toBe("conflict");
+    const text = readFileSync(join(repo, FIXER), "utf8");
+    expect(text).toContain("<<<<<<< this repository");
+    expect(text).toContain(">>>>>>> hitl latest");
+  });
+
+  it("says nothing to apply at the same version with no writes", () => {
+    const repo = installedRepo(mk);
+    const notAClone = mkdtempSync(join(tmpdir(), "hitl-notaclone-"));
+    const before = readFileSync(join(repo, ".claude/hitl.json"), "utf8");
+    const r = diff(repo, mk, notAClone, true);
+    expect(r.status).toBe(0);
+    expect(r.json.nothing).toBe(true);
+    expect(readFileSync(join(repo, ".claude/hitl.json"), "utf8")).toBe(before);
+  });
+});
