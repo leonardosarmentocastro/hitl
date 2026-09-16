@@ -1261,3 +1261,12 @@ Expected: both green (the drift test stays green: no template changed in this sl
 git add commands/init.md commands/diff.md commands/help.md
 git commit -m "feat(commands): /hitl:init --adopt, /hitl:diff and /hitl:help"
 ```
+
+## Review decisions
+
+Implementer clarifications (no acceptance criterion changed):
+
+- Task 2 — `compareVersions` was added to `installer/lib.mjs` in Task 2 rather than Task 5, because Task 2's `diff.mjs` already imports it for the `ahead` refusal; Task 5 consumes it unchanged.
+- Task 3 — the `ci: none` test already passed on Task 2's code (the report listed only paths rendered at latest); it stays as a guard. The other three tests ran red as stated.
+- Task 6 — the `--adopt` section is inserted after step 1 (prerequisites) and reads "replaces steps 2 onward", because slice 3's `commands/init.md` numbers the render check (which refuses on collision) as step 2, not 3. The collision refusal's "(available in a later version)" after `/hitl:init --adopt` was dropped, since this slice ships it.
+- Task 6 Step 4 — the prompts were dry-run by hand (the scripts run with the same inputs), not by installing the plugin into `~/.claude`: help `ejected` → adopt writes the manifest → diff reports the edited agent `locally edited`, all else `unchanged` → help `up to date`, 1 locally edited. The 0.1.0 → 0.2.0 path (behind, upstream changed, `--apply`) is proven by the vitest fixture marketplace; branch, push and the shim PR were not exercised.
