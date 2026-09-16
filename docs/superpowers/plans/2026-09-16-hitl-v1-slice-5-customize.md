@@ -837,3 +837,8 @@ Expected: both green.
 git add .claude/hitl.json scripts/__tests__/self-manifest.test.ts
 git commit -m "chore(hitl): adopt this repository — manifest at 0.1.0"
 ```
+
+## Review decisions
+
+- Task 2, Step 4 (implementation): the `agentsBlock` expected string also lives in `scripts/__tests__/render.test.ts` (the AGENTS.md block written by `render.mjs`), not only in `lib.test.ts`; its expected string was updated the same way. Clarification only; no acceptance criterion changed.
+- Task 4, Step 2 (implementation): the dry runs used `claude -p --plugin-dir` on temp repositories rendered by `render.mjs`. The invariant refusal and the `file-tripwire` edit behaved as expected. The `review-rounds` run edited the four `HITL.md` anchors correctly but the headless session had no write permission on the temp repository's `.claude/commands/`, so the four command-file hunks were not observed; the prompt named all four anchors and the wording it intended.
