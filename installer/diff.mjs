@@ -202,6 +202,7 @@ export async function run(args) {
   const written = [];
   const deleted = [];
   let manifestWritten = false;
+  let readmeBumped = false;
   try {
     for (const w of writes) {
       const abs = join(repo, w.path);
@@ -233,14 +234,18 @@ export async function run(args) {
           .slice(start, end)
           .replace(`Installed by hitl ${manifest.version}`, `Installed by hitl ${latestVersion}`);
         writeFileSync(readmePath, readme.slice(0, start) + block + readme.slice(end));
+        readmeBumped = true;
       }
     }
   } catch (e) {
     const manifestState = manifestWritten ? "written" : "untouched";
-    return { code: 2, out: { error: String(e.message), written, deleted, manifest: manifestState } };
+    return {
+      code: 2,
+      out: { error: String(e.message), written, deleted, manifest: manifestState },
+    };
   }
 
-  return { code: 0, out: { ...report, applied: true, written, deleted } };
+  return { code: 0, out: { ...report, applied: true, written, deleted, readmeBumped } };
 }
 
 const args = parseArgs(process.argv.slice(2), ["apply"]);

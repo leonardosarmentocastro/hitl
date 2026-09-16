@@ -331,6 +331,7 @@ describe("diff.mjs --apply", () => {
       sha256(readFileSync(join(plugin, "templates/claude/agents/handover.md"), "utf8")),
     );
 
+    expect(r.json.readmeBumped).toBe(true);
     const readme = readFileSync(join(repo, "README.md"), "utf8");
     expect(readme).toContain("Installed by hitl 0.2.0");
     expect(readme).not.toContain("Installed by hitl 0.1.0");
@@ -340,6 +341,15 @@ describe("diff.mjs --apply", () => {
     expect(again.recorded).toBe("0.2.0");
     expect(stateOf(again, FIXER).state).toBe("unchanged");
     expect(stateOf(again, HANDOVER).state).toBe("locally edited");
+  });
+
+  it("says the README was not bumped when the repository has none", () => {
+    const repo = installedRepo(mk);
+    rmSync(join(repo, "README.md"));
+    const r = diff(repo, plugin, mk, true);
+    expect(r.status).toBe(0);
+    expect(r.json.readmeBumped).toBe(false);
+    expect(existsSync(join(repo, "README.md"))).toBe(false);
   });
 
   it("writes a conflicted file with its hunks and reports it", () => {

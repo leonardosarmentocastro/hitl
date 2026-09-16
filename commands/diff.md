@@ -44,14 +44,34 @@ Otherwise, in this order — every file is written before the shim is called, be
 
 ```bash
 FROM=$(git branch --show-current)
-git checkout -q -b "chore/hitl-<recorded>-to-<latest>"
+BRANCH="chore/hitl-<recorded>-to-<latest>"
+git checkout -q -b "$BRANCH"
 node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --marketplace "$MK" --apply
-# Stage only what the upgrade touched: every path in the report's `files`, the manifest and
-# the README block. Never `git add -A`: an unrelated dirty file must not ride in.
-git add .claude/hitl.json README.md <every path listed in the report's files, deleted ones with `git rm`>
+```
+
+- exit `2` → the upgrade stopped part-way on `$BRANCH`. Do not stage, commit, push or call the
+  shim. Print `error`, `written`, `deleted` and `manifest` (`written` or `untouched`), then
+  tell the human, without running any of it yourself: "Every path under `written` was
+  overwritten and every path under `deleted` removed; nothing is committed. To undo: save any
+  of those files that held uncommitted edits of yours, then
+  `git restore --source=HEAD --worktree -- <the tracked paths among written and deleted, plus
+  .claude/hitl.json and README.md>`, delete the paths under `written` that git does not track,
+  `git checkout <FROM>` and `git branch -D <BRANCH>`. Fix the error and re-run
+  `/hitl:diff --apply`." Stop.
+- exit `0` → stage exactly what this apply run reported touching — never the step-1 report's
+  whole file list, never `git add -A`: a path the apply did not write (a `locally edited`
+  file with the human's uncommitted edits, an absent `removed upstream` file) must not be
+  staged, and a pathspec that matches nothing aborts `git add` as a whole.
+
+```bash
+git add -- .claude/hitl.json <every path in the apply output's `written`>
+# only when `deleted` is non-empty (the files are already gone from the tree):
+git rm -q --cached --ignore-unmatch -- <every path in `deleted`>
+# only when `readmeBumped` is true:
+git add -- README.md
 git commit -q -m "chore(hitl): <recorded> → <latest>"
-git push -u origin "chore/hitl-<recorded>-to-<latest>"
-scripts/hitl/pr.sh create --base "$FROM" --head "chore/hitl-<recorded>-to-<latest>" --title "hitl <recorded> → <latest>" --body-file <tmp>
+git push -u origin "$BRANCH"
+scripts/hitl/pr.sh create --base "$FROM" --head "$BRANCH" --title "hitl <recorded> → <latest>" --body-file <tmp>
 ```
 
 If the report lists `scripts/hitl/pr.sh` or `scripts/hitl/backend.sh` with
