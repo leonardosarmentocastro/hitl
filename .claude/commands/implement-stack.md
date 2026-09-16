@@ -96,6 +96,7 @@ run that crashed after pushing — and the record on stdout is that PR's: take i
 put the body on it with `scripts/hitl/pr.sh edit <number> --body-file <tmp>`, and carry on.
 Any other non-zero exit is a **STOP**.
 
+<!-- hitl:knob pr-body-sections -->
 Body (write it in the register of explaining to a newcomer; no file, function or test names
 outside the `Plan:` line):
 

@@ -67,6 +67,7 @@ incomplete. Keep those checks few and targeted, and cite what you checked.
   capability, not file count; never recommend splitting for width.
 - **DEFERRED** — not applicable to a spec review; do not use.
 
+<!-- hitl:knob severities -->
 Severity: 🔴 blocker (would ship a wrong design) · 🟠 major (resolve before plans) ·
 🟡 minor (polish, optional).
 
@@ -104,6 +105,7 @@ Change: <concrete edit>.
 - §<section> — <one line per minor>
 ````
 
+<!-- hitl:knob reporting-cap -->
 **Reporting cap.** The table holds EVERY blocker and AT MOST FIVE majors, ordered most
 important first — choose and defend the five. Every minor goes ONLY in "Also noticed", one
 line each, never in the table. If there are no findings at all, write `_No findings._`

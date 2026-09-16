@@ -1,5 +1,5 @@
 ---
-description: Review the current feature's design spec with a cold spec-reviewer subagent, then triage the findings with the human. At most two rounds.
+description: Review the current feature's design spec with a cold spec-reviewer subagent, then triage the findings with the human.
 ---
 
 Run the spec review loop for the current feature's umbrella spec.
@@ -17,6 +17,7 @@ SPEC=docs/superpowers/specs/<file>.md
 TOPIC=$(basename "$SPEC" .md | sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}-//; s/-design$//')
 ```
 
+<!-- hitl:knob review-rounds -->
 Count existing `**Reviewed:** round N` entries in the spec header, ignoring any marked
 `failed` — a failed attempt does not consume a round. The next round is N+1. If N is
 already 2, stop: "two rounds have run; no third round", and hand back per step 6.
@@ -89,6 +90,7 @@ git add "$SPEC" && git commit -m "docs(spec): fold in spec review round <N+1>"
 
 ## 5. Round rule — one is too few, two is good, three is too many
 
+<!-- hitl:knob review-rounds -->
 - If this was round 1 AND the spec changed in step 4 → go to step 1 for round 2.
 - If this was round 1 and nothing changed → stop.
 - If this was round 2 → stop. Never a third round: findings are non-deterministic across

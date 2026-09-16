@@ -281,3 +281,19 @@ export function foreignFiles(repoRoot, choices) {
   }
   return out.sort();
 }
+
+/** The knobs /hitl:customize offers. Each has one or more `<!-- hitl:knob <id> -->` anchors. */
+export const KNOBS = [
+  "review-rounds",
+  "severities",
+  "reporting-cap",
+  "file-tripwire",
+  "small-lane",
+  "effective-date-pilots",
+  "local-gates",
+  "pr-body-sections",
+  "scare-anchors",
+  "testing-rules",
+];
+/** Anchors emitted by code (agentsBlock, composeHitl) rather than present in a template file. */
+export const GENERATED_KNOBS = ["local-gates", "effective-date-pilots", "testing-rules"];

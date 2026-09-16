@@ -4,6 +4,7 @@ Reviewers read this file after `HITL.md`, `AGENTS.md` and `CONTEXT.md` (if prese
 holds what those do not say and a reviewer needs. Keep it short; if a rule belongs in
 `AGENTS.md`, put it there.
 
+<!-- hitl:knob scare-anchors -->
 ## Scare score anchors
 
 - 1–2 — config, docs, copy.
