@@ -46,9 +46,11 @@ describe("installer/lib primitives", () => {
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md",
         "scripts/hitl/wipe-superpowers-docs.sh",
+        "scripts/hitl/pr.sh",
+        "scripts/hitl/backend.sh",
       ]),
     );
-    expect(paths).toHaveLength(19);
+    expect(paths).toHaveLength(21);
   });
 
   it("marks the shell scripts executable and HITL.md as composed", () => {
@@ -56,6 +58,8 @@ describe("installer/lib primitives", () => {
     const byPath = Object.fromEntries(list.map((f) => [f.repoPath, f]));
     expect(byPath[".claude/hooks/unreviewed-artifact.sh"].executable).toBe(true);
     expect(byPath["scripts/hitl/wipe-superpowers-docs.sh"].executable).toBe(true);
+    expect(byPath["scripts/hitl/pr.sh"].executable).toBe(true);
+    expect(byPath["scripts/hitl/backend.sh"].template).toBe("scripts/backends/github.sh");
     expect(byPath["HITL.md"].template).toBeNull();
     expect(byPath[".claude/agents/fixer.md"].template).toBe("claude/agents/fixer.md");
   });

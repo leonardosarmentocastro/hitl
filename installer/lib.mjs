@@ -65,6 +65,12 @@ export function ownedFiles(choices) {
       template: "scripts/wipe-superpowers-docs.sh",
       executable: true,
     },
+    { repoPath: "scripts/hitl/pr.sh", template: "scripts/pr.sh", executable: true },
+    {
+      repoPath: "scripts/hitl/backend.sh",
+      template: `scripts/backends/${choices.provider}.sh`,
+      executable: true,
+    },
   ];
   if (choices.ci === "github-actions") {
     files.push({

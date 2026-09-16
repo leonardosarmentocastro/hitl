@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Fake gh for the PR-shim tests. Appends its argv to $FAKE_GH_LOG and prints canned output.
+# $FAKE_GH_MODE: ok (default) · exists (pr create says the PR already exists) · fail (any
+# call fails with a message on stderr and exit 1) · raw (pr list serves gh-shaped records, at
+# most --limit of them, and applies the real --jq expression with jq; the host has
+# $FAKE_GH_LIST_TOTAL records in all, default 3).
+set -u
+# One line per call: newlines inside an argument (a multi-line --jq) are logged as spaces.
+argv="$*"
+printf '%s\n' "${argv//$'\n'/ }" >> "${FAKE_GH_LOG:?FAKE_GH_LOG must be set}"
+mode=${FAKE_GH_MODE:-ok}
+sub="${1:-} ${2:-}"
+
+if [ "$mode" = fail ]; then
+  echo "gh: fake failure for '$sub'" >&2
+  exit 1
+fi
+
+record='{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md"}'
+
+case "$sub" in
+  "pr create")
+    if [ "$mode" = exists ]; then
+      echo 'a pull request for branch "feat/x-slice-1-api" into branch "feat/x" already exists:' >&2
+      echo 'https://github.com/o/r/pull/12' >&2
+      exit 1
+    fi
+    echo "https://github.com/o/r/pull/12"
+    ;;
+  "pr view")
+    if [[ "$*" == *reviews* ]]; then
+      echo '{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md","reviews":[{"author":"ana","state":"changes_requested","body":"rename it"}],"comments":[{"author":"bo","body":"+1","created_at":"2026-09-16T10:00:00Z"}]}'
+    else
+      echo "$record"
+    fi
+    ;;
+  "pr list")
+    if [ "$mode" = raw ]; then
+      limit=30 jqexpr=.
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --limit) limit=$2; shift ;;
+          --jq) jqexpr=$2; shift ;;
+        esac
+        shift
+      done
+      total=${FAKE_GH_LIST_TOTAL:-3}
+      rec() { # number head state
+        printf '{"number":%s,"url":"https://github.com/o/r/pull/%s","headRefName":%s,"baseRefName":"feat/x","state":"%s","isDraft":false,"title":"t","body":""}' \
+          "$1" "$1" "$2" "$3"
+      }
+      out=$(rec 12 '"feat/x-slice-1-api"' OPEN)
+      [ "$total" -ge 2 ] && [ "$limit" -ge 2 ] && out+=,$(rec 13 '"feat/y-slice-1-api"' MERGED)
+      [ "$total" -ge 3 ] && [ "$limit" -ge 3 ] && out+=,$(rec 14 '"feat/x\"q-slice-1"' CLOSED)
+      i=4
+      while [ "$i" -le "$total" ] && [ "$i" -le "$limit" ]; do
+        out+=,$(rec $((i + 100)) "\"feat/x-slice-$i\"" OPEN)
+        i=$((i + 1))
+      done
+      printf '[%s]' "$out" | jq -c "$jqexpr"
+      exit $?
+    fi
+    echo '[{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":""},{"number":13,"url":"https://github.com/o/r/pull/13","head":"feat/x-slice-2-web","base":"feat/x-slice-1-api","state":"merged","draft":false,"title":"Slice 2: web","body":""}]'
+    ;;
+  "pr edit" | "pr comment")
+    ;;
+  *)
+    echo "fake gh: unhandled '$sub'" >&2
+    exit 1
+    ;;
+esac
+exit 0
