@@ -43,7 +43,8 @@ function writeFile(repoRoot, rel, text, executable = false) {
 
 export function run(args) {
   const { repo, "plugin-root": pluginRoot, answers: answersPath } = args;
-  if (!repo || !pluginRoot || !answersPath) return { code: 1, out: { error: "usage: --repo <dir> --plugin-root <dir> --answers <file>" } };
+  if (!repo || !pluginRoot || !answersPath)
+    return { code: 1, out: { error: "usage: --repo <dir> --plugin-root <dir> --answers <file>" } };
   const choices = JSON.parse(readFileSync(answersPath, "utf8"));
   const version = pluginVersion(pluginRoot);
 
@@ -54,7 +55,9 @@ export function run(args) {
   const settingsPath = join(repo, ".claude/settings.json");
   let settings;
   try {
-    const hookEntry = JSON.parse(readFileSync(join(pluginRoot, "templates/claude/settings.hook.json"), "utf8"));
+    const hookEntry = JSON.parse(
+      readFileSync(join(pluginRoot, "templates/claude/settings.hook.json"), "utf8"),
+    );
     settings = mergeSettings(readIfPresent(settingsPath), hookEntry);
   } catch (e) {
     return { code: 3, out: { refused: "settings-unparsable", error: String(e.message) } };
@@ -78,8 +81,14 @@ export function run(args) {
       } else kept.push(rel);
     };
     append("CLAUDE.md", withClaudeLine(readIfPresent(join(repo, "CLAUDE.md"))));
-    append("README.md", withMarkerBlock(readIfPresent(join(repo, "README.md")), readmeBlock(version)));
-    append(".gitignore", withMarkerBlock(readIfPresent(join(repo, ".gitignore")), gitignoreBlock()));
+    append(
+      "README.md",
+      withMarkerBlock(readIfPresent(join(repo, "README.md")), readmeBlock(version)),
+    );
+    append(
+      ".gitignore",
+      withMarkerBlock(readIfPresent(join(repo, ".gitignore")), gitignoreBlock()),
+    );
     if (settings.added) writeFile(repo, ".claude/settings.json", settings.text);
     manifestOut = manifestFor(version, choices, rendered);
     writeFile(repo, MANIFEST_PATH, `${JSON.stringify(manifestOut, null, 2)}\n`);
@@ -90,11 +99,20 @@ export function run(args) {
 
   return {
     code: 0,
-    out: { wrote, appended, kept, foreign, settings: settings.added ? "added" : "present", manifest: manifestOut },
+    out: {
+      wrote,
+      appended,
+      kept,
+      foreign,
+      settings: settings.added ? "added" : "present",
+      manifest: manifestOut,
+    },
   };
 }
 
 const args = parseArgs(process.argv.slice(2));
-const result = args ? run(args) : { code: 1, out: { error: "usage: --repo <dir> --plugin-root <dir> --answers <file>" } };
+const result = args
+  ? run(args)
+  : { code: 1, out: { error: "usage: --repo <dir> --plugin-root <dir> --answers <file>" } };
 process.stdout.write(`${JSON.stringify(result.out, null, 2)}\n`);
 process.exit(result.code);

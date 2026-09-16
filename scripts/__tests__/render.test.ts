@@ -68,7 +68,9 @@ describe("render.mjs on an empty repository", () => {
 
     const existing = tempRepo({ "CLAUDE.md": "# Mine\n\nRules.\n" });
     render(existing);
-    expect(readFileSync(join(existing, "CLAUDE.md"), "utf8")).toBe("# Mine\n\nRules.\n\n@HITL.md\n");
+    expect(readFileSync(join(existing, "CLAUDE.md"), "utf8")).toBe(
+      "# Mine\n\nRules.\n\n@HITL.md\n",
+    );
   });
 
   it("appends marked blocks to README.md and .gitignore, creating them if absent", () => {
@@ -84,7 +86,9 @@ describe("render.mjs on an empty repository", () => {
     expect(ignore).toContain(".claude/reviews/");
     expect(ignore).toContain(".claude/fixtures/scratch/");
     expect(ignore).toContain(".claude/settings.local.json");
-    expect(r.json.appended).toEqual(expect.arrayContaining(["CLAUDE.md", "README.md", ".gitignore"]));
+    expect(r.json.appended).toEqual(
+      expect.arrayContaining(["CLAUDE.md", "README.md", ".gitignore"]),
+    );
   });
 
   it("merges the Stop hook into settings.json and keeps other hooks", () => {
@@ -125,7 +129,6 @@ describe("render.mjs on an empty repository", () => {
     expect(Object.keys(manifest.files)).toHaveLength(19);
   });
 });
-
 
 function tree(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" })
@@ -189,16 +192,19 @@ describe("render.mjs refusals", () => {
   });
 
   // Root ignores directory modes, so this cannot go red under root (some CI images).
-  it.skipIf(process.getuid?.() === 0)("reports the files written before a mid-write failure", () => {
-    const repo = tempRepo();
-    mkdirSync(join(repo, "scripts"));
-    chmodSync(join(repo, "scripts"), 0o555); // scripts/hitl/ cannot be created
-    const r = render(repo);
-    expect(r.status).toBe(2);
-    expect(r.json.error).toMatch(/EACCES|permission/i);
-    expect(r.json.wrote).toContain("HITL.md");
-    expect(r.json.wrote).not.toContain("scripts/hitl/wipe-superpowers-docs.sh");
-    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
-    chmodSync(join(repo, "scripts"), 0o755);
-  });
+  it.skipIf(process.getuid?.() === 0)(
+    "reports the files written before a mid-write failure",
+    () => {
+      const repo = tempRepo();
+      mkdirSync(join(repo, "scripts"));
+      chmodSync(join(repo, "scripts"), 0o555); // scripts/hitl/ cannot be created
+      const r = render(repo);
+      expect(r.status).toBe(2);
+      expect(r.json.error).toMatch(/EACCES|permission/i);
+      expect(r.json.wrote).toContain("HITL.md");
+      expect(r.json.wrote).not.toContain("scripts/hitl/wipe-superpowers-docs.sh");
+      expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+      chmodSync(join(repo, "scripts"), 0o755);
+    },
+  );
 });

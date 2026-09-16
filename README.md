@@ -25,3 +25,6 @@ being built with that workflow — see `HITL.md` and `docs/superpowers/`.
 pnpm install
 pnpm test
 ```
+
+The plugin's own `.claude/` is rendered from `templates/`; `pnpm test` fails if the two
+drift. Edit the template and its copy together.

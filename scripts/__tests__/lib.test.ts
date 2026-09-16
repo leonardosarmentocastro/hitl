@@ -10,9 +10,7 @@ describe("installer/lib primitives", () => {
   });
 
   it("hashes with sha256 hex", () => {
-    expect(sha256("abc")).toBe(
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-    );
+    expect(sha256("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   });
 
   it("owns the workflow only when ci is github-actions", () => {

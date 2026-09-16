@@ -13,15 +13,19 @@ a Claude Code plugin that installs that workflow into other repositories.
 ## Local gates
 
 - `pnpm test` — the script tests under `scripts/__tests__/` (the Stop hook, the wipe
-  script, and every script this plugin installs). Run before a PR opens.
+  script, the installer under `installer/`, every script this plugin installs, and the
+  drift test that proves this repository equals its own render). Run before a PR opens.
 - `pnpm format:check` — Prettier, `printWidth: 100`; Markdown is never formatted (the
   prompts, doctrine and templates are read as instructions).
 
 ## Test-driven development, here
 
-- Everything under `scripts/` and `.claude/hooks/` has behaviour of its own and is tested
-  under `scripts/__tests__/`. Tests that read the disk use `scripts/__fixtures__/`, never
-  `docs/superpowers/`, which the wipe deletes.
+- Everything under `scripts/`, `installer/` and `.claude/hooks/` has behaviour of its own
+  and is tested under `scripts/__tests__/`. `templates/` is tested by the drift test: this
+  repository's own `.claude/`, `HITL.md`, `scripts/hitl/` and wipe workflow must equal what
+  `installer/` renders from `templates/` with this repository's choices, except
+  `.claude/review-context.md`, which is repo-specific. Tests that read the disk use temp
+  directories or `scripts/__fixtures__/`, never `docs/superpowers/`, which the wipe deletes.
 - Prompts (agents, commands) are validated by running them on a fixture under
   `.claude/fixtures/` (a dry run — see `/review-spec`), not by unit tests.
 - Workflow YAML is validated by a human watching it run.

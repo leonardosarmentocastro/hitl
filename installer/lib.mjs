@@ -127,7 +127,8 @@ function withTrailingNewline(text) {
 
 /** Append a marked block to a file's text; a file already carrying the markers is left alone. */
 export function withMarkerBlock(existing, block) {
-  if (existing !== null && existing.includes(BLOCK_START)) return { text: existing, changed: false };
+  if (existing !== null && existing.includes(BLOCK_START))
+    return { text: existing, changed: false };
   const base = existing === null ? "" : withTrailingNewline(existing);
   const gap = base === "" ? "" : "\n";
   return { text: `${base}${gap}${BLOCK_START}\n${block.trimEnd()}\n${BLOCK_END}\n`, changed: true };
@@ -191,7 +192,13 @@ export function collisions(repoRoot, choices) {
 export function manifestFor(version, choices, rendered) {
   const files = {};
   for (const p of [...rendered.keys()].sort()) files[p] = sha256(rendered.get(p).content);
-  return { version, provider: choices.provider, ci: choices.ci, testing: [...choices.testing], files };
+  return {
+    version,
+    provider: choices.provider,
+    ci: choices.ci,
+    testing: [...choices.testing],
+    files,
+  };
 }
 
 /** The repository's own files inside the three shared .claude/ directories: not owned, left alone. */
