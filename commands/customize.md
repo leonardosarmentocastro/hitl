@@ -71,10 +71,24 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plu
   run `/hitl:diff --apply` first". Stop.
 - exit `3`, `refused: "ahead"` → "the install is at <recorded>, newer than the plugin at
   <plugin>; update the plugin (`claude plugin marketplace update hitl`, then reinstall)". Stop.
-- exit `3`, `refused: "hitl-locally-edited"` → "`HITL.md` differs from its recorded render;
-  this knob re-composes the whole file, so merge the fragments by hand: append or remove the
-  fragment text from `${CLAUDE_PLUGIN_ROOT}/templates/testing/`, keep `## Testing and gates`
-  under its anchor, then update `testing` in `.claude/hitl.json`". Stop.
+- exit `3`, `refused: "hitl-locally-edited"` → `HITL.md` differs from what hitl rendered for
+  the recorded `testing` (a hand edit, or another knob customized). This knob re-composes the
+  whole file, so set the local changes aside, run it on the render, and put them back — in
+  one shell invocation, with the same `--testing` and `--ci`:
+
+  ```bash
+  TMP=$(mktemp -d)
+  node --input-type=module -e 'const root = process.argv[1]; const { composeHitl, readManifest } = await import(`${root}/installer/lib.mjs`); process.stdout.write(composeHitl(root, readManifest(".").testing));' "${CLAUDE_PLUGIN_ROOT}" > "$TMP/rendered.md"
+  diff -u "$TMP/rendered.md" HITL.md > "$TMP/local.patch"
+  cp "$TMP/rendered.md" HITL.md
+  node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --testing "<comma list, or empty>" --ci <github-actions|none>; CODE=$?
+  patch HITL.md "$TMP/local.patch"; echo "customize exit $CODE"
+  ```
+
+  Read the script's output and exit code by the rules in this list. A hunk that no longer
+  applies (a local edit inside `## Testing and gates`) lands in `HITL.md.rej`: show it,
+  re-apply it by hand with the human, and delete the `.rej` and any `.orig` file. Do not
+  hand-merge fragment text, and never edit `.claude/hitl.json` by hand.
 - exit `3`, `refused: "no-manifest"` → "run `/hitl:init --adopt` first". Stop.
 - exit `0` → report `wrote`, `removed`, `kept` and the new `testing` and `ci`. A kept
   workflow differs from what hitl rendered and is left for the human. A kept `AGENTS.md`
