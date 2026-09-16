@@ -2,6 +2,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   appendFileSync,
+  chmodSync,
   cpSync,
   existsSync,
   mkdtempSync,
@@ -349,6 +350,26 @@ describe("diff.mjs --apply", () => {
     const text = readFileSync(join(repo, FIXER), "utf8");
     expect(text).toContain("<<<<<<< this repository");
     expect(text).toContain(">>>>>>> hitl latest");
+  });
+
+  it("reports a failed write as exit 2 JSON, naming what was already written", () => {
+    const repo = installedRepo(mk);
+    rmSync(join(repo, "scripts/hitl/pr.sh")); // missing locally: written after the fixer agent
+    chmodSync(join(repo, "scripts/hitl"), 0o555);
+    try {
+      const r = diff(repo, plugin, mk, true);
+      expect(r.status, r.stderr).toBe(2);
+      expect(typeof r.json.error).toBe("string");
+      expect(r.json.written).toEqual([FIXER]);
+      expect(r.json.deleted).toEqual([]);
+      expect(r.json.manifest).toBe("untouched");
+      // The manifest is written last, so it still records the old version.
+      expect(JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8")).version).toBe(
+        "0.1.0",
+      );
+    } finally {
+      chmodSync(join(repo, "scripts/hitl"), 0o755);
+    }
   });
 
   it("says nothing to apply at the same version with no writes", () => {
