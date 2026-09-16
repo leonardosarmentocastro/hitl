@@ -160,12 +160,14 @@ run time) · `docs/superpowers/` (transient specs, plans, handover).
 
 ## Review gates
 
-<!-- hitl:knob reporting-cap -->
 Three cold reviewers, all Claude subagents under `.claude/agents/`, all reporting in one
 taxonomy of six types — MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED —
 plus DEFERRED, which only the slice reviewer may use (a spec or plan review has no stack
-table to defer against). All three carry three severities and a reporting cap (every
-blocker, at most five majors, minors listed one line each):
+table to defer against).
+
+<!-- hitl:knob reporting-cap -->
+All three carry three severities and a reporting cap (every blocker, at most five majors,
+minors listed one line each):
 
 <!-- hitl:knob review-rounds -->
 - `/review-spec` — the umbrella spec, at most two rounds; the human answers YOUR CALL
@@ -194,14 +196,12 @@ in `.claude/review-context.md`.
   PR); the reviewer then falls back to searching `docs/superpowers/plans/`.
 <!-- hitl:knob pr-body-sections -->
 - Every PR body answers, briefly and in plain words (explain it as you would to an
-  intern):
+  intern), concise and realistic — do not invent rationale to fill space; if a section
+  has nothing meaningful to say (e.g. a trivial change), one honest line is fine:
   - **What** — what this change is.
   - **Why** — why it is needed.
   - **How** — the approach taken, and why this one over an alternative *if* a real
     choice was made.
-
-  Keep it concise and realistic. Do not invent rationale to fill space — if a section
-  has nothing meaningful to say (e.g. a trivial change), one honest line is fine.
 <!-- hitl:knob pr-body-sections -->
 - A PR opened by `/implement-stack` also carries `## Review decisions`: every declined or
   deferred review finding in plain words — the concern as a user or the data would

@@ -88,9 +88,10 @@ each, so a re-raise is a fast no. Commit:
 git add "$SPEC" && git commit -m "docs(spec): fold in spec review round <N+1>"
 ```
 
-## 5. Round rule — one is too few, two is good, three is too many
+## 5. Round rule
 
 <!-- hitl:knob review-rounds -->
+One is too few, two is good, three is too many:
 - If this was round 1 AND the spec changed in step 4 → go to step 1 for round 2.
 - If this was round 1 and nothing changed → stop.
 - If this was round 2 → stop. Never a third round: findings are non-deterministic across

@@ -79,9 +79,10 @@ Apply every APPLY and answered YOUR CALL. Record declines in each affected plan'
 git add docs/superpowers && git commit -m "docs(plan): fold in plan review round <N+1>"
 ```
 
-## 5. Round rule — one is too few, two is good, three is too many
+## 5. Round rule
 
 <!-- hitl:knob review-rounds -->
+One is too few, two is good, three is too many:
 - Round 1 AND at least one PLAN file changed in step 4 → step 1 for round 2. A round that
   changed only the spec (bubble-up) does not count as a plan change.
 - Round 1 and no plan changed → stop.
