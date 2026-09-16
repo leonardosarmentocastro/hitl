@@ -10,13 +10,18 @@ a Claude Code plugin that installs that workflow into other repositories.
   them. This repository's own `.claude/` is the first consumer of its templates.
 - Bootstrapped on 2026-09-15 as an ejected copy of `treasury-2`'s `.claude/` tooling.
 
+<!-- hitl:start -->
 ## Local gates
 
-- `pnpm test` — the script tests under `scripts/__tests__/` (the Stop hook, the wipe
-  script, the installer under `installer/`, every script this plugin installs, and the
-  drift test that proves this repository equals its own render). Run before a PR opens.
-- `pnpm format:check` — Prettier, `printWidth: 100`; Markdown is never formatted (the
-  prompts, doctrine and templates are read as instructions).
+- `pnpm test`
+- `pnpm format:check`
+<!-- hitl:end -->
+
+`pnpm test` runs the script tests under `scripts/__tests__/`: the Stop hook, the wipe script,
+the installer under `installer/`, every script this plugin installs, and the drift test that
+proves this repository equals its own render. `pnpm format:check` is Prettier at
+`printWidth: 100`; Markdown is never formatted, because the prompts, doctrine and templates
+are read as instructions. Both run before a PR opens.
 
 ## Test-driven development, here
 

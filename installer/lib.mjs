@@ -8,6 +8,19 @@ export const OWNED_DIRS = ["scripts/hitl", ".claude/fixtures"];
 export const MANIFEST_PATH = ".claude/hitl.json";
 /** The `ci` values the installer supports; any other value is refused before a write. */
 export const CI_CHOICES = ["github-actions", "none"];
+export const DEFAULT_CHOICES = { provider: "github", ci: "github-actions", testing: [], gates: [] };
+
+/** `--key value` pairs → object; null on a dangling flag or a token without `--`. */
+export function parseArgs(argv) {
+  const args = {};
+  for (let i = 0; i < argv.length; i += 2) {
+    const key = argv[i];
+    const value = argv[i + 1];
+    if (!key?.startsWith("--") || value === undefined) return null;
+    args[key.slice(2)] = value;
+  }
+  return args;
+}
 
 const AGENTS = [
   "spec-reviewer",
@@ -177,6 +190,25 @@ and fixed by subagents, with a human deciding at every gate. The doctrine is \`H
   \`/hitl:help\` explains the state of this install.
 - Prerequisites: Claude Code with the superpowers plugin, \`git\`, \`gh\`; \`/grill-me\` from
   Matt Pocock's skills is the recommended start for a feature whose shape is unclear.`;
+}
+
+export const NO_GATES_LINE =
+  "none yet — the first TDD task adds the harness and names its command here";
+
+/** The AGENTS.md block: local gates, plus the pilots list when effective-date is chosen. */
+export function agentsBlock(gates, testing = []) {
+  const lines = ["## Local gates", ""];
+  if (gates.length === 0) lines.push(NO_GATES_LINE);
+  else for (const g of gates) lines.push(`- \`${g}\``);
+  if (testing.includes("effective-date")) {
+    lines.push(
+      "",
+      "## Effective-date pilots",
+      "",
+      "- (none yet — name the area a new rule applies to first, one per line)",
+    );
+  }
+  return lines.join("\n");
 }
 
 export function gitignoreBlock() {

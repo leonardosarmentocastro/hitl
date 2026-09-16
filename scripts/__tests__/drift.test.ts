@@ -38,3 +38,14 @@ describe("this repository equals its own render", () => {
     expect(rendered.has(".github/workflows/wipe-superpowers-docs.yml")).toBe(true);
   });
 });
+
+import { agentsBlock } from "../../installer/lib.mjs";
+
+describe("this repository's AGENTS.md carries the hitl block", () => {
+  const text = readFileSync(join(ROOT, "AGENTS.md"), "utf8");
+  it("holds exactly the rendered gates block between the markers", () => {
+    const expected = `<!-- hitl:start -->\n${agentsBlock(THIS_REPO_CHOICES.gates, THIS_REPO_CHOICES.testing)}\n<!-- hitl:end -->\n`;
+    expect(text).toContain(expected);
+    expect(text.split("<!-- hitl:start -->")).toHaveLength(2);
+  });
+});

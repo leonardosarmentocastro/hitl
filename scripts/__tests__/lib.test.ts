@@ -64,3 +64,83 @@ describe("installer/lib primitives", () => {
     expect(byPath[".claude/agents/fixer.md"].template).toBe("claude/agents/fixer.md");
   });
 });
+
+import { DEFAULT_CHOICES, parseArgs } from "../../installer/lib.mjs";
+
+describe("parseArgs", () => {
+  it("reads --key value pairs", () => {
+    expect(parseArgs(["--repo", "/r", "--mode", "check"])).toEqual({ repo: "/r", mode: "check" });
+  });
+  it("returns null on a dangling flag or a non-flag token", () => {
+    expect(parseArgs(["--repo"])).toBeNull();
+    expect(parseArgs(["repo", "/r"])).toBeNull();
+  });
+  it("exposes the default choices used by check mode", () => {
+    expect(DEFAULT_CHOICES).toEqual({
+      provider: "github",
+      ci: "github-actions",
+      testing: [],
+      gates: [],
+    });
+  });
+});
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { TESTING_ORDER, composeHitl } from "../../installer/lib.mjs";
+
+describe("composeHitl", () => {
+  const core = readFileSync(join(ROOT, "templates/HITL.md"), "utf8");
+
+  it("returns the core unchanged when nothing is chosen", () => {
+    const out = composeHitl(ROOT, []);
+    expect(out).toBe(core);
+    expect(out).not.toContain("## Testing and gates");
+  });
+
+  it("appends one heading and the chosen fragments in TESTING_ORDER, whatever the input order", () => {
+    const out = composeHitl(ROOT, ["hooks", "e2e", "ci"]);
+    expect(out.startsWith(core.trimEnd())).toBe(true);
+    expect(out.split("## Testing and gates")).toHaveLength(2);
+    const at = (h: string) => out.indexOf(h);
+    expect(at("### End-to-end tests")).toBeLessThan(at("### Continuous integration"));
+    expect(at("### Continuous integration")).toBeLessThan(at("### Commit hooks"));
+    expect(out).not.toContain("### Test tiers");
+    expect(out).not.toContain("### Effective-date regimes");
+  });
+
+  it("has a fragment file for every id in TESTING_ORDER, each with one ### heading", () => {
+    for (const id of TESTING_ORDER) {
+      const text = readFileSync(join(ROOT, `templates/testing/${id}.md`), "utf8");
+      expect(text.match(/^### /gm), id).toHaveLength(1);
+      expect(text.endsWith("\n"), id).toBe(true);
+    }
+  });
+
+  it("ends with exactly one newline", () => {
+    const out = composeHitl(ROOT, TESTING_ORDER);
+    expect(out.endsWith("\n")).toBe(true);
+    expect(out.endsWith("\n\n")).toBe(false);
+  });
+});
+
+import { agentsBlock } from "../../installer/lib.mjs";
+
+describe("agentsBlock", () => {
+  it("lists one bullet per gate", () => {
+    expect(agentsBlock(["pnpm test", "pnpm lint"])).toBe(
+      "## Local gates\n\n- `pnpm test`\n- `pnpm lint`",
+    );
+  });
+  it("writes the none-yet line when there is no gate", () => {
+    expect(agentsBlock([])).toBe(
+      "## Local gates\n\nnone yet — the first TDD task adds the harness and names its command here",
+    );
+  });
+  it("adds the pilots section only when effective-date is chosen", () => {
+    expect(agentsBlock(["pnpm test"], ["e2e"])).not.toContain("## Effective-date pilots");
+    expect(agentsBlock(["pnpm test"], ["effective-date"])).toBe(
+      "## Local gates\n\n- `pnpm test`\n\n## Effective-date pilots\n\n- (none yet — name the area a new rule applies to first, one per line)",
+    );
+  });
+});
