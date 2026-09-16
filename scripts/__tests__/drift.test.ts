@@ -25,6 +25,15 @@ describe("this repository equals its own render", () => {
     }
   }
 
+  it(".claude/settings.json carries the Stop hook entry from its template", () => {
+    const hookEntry = JSON.parse(
+      readFileSync(join(ROOT, "templates/claude/settings.hook.json"), "utf8"),
+    );
+    const settings = JSON.parse(readFileSync(join(ROOT, ".claude/settings.json"), "utf8"));
+    const entries = (settings.hooks?.Stop ?? []).flatMap((s: { hooks: unknown[] }) => s.hooks);
+    expect(entries).toContainEqual(hookEntry);
+  });
+
   it("renders the workflow for this repository (ci: github-actions)", () => {
     expect(rendered.has(".github/workflows/wipe-superpowers-docs.yml")).toBe(true);
   });
