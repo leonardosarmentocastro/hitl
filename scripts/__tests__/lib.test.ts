@@ -84,3 +84,42 @@ describe("parseArgs", () => {
     });
   });
 });
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { TESTING_ORDER, composeHitl } from "../../installer/lib.mjs";
+
+describe("composeHitl", () => {
+  const core = readFileSync(join(ROOT, "templates/HITL.md"), "utf8");
+
+  it("returns the core unchanged when nothing is chosen", () => {
+    const out = composeHitl(ROOT, []);
+    expect(out).toBe(core);
+    expect(out).not.toContain("## Testing and gates");
+  });
+
+  it("appends one heading and the chosen fragments in TESTING_ORDER, whatever the input order", () => {
+    const out = composeHitl(ROOT, ["hooks", "e2e", "ci"]);
+    expect(out.startsWith(core.trimEnd())).toBe(true);
+    expect(out.split("## Testing and gates")).toHaveLength(2);
+    const at = (h: string) => out.indexOf(h);
+    expect(at("### End-to-end tests")).toBeLessThan(at("### Continuous integration"));
+    expect(at("### Continuous integration")).toBeLessThan(at("### Commit hooks"));
+    expect(out).not.toContain("### Test tiers");
+    expect(out).not.toContain("### Effective-date regimes");
+  });
+
+  it("has a fragment file for every id in TESTING_ORDER, each with one ### heading", () => {
+    for (const id of TESTING_ORDER) {
+      const text = readFileSync(join(ROOT, `templates/testing/${id}.md`), "utf8");
+      expect(text.match(/^### /gm), id).toHaveLength(1);
+      expect(text.endsWith("\n"), id).toBe(true);
+    }
+  });
+
+  it("ends with exactly one newline", () => {
+    const out = composeHitl(ROOT, TESTING_ORDER);
+    expect(out.endsWith("\n")).toBe(true);
+    expect(out.endsWith("\n\n")).toBe(false);
+  });
+});
