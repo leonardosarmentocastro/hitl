@@ -1190,3 +1190,10 @@ Expected: both green. If `format:check` flags `installer/*.mjs` or the plugin JS
 git add commands/init.md AGENTS.md README.md
 git commit -m "feat(commands): /hitl:init from flags; AGENTS.md names installer and templates as tested"
 ```
+
+## Review decisions
+
+- Implementer, Task 3 Step 3: the implementer's `## Reply` example sits on line 45 of `.claude/agents/implementer.md`, not line 42; the replacement text is unchanged.
+- Implementer, Task 5 Step 1: the `readdirSync` and `chmodSync` imports were merged into the single `node:fs` import at the top of `render.test.ts` rather than a second import mid-file; the tests are unchanged.
+- Implementer, Task 6 Step 4: the prompt could not be run inside an interactive Claude Code session with the plugin installed from here, so `render.mjs` was run by hand with `ci: none` on a temp repository: 19 files written, `CLAUDE.md`, `README.md` and `.gitignore` appended, hook added; a second run refused with `manifest-present` at 0.1.0 (exit 3).
+- Implementer, Task 6 Step 5: `pnpm format` reformatted `installer/*.mjs`, `lib.test.ts` and `render.test.ts`; those formatting changes are committed with Task 6.
