@@ -195,6 +195,9 @@ describe("pr.sh create", () => {
     );
     expect(r.status).toBe(3);
     expect(r.json).toEqual(RECORD);
+    expect(r.stdout.trim().split("\n")).toHaveLength(1);
+    expect(r.calls).toHaveLength(2);
+    expect(r.calls[1]).toMatch(/^pr view feat\/x-slice-1-api --json /);
   });
 });
 
