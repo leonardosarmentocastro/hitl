@@ -4,7 +4,7 @@
 
 **Owns:** `scripts/hitl/pr.sh`, the GitHub backend, and the three call sites (`/implement-stack`, `/umbrella-pr`, the handover agent) rewritten to use the shim.
 
-**Reviewed:** round 1 (2026-09-16).
+**Reviewed:** round 1 (2026-09-16) · round 2 (2026-09-16).
 
 **Goal:** Every PR operation in the installed workflow goes through one bash shim with a normalised JSON contract, so a later host backend is a file swap and no command or agent calls `gh` directly.
 
@@ -757,7 +757,7 @@ Expected: PASS — the grep test finds no offenders, and the drift test still re
 
 - [ ] **Step 7: Dry-run the rewritten commands**
 
-With `scripts/__fixtures__/fake-gh` first on `PATH` and `FAKE_GH_LOG` set, run `/umbrella-pr --dry-run` on the fixture handover in a scratch copy (copy `.claude/fixtures/` to `.claude/fixtures/scratch/` per `/review-spec`'s dry-run rule) and confirm the stack table is refreshed from the shim's `list` output. Delete the scratch copy after.
+With `scripts/__fixtures__/fake-gh` first on `PATH` and `FAKE_GH_LOG` set: copy `.claude/fixtures/` to `.claude/fixtures/scratch/` (the dry-run rule from `/review-spec`), write a throwaway handover document `.claude/fixtures/scratch/handover.md` by hand in the handover agent's template shape — feature `spec-fixture`, feature branch `feat/spec-fixture`, a two-row stack table from the two fixture plans (branches `feat/spec-fixture-slice-1-schema` and `feat/spec-fixture-slice-2-api`, status `todo`), an `## Umbrella PR body` and a `<!-- stack -->` table — then run `/umbrella-pr --dry-run` pointing at it and confirm the stack table's PR column is refreshed from the shim's `list` output (the fake returns #12 and #13). Delete the scratch copy after; `.claude/fixtures/` carries no handover, so nothing committed changes.
 
 - [ ] **Step 8: Run the gates and commit**
 

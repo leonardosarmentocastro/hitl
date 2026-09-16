@@ -89,7 +89,9 @@ a git tag `v<version>` on the commit that sets it. `/hitl:diff` reads the templa
 recorded version from the marketplace clone at that tag. The first release is `0.1.0`.
 When the recorded version equals the plugin's own version, the recorded render is taken from
 the plugin root's `templates/` and no tag is consulted; the tag is needed only for an older
-recorded version. Every installer script takes `--plugin-root`, defaulting to
+recorded version, and it is rendered by that version's own `installer/`, so every release tag
+carries `templates/`, `installer/` and `.claude-plugin/` together (a tag of this repository
+always does). Every installer script takes `--plugin-root`, defaulting to
 `${CLAUDE_PLUGIN_ROOT}`, so this repository's tests and its own `--adopt` run against its
 working tree before any release exists.
 
@@ -356,8 +358,12 @@ opens the PR "hitl <recorded> → <latest>" through the shim, based on the branc
 from. The body follows `HITL.md` § Pull requests — What, Why, How — with no `Plan:` line,
 since an upgrade has no plan; it lists every file and its state and names any file carrying
 conflict hunks. With every file `unchanged` or `locally
-edited`, `--apply` says "nothing to apply" and does nothing. When the marketplace clone lacks
-the recorded tag the command stops with `claude plugin marketplace update hitl`.
+edited` and the versions equal, `--apply` says "nothing to apply" and does nothing. When the
+versions differ and no file needs a write (a version-only release), `--apply` still bumps the
+manifest and the README version and opens the PR, so no consumer stays "behind" forever.
+When the marketplace clone lacks the recorded tag the command stops with
+`claude plugin marketplace update hitl`. A manifest newer than the plugin (a stale plugin
+cache) is refused with "update the plugin"; diff never proposes a downgrade.
 
 ### `/hitl:help`
 
@@ -564,3 +570,11 @@ PR, merge, wipe fires); then `/hitl:init --adopt` on treasury-2 and a reading of
   contradiction and now say when each applies.
 - **Bubbled up from plan review (round 1)** — a sixth installer script,
   `customize-testing.mjs`, backs the `testing-rules` knob; the table said five.
+- **Bubbled up from plan review (round 2)** — `--apply` bumps the manifest and README
+  version even when no file needs a write, so a version-only release does not leave every
+  consumer "behind"; the spec said "nothing to apply" for that case.
+- **Bubbled up from plan review (round 2)** — the recorded render at an older version is
+  produced by that tag's own `installer/`, so release tags carry `templates/`, `installer/`
+  and `.claude-plugin/` together; the spec named only `templates/`.
+- **Bubbled up from plan review (round 2)** — `/hitl:diff` refuses a manifest ahead of the
+  plugin, as help and customize already did; the spec had no such case for diff.

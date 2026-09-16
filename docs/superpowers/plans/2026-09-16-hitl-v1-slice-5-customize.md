@@ -4,7 +4,7 @@
 
 **Owns:** the knob anchors in every template and in this repository's copies; the knob table and the `## Load-bearing invariants` section in `HITL.md`; `commands/customize.md` and the `customize-testing.mjs` script behind its `testing-rules` knob; `--adopt` run on this repository and its manifest committed.
 
-**Reviewed:** round 1 (2026-09-16).
+**Reviewed:** round 1 (2026-09-16) · round 2 (2026-09-16).
 
 **Goal:** `/hitl:customize` can tune every knob in the spec's table by editing anchored paragraphs, refuses every load-bearing invariant, and this repository ends the stack adopted, with a manifest whose diff is clean.
 
@@ -33,8 +33,9 @@
 
 | Path | Responsibility |
 |---|---|
-| `templates/HITL.md`, `HITL.md` | anchors for `small-lane`, `review-rounds` (×2), `reporting-cap`, `pr-body-sections`, `file-tripwire`; the `## Load-bearing invariants` section |
-| `templates/claude/commands/review-spec.md`, `review-plan.md` and this repository's copies | `review-rounds` anchors at step 0 and step 5 |
+| `templates/HITL.md`, `HITL.md` | anchors for `small-lane`, `review-rounds` (×4), `reporting-cap`, `pr-body-sections` (×2), `file-tripwire`; the `## Load-bearing invariants` section |
+| `templates/claude/commands/review-spec.md`, `review-plan.md` and this repository's copies | `review-rounds` anchors at step 0 and step 5; "At most two rounds." dropped from the front-matter description |
+| `templates/claude/agents/plan-reviewer.md` and copy | "~20-file tripwire" reworded to "the standards' file-count tripwire" |
 | `templates/claude/agents/{spec,plan,slice}-reviewer.md` and copies | `severities` and `reporting-cap` anchors |
 | `templates/claude/commands/implement-stack.md` and copy | `pr-body-sections` anchor |
 | `templates/claude/review-context.md` and `.claude/review-context.md` | `scare-anchors` anchor |
@@ -109,7 +110,7 @@ describe("knob anchors", () => {
 
   it("review-rounds is anchored at every restatement", () => {
     const files = found.filter((a) => a.id === "review-rounds").map((a) => a.file);
-    expect(files.filter((f) => f === "templates/HITL.md")).toHaveLength(2);
+    expect(files.filter((f) => f === "templates/HITL.md")).toHaveLength(4);
     expect(files.filter((f) => f.endsWith("review-spec.md"))).toHaveLength(2);
     expect(files.filter((f) => f.endsWith("review-plan.md"))).toHaveLength(2);
   });
@@ -175,11 +176,21 @@ Each anchor is one line inserted immediately above the quoted line. Make the edi
 | insert above the line beginning | anchor |
 |---|---|
 | `Every feature and behaviour change in this repository runs the chain below.` | `<!-- hitl:knob small-lane -->` |
+| the ```` ```dot ```` fence that opens the chain graph (its labels say `≤2 rounds`) | `<!-- hitl:knob review-rounds -->` |
 | `- **Rounds.** One is too few, two is good, three is too many.` | `<!-- hitl:knob review-rounds -->` |
 | `Three cold reviewers, all Claude subagents under` | `<!-- hitl:knob reporting-cap -->` |
+| ``- `/review-spec` — the umbrella spec, at most two rounds`` (the first `## Review gates` bullet; the block runs to the next blank line and covers the `/review-plan` bullet's "at most two rounds" too) | `<!-- hitl:knob review-rounds -->` |
 | `Round 2 runs only if triage changed the artefact. Never a third round:` | `<!-- hitl:knob review-rounds -->` |
 | `- Every PR body answers, briefly and in plain words` | `<!-- hitl:knob pr-body-sections -->` |
+| ``- A PR opened by `/implement-stack` also carries `## Review decisions` `` | `<!-- hitl:knob pr-body-sections -->` |
 | `- Each slice is one PR, sized by **capability**, not by file count.` | `<!-- hitl:knob file-tripwire -->` |
+
+Two restatements cannot carry an anchor because they sit inside YAML front matter: the
+`description:` lines of `review-spec.md` and `review-plan.md` end with "At most two rounds."
+Delete that sentence from both descriptions (template and copy) so the count is stated only
+in anchored places. In `.claude/agents/plan-reviewer.md` (and its template) the phrase
+"~20-file tripwire" restates the `file-tripwire` number; reword it to "the standards'
+file-count tripwire", as `slice-reviewer.md` already says, so the knob has one home.
 
 `.claude/commands/review-spec.md`:
 
@@ -578,7 +589,7 @@ process.exit(result.code);
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm test -- scripts/__tests__/customize-testing.test.ts`
-Expected: PASS, 6 tests. The first test's fragment-order assertion relies on the `e2e` fragment containing "critical happy path" and the `tiers` fragment containing "unit > component > e2e", both written in slice 3; if slice 3 worded them differently, change the two search strings to a phrase each fragment actually contains, not the order they assert.
+Expected: PASS, 7 tests (adds, removes, locally edited, behind, ahead, kept workflow, unknown fragment). The first test's fragment-order assertion relies on the `e2e` fragment containing "critical happy path" and the `tiers` fragment containing "unit > component > e2e", both written in slice 3; if slice 3 worded them differently, change the two search strings to a phrase each fragment actually contains, not the order they assert.
 
 - [ ] **Step 5: Commit**
 
@@ -627,7 +638,7 @@ rule. `grep -rn "hitl:knob <id>" HITL.md AGENTS.md .claude/` finds every anchor 
 | `small-lane` | whether any change may skip the chain | `HITL.md` § Delivery chain | none — size shrinks the artefact, never the gate |
 | `effective-date-pilots` | the areas a new rule applies to first | `AGENTS.md` hitl block, `## Effective-date pilots` | none until the humans name one; grandfathered code is never a finding |
 | `local-gates` | the commands the implementer and fixer run before "done" | `AGENTS.md` hitl block, `## Local gates` | discovered at init from the repository's scripts |
-| `pr-body-sections` | what every PR body must answer | `HITL.md` § Pull requests; `implement-stack.md`, the body block | What / Why / How plus Review decisions — a newcomer can follow it |
+| `pr-body-sections` | what every PR body must answer | `HITL.md` § Pull requests (the What/Why/How bullet and the Review decisions bullet, both anchored); `implement-stack.md`, the body block | What / Why / How plus Review decisions — a newcomer can follow it |
 | `scare-anchors` | the scare-score ladder reviewers calibrate on | `.claude/review-context.md` | treasury's ladder with 5–8 left as placeholders for this repository's own risky change classes |
 | `testing-rules` | which testing principles `HITL.md` carries and whether the wipe job is installed | `HITL.md` § Testing and gates; the wipe workflow | the choices made at init |
 
@@ -698,8 +709,10 @@ repository added as a local marketplace, run:
 - `/hitl:customize file-tripwire` and answer 30 files → expected: exactly one hunk in
   `HITL.md`, in the bullet below `<!-- hitl:knob file-tripwire -->`, and the anchor line
   itself unchanged; nothing committed.
-- `/hitl:customize review-rounds` and answer 1 round → expected: six hunks (two in
-  `HITL.md`, two each in `review-spec.md` and `review-plan.md`), each below an anchor.
+- `/hitl:customize review-rounds` and answer 1 round → expected: eight hunks (four in
+  `HITL.md` — the graph labels, the Rounds bullet, the two Review gates bullets, the round
+  rule — two each in `review-spec.md` and `review-plan.md`), each below an anchor, and no
+  other line in either file still says "two rounds".
 
 If the plugin cannot be installed locally, exercise the prompt by pasting it into a session
 opened in the temp repository and note in the PR body that it was run by hand.

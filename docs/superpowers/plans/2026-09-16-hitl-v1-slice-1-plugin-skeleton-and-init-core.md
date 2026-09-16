@@ -4,7 +4,7 @@
 
 **Owns:** the plugin manifests; `templates/` cut generically from `.claude/` with the slice-1 doctrine changes; the shared installer module and `render.mjs`; `/hitl:init` taking its answers from flags; the manifest with every field; the collision and manifest-present refusals; this repository's wipe script moved to `scripts/hitl/`; this repository's `AGENTS.md` naming `installer/` and `templates/` as tested code.
 
-**Reviewed:** round 1 (2026-09-16).
+**Reviewed:** round 1 (2026-09-16) · round 2 (2026-09-16).
 
 **Goal:** `/hitl:init` renders the workflow into an empty GitHub repository from templates that this repository itself is proven to be a render of.
 
@@ -819,7 +819,7 @@ export function run(args) {
   append("CLAUDE.md", withClaudeLine(readIfPresent(join(repo, "CLAUDE.md"))));
   append("README.md", withMarkerBlock(readIfPresent(join(repo, "README.md")), readmeBlock(version)));
   append(".gitignore", withMarkerBlock(readIfPresent(join(repo, ".gitignore")), gitignoreBlock()));
-  writeFile(repo, ".claude/settings.json", settings.text);
+  if (settings.added) writeFile(repo, ".claude/settings.json", settings.text); // never reformat a file we did not change
   const manifestOut = manifestFor(version, choices, rendered);
   writeFile(repo, MANIFEST_PATH, `${JSON.stringify(manifestOut, null, 2)}\n`);
 
@@ -1012,7 +1012,7 @@ reports what landed:
     append("CLAUDE.md", withClaudeLine(readIfPresent(join(repo, "CLAUDE.md"))));
     append("README.md", withMarkerBlock(readIfPresent(join(repo, "README.md")), readmeBlock(version)));
     append(".gitignore", withMarkerBlock(readIfPresent(join(repo, ".gitignore")), gitignoreBlock()));
-    writeFile(repo, ".claude/settings.json", settings.text);
+    if (settings.added) writeFile(repo, ".claude/settings.json", settings.text);
     manifestOut = manifestFor(version, choices, rendered);
     writeFile(repo, MANIFEST_PATH, `${JSON.stringify(manifestOut, null, 2)}\n`);
   } catch (e) {

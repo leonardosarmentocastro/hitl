@@ -4,7 +4,7 @@
 
 **Owns:** `--adopt` and `adopt.mjs`; `diff.mjs` and `/hitl:diff` with `--apply`; `help.mjs` and `/hitl:help`.
 
-**Reviewed:** round 1 (2026-09-16).
+**Reviewed:** round 1 (2026-09-16) · round 2 (2026-09-16).
 
 **Goal:** an installed repository can be stamped after the fact (`--adopt`), can see and apply what changed upstream since its recorded version with a three-way merge (`/hitl:diff`), and can ask where it stands (`/hitl:help`).
 
@@ -350,6 +350,14 @@ describe("diff.mjs refusals", () => {
     expect(r.json).toEqual({ refused: "tag-missing", tag: "v0.0.9" });
   });
 
+  it("refuses a manifest ahead of the plugin instead of proposing a downgrade", () => {
+    const repo = installedRepo(mk);
+    editManifest(repo, (m) => (m.version = "9.9.9"));
+    const r = diff(repo, plugin, mk);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "ahead", recorded: "9.9.9", plugin: "0.2.0" });
+  });
+
   it("refuses when the recorded render does not hash to the manifest", () => {
     const repo = installedRepo(mk);
     editManifest(repo, (m) => (m.files["HITL.md"] = "0".repeat(64)));
@@ -435,7 +443,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { emit, parseArgs } from "./lib.mjs";
-import { BLOCK_END, BLOCK_START, MANIFEST_PATH, manifestFor, pluginVersion, readManifest, renderAll, sha256 } from "./lib.mjs";
+import { BLOCK_END, BLOCK_START, MANIFEST_PATH, compareVersions, manifestFor, pluginVersion, readManifest, renderAll, sha256 } from "./lib.mjs";
 
 const USAGE = "usage: --repo <dir> --plugin-root <dir> --marketplace <dir> [--apply]";
 
@@ -484,6 +492,10 @@ export async function run(args) {
   if (!manifest) return { code: 3, out: { refused: "no-manifest" } };
   const choices = { provider: manifest.provider, ci: manifest.ci, testing: manifest.testing, gates: [] };
   const latestVersion = pluginVersion(pluginRoot);
+  // A manifest newer than the plugin is a stale plugin cache; never propose a downgrade.
+  if (compareVersions(manifest.version, latestVersion) > 0) {
+    return { code: 3, out: { refused: "ahead", recorded: manifest.version, plugin: latestVersion } };
+  }
   const latest = renderAll(pluginRoot, choices);
   const recorded = await recordedRender(manifest, pluginRoot, marketplace, choices);
   if (recorded === null) return { code: 3, out: { refused: "tag-missing", tag: `v${manifest.version}` } };
@@ -533,7 +545,7 @@ emit(args ? await run(args) : { code: 1, out: { error: USAGE } });
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `pnpm test -- scripts/__tests__/diff.test.ts`
-Expected: PASS, 9 tests. If the "conflict" test reports `clean`, check that the repo edit and the upstream line are both appended at the end of the file; `git merge-file` conflicts only on overlapping hunks.
+Expected: PASS, 10 tests. If the "conflict" test reports `clean`, check that the repo edit and the upstream line are both appended at the end of the file; `git merge-file` conflicts only on overlapping hunks.
 
 - [ ] **Step 5: Commit**
 
@@ -654,7 +666,7 @@ Replace the loop head and add the three branches so the loop reads:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `pnpm test -- scripts/__tests__/diff.test.ts`
-Expected: PASS, 13 tests.
+Expected: PASS, 14 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -791,7 +803,7 @@ Expected: the three new tests FAIL with exit 2 and `--apply arrives in Task 4`.
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `pnpm test -- scripts/__tests__/diff.test.ts`
-Expected: PASS, 16 tests.
+Expected: PASS, 17 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -806,6 +818,7 @@ git commit -m "feat(installer): diff.mjs --apply writes files, bumps the manifes
 
 **Files:**
 - Create: `installer/help.mjs`
+- Modify: `installer/lib.mjs` (add `compareVersions`)
 - Test: `scripts/__tests__/help.test.ts`
 
 **Interfaces:**
@@ -1107,6 +1120,9 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
   `claude plugin marketplace update hitl` and retry." Stop.
 - exit `3`, `refused: "manifest-mismatch"` → "the manifest and the templates disagree for
   <paths>; delete `.claude/hitl.json` and re-run `/hitl:init --adopt`." Stop.
+- exit `3`, `refused: "ahead"` → "the install is at <recorded>, newer than the plugin at
+  <plugin>; update the plugin (`claude plugin marketplace update hitl`, then reinstall)."
+  Stop.
 - exit `0` → print one table, `path · state · note`, where the note is `merged: clean`,
   `merged: conflict`, or `local: same|edited|absent` when present. Then one line:
   "recorded <recorded> · latest <latest> · <n> to apply", counting every file whose state is
@@ -1134,6 +1150,11 @@ git commit -q -m "chore(hitl): <recorded> → <latest>"
 git push -u origin "chore/hitl-<recorded>-to-<latest>"
 scripts/hitl/pr.sh create --base "$FROM" --head "chore/hitl-<recorded>-to-<latest>" --title "hitl <recorded> → <latest>" --body-file <tmp>
 ```
+
+If the report lists `scripts/hitl/pr.sh` or `scripts/hitl/backend.sh` with
+`merged: conflict`, the freshly written shim is not runnable bash: stop after the push, print
+the branch name and the PR title and body, and tell the human to resolve the hunks and open
+the PR by hand. Do not call the shim.
 
 The PR body (no `Plan:` line — an upgrade has no plan):
 
