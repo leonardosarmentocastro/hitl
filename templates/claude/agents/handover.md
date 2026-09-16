@@ -19,8 +19,9 @@ another agent down the wrong branch.
 - Branches, local AND remote (a blocked implementer never pushes, so a `branched` slice may
   exist only locally): `git fetch -q --prune origin` then
   `git branch -a --list '<feature-branch>-slice-*' --list 'origin/<feature-branch>-slice-*'`.
-- PRs: `gh pr list --state all --limit 100 --search "head:<feature-branch>" --json number,state,headRefName,baseRefName,isDraft,title`
-  and `gh pr view` on any that need comments (fix-up mode).
+- PRs: `scripts/hitl/pr.sh list --head-prefix "<feature-branch>"` (every state; each record
+  carries `number`, `head`, `base`, `state`, `draft`, `title`) and
+  `scripts/hitl/pr.sh view <number>` on any that need reviews and comments (fix-up mode).
 
 ## Derive the stack table
 
@@ -42,7 +43,7 @@ For each plan N (in order):
 - `resume`: at least one slice is `merged`, `open` or `branched`, and at least one is
   `todo` or `branched`.
 - `fix-up`: at least one `open` slice PR has a review requesting changes or unresolved
-  review comments (`gh pr view <n> --json reviews,comments`).
+  review comments (`scripts/hitl/pr.sh view <n>`: its `reviews` and `comments` arrays).
 
 On mismatch, write nothing. Reply: `refused: mode <mode> — <what you found, one line per
 slice that contradicts it>`.

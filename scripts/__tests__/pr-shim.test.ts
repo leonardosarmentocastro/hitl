@@ -1,6 +1,14 @@
 // scripts/__tests__/pr-shim.test.ts
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -190,5 +198,20 @@ describe("pr.sh edit and comment", () => {
     expect(r.status).toBe(0);
     expect(r.json).toEqual(RECORD);
     expect(r.calls[0]).toBe(`pr comment 12 --body-file ${body}`);
+  });
+});
+
+function filesUnder(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .map((p) => join(dir, p))
+    .filter((p) => statSync(p).isFile());
+}
+
+describe("no template calls gh directly", () => {
+  it("mentions `gh pr` only in the GitHub backend", () => {
+    const offenders = filesUnder(join(ROOT, "templates"))
+      .filter((p) => !p.endsWith("templates/scripts/backends/github.sh"))
+      .filter((p) => readFileSync(p, "utf8").includes("gh pr"));
+    expect(offenders).toEqual([]);
   });
 });

@@ -87,13 +87,14 @@ No second review. The fixer's commits ship as they are.
 
 ```bash
 git push -u origin "<branch>"
-gh pr create --base "<parent>" --head "<branch>" --title "Slice <N>: <plan title>" --body-file <tmp>
+scripts/hitl/pr.sh create --base "<parent>" --head "<branch>" --title "Slice <N>: <plan title>" --body-file <tmp>
 ```
 
-If that refuses because a pull request for this branch already exists — the state a resumed
-`branched` slice is left in by a run that crashed after pushing — take the existing number,
-put the body on it with `gh pr edit --body-file <tmp>`, and carry on. Any other failure is a
-**STOP**.
+The shim prints the PR's record as JSON; `<number>` is its `number`. Exit `3` means a pull
+request for this branch already exists — the state a resumed `branched` slice is left in by a
+run that crashed after pushing — and the record on stdout is that PR's: take its `number`,
+put the body on it with `scripts/hitl/pr.sh edit <number> --body-file <tmp>`, and carry on.
+Any other non-zero exit is a **STOP**.
 
 Body (write it in the register of explaining to a newcomer; no file, function or test names
 outside the `Plan:` line):
@@ -139,7 +140,8 @@ For each `### Slice <N>` section under `## Fix-up`, in order:
    `origin/` prefix the stack row's parent gets, so anything you pass must already resolve as
    written. The § 1c "no review" and "wrong gate" stops apply here too. Fixer on APPLY rows
    as in 1d.
-3. Push (fast-forward). Append the Review decisions to the PR with `gh pr comment`.
+3. Push (fast-forward). Append the Review decisions to the PR with
+   `scripts/hitl/pr.sh comment <number> --body-file <tmp>`.
 Then follow `### Restack order`: for each `<B> onto <A> (old parent tip: <sha>)`,
 `git checkout <B> && git rebase --onto <A> <sha>` — the sha is recorded in the handover's
 Fix-up section by the handover agent, never recomputed here. Before ANY force-push, stop
