@@ -72,6 +72,7 @@ it targeted.
   reaches STOP SHIP and never blocks: slices merge into a feature branch that is reviewed
   again as a whole before reaching the default branch.
 
+<!-- hitl:knob severities -->
 Severity: 🔴 blocker (stop the merge) · 🟠 major (fix before merge) · 🟡 minor.
 
 ## Output — write ONLY this Markdown to the output path in your brief
@@ -107,6 +108,7 @@ Change: <concrete, actionable fix>.
 - `path:line` — <one line per minor>
 ````
 
+<!-- hitl:knob reporting-cap -->
 **Reporting cap.** Every blocker; at most five majors in the table, most important first;
 minors only in "Also noticed". DEFERRED is the exception at any severity: it always gets a
 table row and a detail block, so the owning slice and the executability note survive. No

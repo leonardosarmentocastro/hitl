@@ -149,7 +149,7 @@ export function composeHitl(pluginRoot, testing) {
   const fragments = chosen.map((t) =>
     readFileSync(join(pluginRoot, `templates/testing/${t}.md`), "utf8").trimEnd(),
   );
-  return `${core.trimEnd()}\n\n## Testing and gates\n\n${fragments.join("\n\n")}\n`;
+  return `${core.trimEnd()}\n\n<!-- hitl:knob testing-rules -->\n## Testing and gates\n\n${fragments.join("\n\n")}\n`;
 }
 
 /** Every owned file rendered for the choices: repoPath -> { content, executable }. */
@@ -223,12 +223,13 @@ export const NO_GATES_LINE =
 
 /** The AGENTS.md block: local gates, plus the pilots list when effective-date is chosen. */
 export function agentsBlock(gates, testing = []) {
-  const lines = ["## Local gates", ""];
+  const lines = ["<!-- hitl:knob local-gates -->", "## Local gates", ""];
   if (gates.length === 0) lines.push(NO_GATES_LINE);
   else for (const g of gates) lines.push(`- \`${g}\``);
   if (testing.includes("effective-date")) {
     lines.push(
       "",
+      "<!-- hitl:knob effective-date-pilots -->",
       "## Effective-date pilots",
       "",
       "- (none yet — name the area a new rule applies to first, one per line)",
@@ -281,3 +282,19 @@ export function foreignFiles(repoRoot, choices) {
   }
   return out.sort();
 }
+
+/** The knobs /hitl:customize offers. Each has one or more `<!-- hitl:knob <id> -->` anchors. */
+export const KNOBS = [
+  "review-rounds",
+  "severities",
+  "reporting-cap",
+  "file-tripwire",
+  "small-lane",
+  "effective-date-pilots",
+  "local-gates",
+  "pr-body-sections",
+  "scare-anchors",
+  "testing-rules",
+];
+/** Anchors emitted by code (agentsBlock, composeHitl) rather than present in a template file. */
+export const GENERATED_KNOBS = ["local-gates", "effective-date-pilots", "testing-rules"];

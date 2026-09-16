@@ -7,11 +7,13 @@ and commands under `.claude/` read by name.
 
 ## Delivery chain
 
+<!-- hitl:knob small-lane -->
 Every feature and behaviour change in this repository runs the chain below. There is no
 smaller lane: "bounded", "one field", "obvious" and "trivial" are descriptions of the
 artefacts' *size*, never grounds to skip a gate. The brainstorming skill's bounded path is
 not available here.
 
+<!-- hitl:knob review-rounds -->
 ```dot
 digraph chain {
     "Brainstorm" -> "Spec committed" -> "/review-spec (≤2 rounds; you triage; human answers YOUR CALL)";
@@ -35,6 +37,7 @@ digraph chain {
   (`/review-slice`) decide every code-level finding and record declines in the PR body
   under `## Review decisions`, in plain words about what a user or the data would
   experience — never code vocabulary.
+<!-- hitl:knob review-rounds -->
 - **Rounds.** One is too few, two is good, three is too many. Round 2 runs only if triage
   changed the artefact. Never a third.
 
@@ -160,9 +163,13 @@ run time) · `docs/superpowers/` (transient specs, plans, handover).
 Three cold reviewers, all Claude subagents under `.claude/agents/`, all reporting in one
 taxonomy of six types — MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED —
 plus DEFERRED, which only the slice reviewer may use (a spec or plan review has no stack
-table to defer against). All three carry three severities and a reporting cap (every
-blocker, at most five majors, minors listed one line each):
+table to defer against).
 
+<!-- hitl:knob reporting-cap -->
+All three carry three severities and a reporting cap (every blocker, at most five majors,
+minors listed one line each):
+
+<!-- hitl:knob review-rounds -->
 - `/review-spec` — the umbrella spec, at most two rounds; the human answers YOUR CALL
   findings one at a time.
 - `/review-plan` — every slice plan of the feature as one batch against the spec, at most
@@ -172,6 +179,7 @@ blocker, at most five majors, minors listed one line each):
   stack table; run once per slice by `/implement-stack` before the PR opens. A gap a later
   slice owns is DEFERRED and is never fixed in the current slice.
 
+<!-- hitl:knob review-rounds -->
 Round 2 runs only if triage changed the artefact. Never a third round: one is too few, two
 is good, three is too many. The reviewer's verdict is not a convergence signal; triage is.
 Review output is gitignored under `.claude/reviews/`; repo-specific reviewer context lives
@@ -186,15 +194,15 @@ in `.claude/review-context.md`.
 
   Omit only when there is genuinely no plan (e.g. this convention's own bootstrap
   PR); the reviewer then falls back to searching `docs/superpowers/plans/`.
+<!-- hitl:knob pr-body-sections -->
 - Every PR body answers, briefly and in plain words (explain it as you would to an
-  intern):
+  intern), concise and realistic — do not invent rationale to fill space; if a section
+  has nothing meaningful to say (e.g. a trivial change), one honest line is fine:
   - **What** — what this change is.
   - **Why** — why it is needed.
   - **How** — the approach taken, and why this one over an alternative *if* a real
     choice was made.
-
-  Keep it concise and realistic. Do not invent rationale to fill space — if a section
-  has nothing meaningful to say (e.g. a trivial change), one honest line is fine.
+<!-- hitl:knob pr-body-sections -->
 - A PR opened by `/implement-stack` also carries `## Review decisions`: every declined or
   deferred review finding in plain words — the concern as a user or the data would
   experience it, the decision, the reason — never file, function or test names. A human
@@ -215,6 +223,7 @@ in `.claude/review-context.md`.
 - Write **one umbrella spec** (whole design + a "Delivery slices" section), then
   **one implementation plan per slice**. Multiplying specs is overkill — the
   per-slice plan is the lever on PR size.
+<!-- hitl:knob file-tripwire -->
 - Each slice is one PR, sized by **capability**, not by file count. **~20 files
   including the spec/plan docs and tests is a tripwire, not a cap**: crossing it
   means stopping to write a one-line justification in the plan's Global
@@ -225,3 +234,19 @@ in `.claude/review-context.md`.
   them pushes past the tripwire, cross it and say why.
 - Keep intermediate slices non-breaking where cheap (additive change now + a later
   cleanup slice) so the app stays green between merges.
+
+## Load-bearing invariants
+
+A script or a command parses each of these by name. `/hitl:customize` refuses them; change
+one together with its parser, by PR.
+
+- The `**Reviewed:**` header line of a spec or plan — the Stop hook and the review commands.
+- The `**Owns:**` header line of a slice plan — the handover agent and the slice reviewer.
+- The `Plan:` line of a PR body — the slice reviewer.
+- The spec and plan filename patterns `<YYYY-MM-DD>-<topic>-design.md` and
+  `<YYYY-MM-DD>-<feature>-slice-<N>-<label>.md` — the review commands, the handover agent.
+- The stack-table columns `slice | plan | branch | parent | status | owns` —
+  `/implement-stack` and the slice reviewer.
+- The seven finding-type names MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED · DEFERRED —
+  every review command's triage.
+- The `docs/superpowers/` path — the Stop hook, the wipe script, every command.

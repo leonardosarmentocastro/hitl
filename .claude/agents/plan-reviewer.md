@@ -50,7 +50,7 @@ existing repository before asserting it is wrong. Few and targeted; cite what yo
   stated; a "similar to Task N" that hides the content.
 - **CONFLICTS** — a plan asserting something the spec does not, or contradicting it; two plans
   disagreeing about a shared name, signature or file; a plan contradicting the standards
-  (including a plan that crosses the ~20-file tripwire with no justification line in its
+  (including a plan that crosses the standards' file-count tripwire with no justification line in its
   Global Constraints — that is 🟡).
 - **BREAKS** — a plan step not traceable to the spec (scope creep); a change to an existing
   behaviour the spec did not ask for.
@@ -64,6 +64,7 @@ existing repository before asserting it is wrong. Few and targeted; cite what yo
   later one. Slices are sized by capability; never recommend splitting for width.
 - **DEFERRED** — do not use at plan review; ordering problems are MIS-SLICED here.
 
+<!-- hitl:knob severities -->
 Severity: 🔴 blocker · 🟠 major · 🟡 minor.
 
 ## Output — write ONLY this Markdown to the output path in your brief
@@ -99,6 +100,7 @@ Change: <concrete edit>.
 - <plan filename> §<task> — <one line per minor>
 ```
 
+<!-- hitl:knob reporting-cap -->
 **Reporting cap.** Every blocker; at most five majors in the table, most important first;
 every minor only in "Also noticed". No findings at all → `_No findings._` under the verdict
 row, the `## Also noticed` heading with a single `- none` line, and stop.

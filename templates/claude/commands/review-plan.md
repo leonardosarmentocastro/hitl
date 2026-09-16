@@ -1,5 +1,5 @@
 ---
-description: Review ALL slice plans of the current feature as one batch with a cold plan-reviewer subagent, then triage with the human. Bubble-up spec gaps to the spec. At most two rounds.
+description: Review ALL slice plans of the current feature as one batch with a cold plan-reviewer subagent, then triage with the human. Bubble-up spec gaps to the spec.
 ---
 
 Run the plan review loop for the current feature's slice plans.
@@ -21,6 +21,7 @@ PLANS=$(ls docs/superpowers/plans/*-"$FEATURE"-slice-*.md | sed -E 's/.*-slice-(
 SPECS=$(ls docs/superpowers/specs/*-design.md)   # every spec on the branch is the umbrella set: a resume round adds its own
 ```
 
+<!-- hitl:knob review-rounds -->
 Count `**Reviewed:** round N` entries in the FIRST plan's header, ignoring any marked
 `failed` — a failed attempt does not consume a round, so a rerun carries the same round
 number. The next round is N+1. If N is 2, stop: "two rounds have run; no third round" →
@@ -78,8 +79,10 @@ Apply every APPLY and answered YOUR CALL. Record declines in each affected plan'
 git add docs/superpowers && git commit -m "docs(plan): fold in plan review round <N+1>"
 ```
 
-## 5. Round rule — one is too few, two is good, three is too many
+## 5. Round rule
 
+<!-- hitl:knob review-rounds -->
+One is too few, two is good, three is too many:
 - Round 1 AND at least one PLAN file changed in step 4 → step 1 for round 2. A round that
   changed only the spec (bubble-up) does not count as a plan change.
 - Round 1 and no plan changed → stop.
