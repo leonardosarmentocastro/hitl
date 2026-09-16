@@ -1,0 +1,9 @@
+{
+  "name": "hitl",
+  "description": "Installs a human-in-the-loop delivery workflow (spec, plan and slice reviews, stacked slice PRs, a Stop hook) into a repository, which then owns it.",
+  "version": "0.1.0",
+  "author": { "name": "Leonardo Sarmento de Castro" },
+  "repository": "https://github.com/leonardosarmentocastro/hitl",
+  "license": "MIT",
+  "keywords": ["workflow", "review", "tdd", "human-in-the-loop"]
+}

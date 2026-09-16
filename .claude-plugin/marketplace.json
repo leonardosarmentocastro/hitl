@@ -1,0 +1,14 @@
+{
+  "name": "hitl",
+  "description": "Marketplace for the hitl plugin",
+  "owner": { "name": "Leonardo Sarmento de Castro" },
+  "plugins": [
+    {
+      "name": "hitl",
+      "description": "Installs a human-in-the-loop delivery workflow into a repository, which then owns it.",
+      "version": "0.1.0",
+      "source": "./",
+      "author": { "name": "Leonardo Sarmento de Castro" }
+    }
+  ]
+}
