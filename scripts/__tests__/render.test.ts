@@ -300,7 +300,7 @@ describe("render.mjs and AGENTS.md", () => {
     const text = readFileSync(join(repo, "AGENTS.md"), "utf8");
     expect(text.startsWith(`# ${repo.split("/").pop()} — agent working agreements\n`)).toBe(true);
     expect(text).toContain(
-      "<!-- hitl:start -->\n## Local gates\n\n- `pnpm test`\n- `pnpm lint`\n<!-- hitl:end -->\n",
+      "<!-- hitl:start -->\n<!-- hitl:knob local-gates -->\n## Local gates\n\n- `pnpm test`\n- `pnpm lint`\n<!-- hitl:end -->\n",
     );
     expect(r.json.appended).toContain("AGENTS.md");
     expect(r.json.wrote).not.toContain("AGENTS.md");

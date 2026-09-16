@@ -74,4 +74,27 @@ describe("knob anchors", () => {
       "MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED · DEFERRED",
     );
   });
+  it("agentsBlock carries the local-gates and effective-date-pilots anchors", async () => {
+    const { agentsBlock } = await import("../../installer/lib.mjs");
+    const block = agentsBlock(["pnpm test"]);
+    expect(block).toMatch(/^<!-- hitl:knob local-gates -->\n## Local gates\n/);
+    expect(block).not.toContain("hitl:knob effective-date-pilots");
+    const withPilots = agentsBlock(["pnpm test"], ["effective-date"]);
+    expect(withPilots).toContain(
+      "<!-- hitl:knob effective-date-pilots -->\n## Effective-date pilots\n\n- (none yet",
+    );
+  });
+
+  it("composeHitl carries the testing-rules anchor above the Testing and gates heading", async () => {
+    const { composeHitl } = await import("../../installer/lib.mjs");
+    const text = composeHitl(ROOT, ["e2e"]);
+    expect(text).toContain("<!-- hitl:knob testing-rules -->\n## Testing and gates\n");
+    expect(composeHitl(ROOT, [])).not.toContain("hitl:knob testing-rules");
+  });
+
+  it("this repository's AGENTS.md carries the local-gates anchor (no pilots: testing is empty here)", () => {
+    const text = readFileSync(join(ROOT, "AGENTS.md"), "utf8");
+    expect(text).toContain("<!-- hitl:knob local-gates -->\n## Local gates");
+    expect(text).not.toContain("hitl:knob effective-date-pilots");
+  });
 });

@@ -11,6 +11,7 @@ a Claude Code plugin that installs that workflow into other repositories.
 - Bootstrapped on 2026-09-15 as an ejected copy of `treasury-2`'s `.claude/` tooling.
 
 <!-- hitl:start -->
+<!-- hitl:knob local-gates -->
 ## Local gates
 
 - `pnpm test`
