@@ -934,3 +934,12 @@ Expected: both green (the drift test still passes: no owned template changed).
 git add commands/init.md
 git commit -m "feat(commands): /hitl:init discovers the tree and interviews per finding"
 ```
+
+## Review decisions
+
+Implementer clarifications (no acceptance criterion changed):
+
+- **Task 1, `render.mjs`.** The replacement snippet for the start of `run` omitted slice 1's `unknown-ci` refusal. It is kept, right after the answers are read and before the manifest check, so the existing refusal test stays green and the exit contract is unchanged (Global Constraints). Check mode uses `DEFAULT_CHOICES`, whose `ci` is valid.
+- **Task 2, fixture `scripts/package.json`.** Written with the plan's one-line content, then expanded by Prettier so `pnpm format:check` stays green; the JSON value is identical.
+- **Task 6, `commands/init.md`.** Slice 1's exit-2 guidance (init is not transactional: which files to remove, which appended files and hook to leave) and the `foreign` line in the report are kept rather than collapsed into "print verbatim"; `render.mjs` still returns both. One line added: a "no" to the wipe-job question sets `ci = "none"`, so the answers always carry a valid `ci`.
+- **Task 6, Step 2 dry run.** The prompt was not run as an installed plugin; `render.mjs --mode check`, `discover.mjs` and `render.mjs` were run by hand on the described tree with answers `ci: github-actions`, `testing: [ci, tiers, effective-date]`, `gates: [pnpm test, pnpm lint]`. The check passed, the report matched the expected findings, `HITL.md` ended with the chosen fragments, `AGENTS.md` carried the gates and pilots block, and the manifest recorded `ci` and `testing` without `gates`.
