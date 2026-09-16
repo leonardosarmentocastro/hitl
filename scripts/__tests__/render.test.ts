@@ -183,6 +183,19 @@ describe("render.mjs refusals", () => {
     }
   });
 
+  it("refuses an unknown ci value before writing anything", () => {
+    const repo = tempRepo();
+    const before = tree(repo);
+    const r = render(repo, { ...ANSWERS, ci: "github" });
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({
+      refused: "unknown-ci",
+      ci: "github",
+      allowed: ["github-actions", "none"],
+    });
+    expect(tree(repo)).toEqual(before);
+  });
+
   it("refuses an unparsable settings.json before writing anything", () => {
     const repo = tempRepo({ ".claude/settings.json": "{ not json" });
     const before = tree(repo);

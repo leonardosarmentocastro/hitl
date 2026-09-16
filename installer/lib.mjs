@@ -6,6 +6,8 @@ import { join } from "node:path";
 export const TESTING_ORDER = ["e2e", "tiers", "ci", "hooks", "effective-date"];
 export const OWNED_DIRS = ["scripts/hitl", ".claude/fixtures"];
 export const MANIFEST_PATH = ".claude/hitl.json";
+/** The `ci` values the installer supports; any other value is refused before a write. */
+export const CI_CHOICES = ["github-actions", "none"];
 
 const AGENTS = [
   "spec-reviewer",

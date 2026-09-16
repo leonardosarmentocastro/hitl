@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// /hitl:init's writer. Refuses before its first write (manifest present, collision, bad
-// settings.json); otherwise writes every owned file, the appended blocks, the merged hook
-// and the manifest, and prints one JSON report. Exit: 0 ok · 1 usage · 2 error · 3 refused.
+// /hitl:init's writer. Refuses before its first write (unknown ci, manifest present,
+// collision, bad settings.json); otherwise writes every owned file, the appended blocks, the
+// merged hook and the manifest, and prints one JSON report. Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  CI_CHOICES,
   MANIFEST_PATH,
   collisions,
   foreignFiles,
@@ -47,6 +48,8 @@ export function run(args) {
     return { code: 1, out: { error: "usage: --repo <dir> --plugin-root <dir> --answers <file>" } };
   const choices = JSON.parse(readFileSync(answersPath, "utf8"));
   const version = pluginVersion(pluginRoot);
+  if (!CI_CHOICES.includes(choices.ci))
+    return { code: 3, out: { refused: "unknown-ci", ci: choices.ci, allowed: CI_CHOICES } };
 
   const manifest = readManifest(repo);
   if (manifest) return { code: 3, out: { refused: "manifest-present", version: manifest.version } };

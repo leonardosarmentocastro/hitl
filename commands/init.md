@@ -50,6 +50,8 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "$
 
 Read the JSON it prints and act on the exit code:
 
+- `3` with `refused: "unknown-ci"` → say "`--ci` must be one of <allowed>; nothing was
+  written." Stop.
 - `3` with `refused: "manifest-present"` → say "hitl is already initialised at <version>;
   run `/hitl:diff` to see what changed upstream." Stop.
 - `3` with `refused: "collision"` → list every path, then: "These files are owned by hitl and
