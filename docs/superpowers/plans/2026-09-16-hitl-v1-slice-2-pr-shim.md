@@ -770,3 +770,9 @@ git add .claude/commands/implement-stack.md .claude/commands/umbrella-pr.md .cla
         scripts/__tests__/pr-shim.test.ts
 git commit -m "feat(commands): implement-stack, umbrella-pr and handover call the PR shim"
 ```
+
+## Review decisions
+
+- Task 1, Step 1 (implementer, 2026-09-16): the fake `gh` logs each call on one line, turning newlines inside an argument into spaces. The backend's `--jq` expressions span several lines, so logging `$*` verbatim split one `pr view` call across six log lines and failed the "one call" assertion. No acceptance criterion or backend byte changed.
+- Task 1, Step 2 / Task 4, Step 1 (implementer, 2026-09-16): the `readdirSync` and `statSync` imports Task 4 appends were merged into the file's top `node:fs` import rather than added as a second import mid-file; the test file is Prettier-formatted so `pnpm format:check` stays green.
+- Task 4, Step 7 (implementer, 2026-09-16): the implementer runs as a subagent and cannot invoke `/umbrella-pr`, so the dry run was walked by hand: a scratch copy of the fixtures with a hand-written handover, `scripts/hitl/pr.sh list --head-prefix "feat/spec-fixture-slice-"` against the fake `gh` (exit 0, one JSON array of #12 open and #13 merged, `gh` called once with `--state all --json … --jq`), scratch deleted after. Running the command itself is left to the orchestrator or the human.
