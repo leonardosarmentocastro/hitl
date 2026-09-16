@@ -2,7 +2,7 @@ name: Wipe superpowers docs
 
 # Specs and plans are transient per-feature artifacts. They ride into main with the
 # feature merge; this removes them from main's working tree immediately after.
-# History still contains them — that is accepted (see the spec's §Goal).
+# History still contains them — that is accepted.
 on:
   push:
     branches: [main]
