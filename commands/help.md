@@ -16,14 +16,15 @@ Say the matching thing for `state`, then always end with the prerequisites.
   `/hitl:init`; it lists what collides."
 - `behind` → "Installed hitl <manifestVersion>; the plugin is <pluginVersion>. Run
   `/hitl:diff` to see what changed, `/hitl:diff --apply` to open the upgrade PR."
-  Add "<locallyEdited> owned file(s) differ from the record" when the count is not 0.
+  Add "<locallyEdited> owned file(s) differ from the record" when the count is not 0, and
+  "<missing> owned file(s) are missing" when that count is not 0.
 - `ahead` → "The manifest records hitl <manifestVersion>, newer than the plugin
   (<pluginVersion>). Update the plugin: `claude plugin marketplace update hitl` then
   `claude plugin update hitl`."
 - `up to date` → print, in this order:
 
   ```
-  hitl <pluginVersion> — up to date. <locallyEdited> owned file(s) locally edited.
+  hitl <pluginVersion> — up to date. <locallyEdited> owned file(s) locally edited, <missing> missing.
 
   The chain:
     1. brainstorm → spec committed → /review-spec (≤2 rounds) → human approves

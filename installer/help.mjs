@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // /hitl:help's reader. Says where an install stands — one of six states that partition every
-// tree — plus how many owned files differ from the manifest and which prerequisites are
+// tree — plus how many owned files differ from the manifest or are missing and which prerequisites are
 // present. Reads only. Exit: 0 ok · 1 usage.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -47,11 +47,14 @@ export function run(args) {
   const state = installState(repo, manifest, plugin);
 
   let locallyEdited = null;
+  let missing = null;
   if (manifest) {
     locallyEdited = 0;
+    missing = 0;
     for (const [path, hash] of Object.entries(manifest.files)) {
       const abs = join(repo, path);
-      if (!existsSync(abs) || sha256(readFileSync(abs, "utf8")) !== hash) locallyEdited += 1;
+      if (!existsSync(abs)) missing += 1;
+      else if (sha256(readFileSync(abs, "utf8")) !== hash) locallyEdited += 1;
     }
   }
 
@@ -71,6 +74,7 @@ export function run(args) {
       manifestVersion: manifest ? manifest.version : null,
       pluginVersion: plugin,
       locallyEdited,
+      missing,
       prerequisites,
     },
   };

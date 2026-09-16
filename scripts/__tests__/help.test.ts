@@ -1,6 +1,6 @@
 // scripts/__tests__/help.test.ts
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -85,6 +85,16 @@ describe("help.mjs states", () => {
     expect(help(repo).json.locallyEdited).toBe(0);
     appendFileSync(join(repo, ".claude/agents/fixer.md"), "\nours\n");
     expect(help(repo).json.locallyEdited).toBe(1);
+  });
+
+  it("counts a deleted owned file as missing, never as locally edited", () => {
+    const repo = installed();
+    expect(help(repo).json.missing).toBe(0);
+    rmSync(join(repo, ".claude/agents/handover.md"));
+    const json = help(repo).json;
+    expect(json.locallyEdited).toBe(0);
+    expect(json.missing).toBe(1);
+    expect(help(tempDir()).json.missing).toBeNull();
   });
 });
 
