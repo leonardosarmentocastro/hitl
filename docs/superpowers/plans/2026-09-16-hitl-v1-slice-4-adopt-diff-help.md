@@ -4,9 +4,11 @@
 
 **Owns:** `--adopt` and `adopt.mjs`; `diff.mjs` and `/hitl:diff` with `--apply`; `help.mjs` and `/hitl:help`.
 
+**Reviewed:** round 1 (2026-09-16).
+
 **Goal:** an installed repository can be stamped after the fact (`--adopt`), can see and apply what changed upstream since its recorded version with a three-way merge (`/hitl:diff`), and can ask where it stands (`/hitl:help`).
 
-**Architecture:** three more Node scripts over `installer/lib.mjs`. `adopt.mjs` writes only the manifest, with the hashes of the templates as rendered, never of the repository's files. `diff.mjs` holds three versions per owned file — the render at the recorded version (the plugin root when versions match, else a read-only `git archive` snapshot of the marketplace clone at tag `v<recorded>`), the repository's file, and the render at the plugin's version — and classifies each into exactly one of eight states by hash, running `git merge-file` only for the one state that needs content; `--apply` writes files and the manifest and nothing else. `help.mjs` reads the tree and the manifest into one of six states that partition every tree. The prompts do every git step that changes state (branch, commit, push, PR through the shim).
+**Architecture:** three more Node scripts over `installer/lib.mjs`. `adopt.mjs` writes only the manifest, with the hashes of the templates as rendered, never of the repository's files. `diff.mjs` holds three versions per owned file — the render at the recorded version (the plugin root when versions match, else a read-only `git archive` snapshot of the marketplace clone at tag `v<recorded>`), the repository's file, and the render at the plugin's version — and classifies each into exactly one of eight states by hash, running `git merge-file` only for the one state that needs content; `--apply` writes files and the manifest and nothing else. The recorded render deliberately uses the tagged version's own `installer/lib.mjs` on that snapshot, not the spec's literal `git show v<recorded>:templates/…`, so the composition rules travel with the tag; the consequence is that every release tag must carry `installer/` and `.claude-plugin/` beside `templates/`, which a tag of this repository always does. `help.mjs` reads the tree and the manifest into one of six states that partition every tree. The prompts do every git step that changes state (branch, commit, push, PR through the shim).
 
 **Tech Stack:** Node 24 ESM, zero dependencies (targets Node 20+), `git archive`, `git merge-file`, `tar`, vitest.
 
@@ -931,10 +933,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { emit, parseArgs } from "./lib.mjs";
-import { collisions, pluginVersion, readManifest, sha256 } from "./lib.mjs";
+import { collisions, compareVersions, pluginVersion, readManifest, sha256 } from "./lib.mjs";
 
 const USAGE = "usage: --repo <dir> --plugin-root <dir> [--home <dir>]";
+```
 
+`compareVersions` lives in `installer/lib.mjs` (slice 5's `customize-testing.mjs` imports it
+too); add it there, exported:
+
+```js
+/** Compare two dotted versions numerically: -1, 0 or 1. */
 export function compareVersions(a, b) {
   const pa = a.split(".").map(Number);
   const pb = b.split(".").map(Number);
@@ -945,7 +953,12 @@ export function compareVersions(a, b) {
   }
   return 0;
 }
+```
 
+Back in `installer/help.mjs`, after the `USAGE` line (and add `installer/lib.mjs` to this
+task's Files as Modify):
+
+```js
 function probe(cmd, args) {
   const r = spawnSync(cmd, args, { encoding: "utf8" });
   return r.status === 0;
@@ -989,7 +1002,7 @@ export function run(args) {
   }
 
   const prerequisites = {
-    node: true,
+    node: Number(process.versions.node.split(".")[0]) >= 20,
     git: probe("git", ["--version"]),
     gh: probe("gh", ["auth", "status"]),
     superpowers:
@@ -1045,7 +1058,10 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 3 onward:
 2. Manifest present → "hitl is already initialised at <version>; run `/hitl:diff`." Stop.
 3. Host only: `node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"`. A `host`
    other than `github` → "no backend for <host> in v1". Stop.
-4. Ask exactly two things, one at a time, each with a recommendation:
+4. Before asking anything, run `help.mjs` (`--repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}"`).
+   State `not installed` → "nothing to adopt: no hitl-owned file exists. Run `/hitl:init`."
+   Stop. Any other state without a manifest → continue. Then ask exactly two things, one at
+   a time, each with a recommendation:
    - `ci`: "Is the wipe workflow (`.github/workflows/wipe-superpowers-docs.yml`) part of this
      repository?" → `github-actions` or `none` (recommend what the tree shows).
    - `testing`: "Which of the testing rules does this repository's `HITL.md` carry under
@@ -1059,7 +1075,8 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 3 onward:
    ```
 
    - exit `3`, `refused: "nothing-to-adopt"` → "nothing to adopt: no hitl-owned file exists.
-     Run `/hitl:init`." Stop.
+     Run `/hitl:init`." Stop. (Unreachable after step 4's check; kept as the script's own
+     guard.)
    - exit `3`, `refused: "manifest-present"` → as step 2. Stop.
    - exit `0` → report: "manifest written to `.claude/hitl.json` at hitl <version>. It records
      the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
@@ -1110,7 +1127,9 @@ Otherwise, in this order — every file is written before the shim is called, be
 FROM=$(git branch --show-current)
 git checkout -q -b "chore/hitl-<recorded>-to-<latest>"
 node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --marketplace "$MK" --apply
-git add -A
+# Stage only what the upgrade touched: every path in the report's `files`, the manifest and
+# the README block. Never `git add -A`: an unrelated dirty file must not ride in.
+git add .claude/hitl.json README.md <every path listed in the report's files, deleted ones with `git rm`>
 git commit -q -m "chore(hitl): <recorded> → <latest>"
 git push -u origin "chore/hitl-<recorded>-to-<latest>"
 scripts/hitl/pr.sh create --base "$FROM" --head "chore/hitl-<recorded>-to-<latest>" --title "hitl <recorded> → <latest>" --body-file <tmp>

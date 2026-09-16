@@ -164,12 +164,14 @@ is the command's, so the human sees them as ordinary shell steps.
 | `adopt.mjs` | the repository root, the answers | writes only the manifest |
 | `diff.mjs` | the repository root, the marketplace clone path, `--apply` | the per-file state table; with `--apply`, writes the results |
 | `help.mjs` | the repository root | the install state and the prerequisite check |
+| `customize-testing.mjs` | the repository root, the new `testing` and `ci` | re-composes `HITL.md`, adds or removes the workflow, updates the manifest (the `testing-rules` knob) |
 
 Shared code (template composition, hashing, manifest IO, the owned-file list) lives in one
-module the five import. The owned-file list is defined once, there, as a pure function of the
+module the six import. The owned-file list is defined once, there, as a pure function of the
 choices: the wipe workflow is owned only when `ci` is `github-actions`; under
-`.claude/fixtures/` only the fixture files hitl ships are owned, so a repository's own
-fixtures beside them are neither collisions nor drift. `diff.mjs` computes the list from the
+`.claude/fixtures/` only the fixture files hitl ships are owned. At init the whole
+`.claude/fixtures/` directory collides (step 3), so the question of foreign files there only
+arises after install, where they are not drift: `/hitl:diff` looks only at owned paths. `diff.mjs` computes the list from the
 manifest's choices, so a repository that declined the wipe job never sees the workflow as
 `missing locally`.
 
@@ -406,7 +408,12 @@ adds or removes the wipe workflow file, and updates `testing` and `ci` in the ma
 the only case where customize writes the manifest; without that write `/hitl:diff` would
 report `HITL.md` as locally edited forever. The fragments are read from the plugin root, so
 the knob is exact only when the manifest version equals the plugin's: on a manifest that is
-behind it refuses with "run `/hitl:diff --apply` first".
+behind it refuses with "run `/hitl:diff --apply` first", and on one that is ahead with
+"update the plugin". It re-composes the whole of `HITL.md`, so it also refuses when the
+repository's `HITL.md` differs from its recorded render ("locally edited"): the human then
+adds or removes the fragment text by hand (the fragments are readable files under the
+plugin's `templates/testing/`) and records the choice with `customize-testing.mjs` once the
+file matches again.
 
 **Load-bearing invariants** are listed in a short `## Load-bearing invariants` section of
 `HITL.md` and refused by customize with "change it together with its parser, by PR": the
@@ -550,3 +557,10 @@ PR, merge, wipe fires); then `/hitl:init --adopt` on treasury-2 and a reading of
   file is merged, not owned, and a hook-entry change is rare enough for release notes.
 - *Forwarded to the plan gate:* in `/hitl:diff --apply`, write every file before calling the
   shim, since `scripts/hitl/pr.sh` may itself be among the files being applied.
+- **Bubbled up from plan review (round 1)** — `testing-rules` refuses on a locally edited
+  `HITL.md` and on a manifest ahead of the plugin; the spec said only "behind".
+- **Bubbled up from plan review (round 1)** — `.claude/fixtures/` collides as a directory at
+  init, and foreign files there are not drift afterwards; the two sentences read as a
+  contradiction and now say when each applies.
+- **Bubbled up from plan review (round 1)** — a sixth installer script,
+  `customize-testing.mjs`, backs the `testing-rules` knob; the table said five.

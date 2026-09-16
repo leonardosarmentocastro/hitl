@@ -4,6 +4,8 @@
 
 **Owns:** the knob anchors in every template and in this repository's copies; the knob table and the `## Load-bearing invariants` section in `HITL.md`; `commands/customize.md` and the `customize-testing.mjs` script behind its `testing-rules` knob; `--adopt` run on this repository and its manifest committed.
 
+**Reviewed:** round 1 (2026-09-16).
+
 **Goal:** `/hitl:customize` can tune every knob in the spec's table by editing anchored paragraphs, refuses every load-bearing invariant, and this repository ends the stack adopted, with a manifest whose diff is clean.
 
 **Architecture:** Each knob is an id with one or more anchors, HTML comments `<!-- hitl:knob <id> -->` on the line above the paragraph that states the rule, in the templates and therefore in this repository's copies (the drift test keeps them identical). The customize prompt edits only the block below an anchor and every anchor of the knob together. `testing-rules` is the one knob that works by whole files: a small script re-composes `HITL.md`, adds or removes the wipe workflow and updates the manifest, refusing when the manifest is behind or `HITL.md` was edited by hand. A vitest test cross-checks the knob list against the anchors found. The last task runs `adopt.mjs` on this repository and commits the manifest, the final exercise of the stack.
@@ -21,6 +23,7 @@
 - The seven finding-type names are invariants; severity definitions and the reporting cap are knobs.
 - `/hitl:customize` writes to the working tree and never commits. The only manifest write it makes is through `customize-testing.mjs`.
 - Owned-file count is unchanged by this slice; no new template file.
+- **Tripwire:** this slice touches about twenty-five files because every anchor lands in a template and in this repository's copy in the same commit; the drift test forbids splitting them, and an anchor set is one capability (customize can find every knob). Crossed knowingly.
 - The knob id list lives once, as `KNOBS` in `installer/lib.mjs`; the human-readable table lives in `commands/customize.md`.
 - Interfaces assumed from earlier slices: `renderAll`, `composeHitl`, `THIS_REPO_CHOICES`, `manifestFor`, `readManifest`, `pluginVersion`, `sha256`, `TESTING_ORDER`, `MANIFEST_PATH`, `ownedFiles` (slice 1); `agentsBlock(gates: string[], testing: string[] = []): string` (slice 3, emits the `## Local gates` block passed to `withMarkerBlock`, plus `## Effective-date pilots` only when `testing` includes `effective-date`); `parseArgs(argv)` in `lib.mjs` (slice 3); `node installer/adopt.mjs --repo <dir> --plugin-root <dir> --answers <file>` writing `.claude/hitl.json` with template hashes (slice 4); `node installer/diff.mjs --repo <dir> --plugin-root <dir> --marketplace <dir>` printing `{ "files": [{ "path", "state" }] }` (slice 4).
 
@@ -457,6 +460,15 @@ describe("customize-testing.mjs", () => {
     expect(r.json).toEqual({ refused: "behind", recorded: "0.0.1", plugin: "0.1.0" });
   });
 
+  it("refuses when the manifest is ahead of the plugin (stale plugin cache)", () => {
+    const repo = installedRepo();
+    const m = manifestOf(repo);
+    writeFileSync(join(repo, ".claude/hitl.json"), JSON.stringify({ ...m, version: "9.9.9" }));
+    const r = customize(repo, "e2e", "none");
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "ahead", recorded: "9.9.9", plugin: "0.1.0" });
+  });
+
   it("keeps a locally edited workflow instead of deleting it", () => {
     const repo = installedRepo("github-actions", []);
     writeFileSync(join(repo, WORKFLOW), "name: mine\n");
@@ -494,6 +506,7 @@ import { dirname, join } from "node:path";
 import {
   MANIFEST_PATH,
   TESTING_ORDER,
+  compareVersions,
   composeHitl,
   manifestFor,
   parseArgs,
@@ -518,7 +531,10 @@ export function run(args) {
   const manifest = readManifest(repo);
   if (!manifest) return { code: 3, out: { refused: "no-manifest" } };
   const plugin = pluginVersion(pluginRoot);
-  if (manifest.version !== plugin) return { code: 3, out: { refused: "behind", recorded: manifest.version, plugin } };
+  if (manifest.version !== plugin) {
+    const refused = compareVersions(manifest.version, plugin) < 0 ? "behind" : "ahead";
+    return { code: 3, out: { refused, recorded: manifest.version, plugin } };
+  }
 
   const hitlPath = join(repo, "HITL.md");
   const current = existsSync(hitlPath) ? readFileSync(hitlPath, "utf8") : null;
@@ -656,6 +672,8 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plu
 
 - exit `3`, `refused: "behind"` → "the install is at <recorded> and the plugin at <plugin>;
   run `/hitl:diff --apply` first". Stop.
+- exit `3`, `refused: "ahead"` → "the install is at <recorded>, newer than the plugin at
+  <plugin>; update the plugin (`claude plugin marketplace update hitl`, then reinstall)". Stop.
 - exit `3`, `refused: "hitl-locally-edited"` → "`HITL.md` differs from its recorded render;
   this knob re-composes the whole file, so merge the fragments by hand: append or remove the
   fragment text from `${CLAUDE_PLUGIN_ROOT}/templates/testing/`, keep `## Testing and gates`
@@ -744,8 +762,28 @@ describe("this repository's manifest", () => {
       expect(manifest.files[path]).toBe(sha256(content));
     });
   }
+
+  // Acceptance criterion 6, as a test: diff.mjs on this repository, same version, reports
+  // every owned file unchanged except the repo-specific review context.
+  it("diff.mjs reports every file unchanged except review-context.md", () => {
+    const r = spawnSync(
+      "node",
+      [join(ROOT, "installer/diff.mjs"), "--repo", ROOT, "--plugin-root", ROOT, "--marketplace", ROOT],
+      { encoding: "utf8" },
+    );
+    expect(r.status, r.stderr).toBe(0);
+    const files: { path: string; state: string }[] = JSON.parse(r.stdout).files;
+    const byPath = Object.fromEntries(files.map((f) => [f.path, f.state]));
+    expect(byPath[".claude/review-context.md"]).toBe("locally edited");
+    for (const f of files) {
+      if (f.path === ".claude/review-context.md") continue;
+      expect(f.state, f.path).toBe("unchanged");
+    }
+  });
 });
 ```
+
+(add `import { spawnSync } from "node:child_process";` and `import { join } from "node:path";` at the top).
 
 - [ ] **Step 2: Run it to verify it fails**
 
@@ -765,9 +803,9 @@ Expected: exit 0 and a JSON report naming `.claude/hitl.json`. `git status` show
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `pnpm test -- scripts/__tests__/self-manifest.test.ts`
-Expected: PASS: 2 tests plus one per owned file (20).
+Expected: PASS: 3 tests plus one per owned file (22, after slice 2 added the shim and its backend).
 
-- [ ] **Step 5: Read this repository's own diff**
+- [ ] **Step 5: Read this repository's own diff by eye as well**
 
 ```bash
 node installer/diff.mjs --repo . --plugin-root . --marketplace .

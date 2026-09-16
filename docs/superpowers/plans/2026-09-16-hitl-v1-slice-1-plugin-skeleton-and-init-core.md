@@ -4,6 +4,8 @@
 
 **Owns:** the plugin manifests; `templates/` cut generically from `.claude/` with the slice-1 doctrine changes; the shared installer module and `render.mjs`; `/hitl:init` taking its answers from flags; the manifest with every field; the collision and manifest-present refusals; this repository's wipe script moved to `scripts/hitl/`; this repository's `AGENTS.md` naming `installer/` and `templates/` as tested code.
 
+**Reviewed:** round 1 (2026-09-16).
+
 **Goal:** `/hitl:init` renders the workflow into an empty GitHub repository from templates that this repository itself is proven to be a render of.
 
 **Architecture:** `templates/` holds finished files; `installer/lib.mjs` is the one module that knows which files are owned (a pure function of the choices), how `HITL.md` is composed, how to hash, and how to read and write the manifest; `installer/render.mjs` is a CLI over it that refuses before its first write and prints JSON. A drift test renders the templates with this repository's choices and asserts equality with the repository's own copies, so a template and its twin cannot diverge.
@@ -512,7 +514,7 @@ export function renderAll(pluginRoot, choices) {
 - [ ] **Step 6: Run the drift test and the whole suite**
 
 Run: `pnpm test`
-Expected: PASS. The drift test lists one `matches its template` test per owned file (18 after the exception) plus two executable checks and the workflow check. If any file fails, the two copies differ: fix the copy that is wrong, never the test.
+Expected: PASS. The drift test lists one `matches its template` test per owned file (19 after the exception: 20 owned files with `ci: github-actions`, minus `review-context.md`) plus two executable checks and the workflow check. If any file fails, the two copies differ: fix the copy that is wrong, never the test.
 
 - [ ] **Step 7: Commit**
 
@@ -793,19 +795,11 @@ export function run(args) {
   const choices = JSON.parse(readFileSync(answersPath, "utf8"));
   const version = pluginVersion(pluginRoot);
 
-  // Refusals, all before the first write.
-  const manifest = readManifest(repo);
-  if (manifest) return { code: 3, out: { refused: "manifest-present", version: manifest.version } };
-  const hits = collisions(repo, choices);
-  if (hits.length > 0) return { code: 3, out: { refused: "collision", paths: hits } };
+  // Task 5 adds the refusals here, before the first write: manifest present, collisions,
+  // unparsable settings. This task writes an empty repository only.
   const settingsPath = join(repo, ".claude/settings.json");
-  let settings;
-  try {
-    const hookEntry = JSON.parse(readFileSync(join(pluginRoot, "templates/claude/settings.hook.json"), "utf8"));
-    settings = mergeSettings(readIfPresent(settingsPath), hookEntry);
-  } catch (e) {
-    return { code: 3, out: { refused: "settings-unparsable", error: String(e.message) } };
-  }
+  const hookEntry = JSON.parse(readFileSync(join(pluginRoot, "templates/claude/settings.hook.json"), "utf8"));
+  const settings = mergeSettings(readIfPresent(settingsPath), hookEntry);
 
   // Writes.
   const rendered = renderAll(pluginRoot, choices);
@@ -852,15 +846,16 @@ git commit -m "feat(installer): render.mjs writes an install and its manifest"
 
 ---
 
-### Task 5: refusals — manifest present, collision, unparsable settings
+### Task 5: refusals (manifest present, collision, unparsable settings), foreign files, and the mid-write report
 
 **Files:**
 - Test: `scripts/__tests__/render.test.ts` (append a `describe`)
-- Modify: `installer/render.mjs` only if a test fails (the refusal branches already exist; this task proves them)
+- Modify: `installer/lib.mjs` (add `foreignFiles`)
+- Modify: `installer/render.mjs` (the three refusal branches before the first write; `foreign` in the report; the write loop's failure report)
 
 **Interfaces:**
-- Consumes: the CLI from Task 4.
-- Produces: the refusal contract slices 3 and 4 rely on: exit 3 with `{ refused: "manifest-present", version }`, `{ refused: "collision", paths }` or `{ refused: "settings-unparsable", error }`, and no file written.
+- Consumes: the CLI from Task 4; `collisions`, `readManifest`, `OWNED_DIRS`, `ownedFiles` from earlier tasks.
+- Produces: the refusal contract slices 3 and 4 rely on: exit 3 with `{ refused: "manifest-present", version }`, `{ refused: "collision", paths }` or `{ refused: "settings-unparsable", error }`, and no file written. The success report gains `foreign: string[]`, the repository's own files inside `.claude/agents/`, `.claude/commands/` and `.claude/hooks/` that hitl does not own and left alone. A failure while writing returns exit 2 with `{ error, wrote }`, `wrote` being the files written before it. `lib.mjs` gains `foreignFiles(repoRoot, choices): string[]`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -888,7 +883,9 @@ describe("render.mjs refusals", () => {
 
   it("refuses on an owned filename inside .claude/commands but not on a foreign one", () => {
     const foreign = tempRepo({ ".claude/commands/deploy.md": "mine\n" });
-    expect(render(foreign).status).toBe(0);
+    const ok = render(foreign);
+    expect(ok.status).toBe(0);
+    expect(ok.json.foreign).toEqual([".claude/commands/deploy.md"]);
     expect(readFileSync(join(foreign, ".claude/commands/deploy.md"), "utf8")).toBe("mine\n");
 
     const owned = tempRepo({ ".claude/commands/review-spec.md": "old\n" });
@@ -927,19 +924,120 @@ describe("render.mjs refusals", () => {
     expect(r.json.refused).toBe("settings-unparsable");
     expect(tree(repo)).toEqual(before);
   });
+
+  // Root ignores directory modes, so this cannot go red under root (some CI images).
+  it.skipIf(process.getuid?.() === 0)("reports the files written before a mid-write failure", () => {
+    const repo = tempRepo();
+    mkdirSync(join(repo, "scripts"));
+    chmodSync(join(repo, "scripts"), 0o555); // scripts/hitl/ cannot be created
+    const r = render(repo);
+    expect(r.status).toBe(2);
+    expect(r.json.error).toMatch(/EACCES|permission/i);
+    expect(r.json.wrote).toContain("HITL.md");
+    expect(r.json.wrote).not.toContain("scripts/hitl/wipe-superpowers-docs.sh");
+    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+    chmodSync(join(repo, "scripts"), 0o755);
+  });
 });
 ```
 
-- [ ] **Step 2: Run them**
+Add `chmodSync` to the `node:fs` import at the top of the file.
+
+- [ ] **Step 2: Run them to verify they fail**
 
 Run: `pnpm test -- scripts/__tests__/render.test.ts`
-Expected: PASS if Task 4's branches are correct. If a refusal test fails, fix `render.mjs` (the branch order is: manifest, collisions, settings, then writes) and re-run until green. Do not weaken a test.
+Expected: FAIL — the second run exits 0 and rewrites; the foreign test finds `json.foreign` undefined; every collision repo is rendered over (exit 0, `HITL.md` written); the unparsable settings run crashes with exit 1 and a `JSON.parse` stack on stderr (`json` null); the mid-write run exits 1 with a stack instead of the report.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Add the refusals, `foreignFiles` and the failure report**
+
+In `installer/lib.mjs`:
+
+```js
+/** The repository's own files inside the three shared .claude/ directories: not owned, left alone. */
+export function foreignFiles(repoRoot, choices) {
+  const owned = new Set(ownedFiles(choices).map((f) => f.repoPath));
+  const out = [];
+  for (const dir of [".claude/agents", ".claude/commands", ".claude/hooks"]) {
+    const abs = join(repoRoot, dir);
+    if (!existsSync(abs)) continue;
+    for (const name of readdirSync(abs)) {
+      const rel = `${dir}/${name}`;
+      if (!owned.has(rel)) out.push(rel);
+    }
+  }
+  return out.sort();
+}
+```
+
+(add `readdirSync` to the `node:fs` import). In `installer/render.mjs`, replace the two lines
+under the "Task 5 adds the refusals here" comment with the refusals, in this order, all before
+the first write:
+
+```js
+  const manifest = readManifest(repo);
+  if (manifest) return { code: 3, out: { refused: "manifest-present", version: manifest.version } };
+  const hits = collisions(repo, choices);
+  if (hits.length > 0) return { code: 3, out: { refused: "collision", paths: hits } };
+  const settingsPath = join(repo, ".claude/settings.json");
+  let settings;
+  try {
+    const hookEntry = JSON.parse(readFileSync(join(pluginRoot, "templates/claude/settings.hook.json"), "utf8"));
+    settings = mergeSettings(readIfPresent(settingsPath), hookEntry);
+  } catch (e) {
+    return { code: 3, out: { refused: "settings-unparsable", error: String(e.message) } };
+  }
+  const foreign = foreignFiles(repo, choices);
+```
+
+then wrap everything from the first write to the manifest write in one `try`, so a failure
+reports what landed:
+
+```js
+  const rendered = renderAll(pluginRoot, choices);
+  const wrote = [];
+  const appended = [];
+  const kept = [];
+  let manifestOut;
+  try {
+    for (const [rel, { content, executable }] of rendered) {
+      writeFile(repo, rel, content, executable);
+      wrote.push(rel);
+    }
+    const append = (rel, result) => {
+      if (result.changed) {
+        writeFile(repo, rel, result.text);
+        appended.push(rel);
+      } else kept.push(rel);
+    };
+    append("CLAUDE.md", withClaudeLine(readIfPresent(join(repo, "CLAUDE.md"))));
+    append("README.md", withMarkerBlock(readIfPresent(join(repo, "README.md")), readmeBlock(version)));
+    append(".gitignore", withMarkerBlock(readIfPresent(join(repo, ".gitignore")), gitignoreBlock()));
+    writeFile(repo, ".claude/settings.json", settings.text);
+    manifestOut = manifestFor(version, choices, rendered);
+    writeFile(repo, MANIFEST_PATH, `${JSON.stringify(manifestOut, null, 2)}\n`);
+  } catch (e) {
+    // Init is not transactional: say what landed so the human can remove it and re-run.
+    return { code: 2, out: { error: String(e.message), wrote: [...wrote, ...appended] } };
+  }
+
+  return {
+    code: 0,
+    out: { wrote, appended, kept, foreign, settings: settings.added ? "added" : "present", manifest: manifestOut },
+  };
+```
+
+and add `foreignFiles` to the import from `./lib.mjs`.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `pnpm test -- scripts/__tests__/render.test.ts`
+Expected: PASS, 12 tests (11 under root, one skipped).
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/__tests__/render.test.ts installer/render.mjs
-git commit -m "test(installer): render.mjs refuses on manifest, collision and bad settings"
+git add scripts/__tests__/render.test.ts installer/render.mjs installer/lib.mjs
+git commit -m "feat(installer): render.mjs refuses before writing, lists foreign files, reports a mid-write failure"
 ```
 
 ---
@@ -1018,15 +1116,19 @@ Read the JSON it prints and act on the exit code:
   Nothing was written." Stop.
 - `3` with `refused: "settings-unparsable"` → print the error and "fix `.claude/settings.json`
   and re-run; nothing was written." Stop.
-- `1` or `2` → print the output verbatim and stop.
+- `2` with a `wrote` list → a write failed midway. Print the error, list the files in
+  `wrote`, and say "init is not transactional: remove these files and re-run". Stop.
+- `1` or `2` otherwise → print the output verbatim and stop.
 - `0` → continue.
 
 ## 4. Report
 
-In plain words: the count and list of files written, the files appended (`CLAUDE.md`,
-`README.md`, `.gitignore`) and the ones left alone because the block was already there,
-whether the Stop hook was added to `.claude/settings.json` or already present, and the
-manifest path `.claude/hitl.json`. End with:
+In plain words: the count and list of files written; the files appended (`CLAUDE.md`,
+`README.md`, `.gitignore`; say "created" for one that did not exist) and the ones left alone
+because the block was already there; the repository's own files found beside hitl's under
+`.claude/` and left alone (`foreign`), if any; whether the Stop hook was added to
+`.claude/settings.json` or already present; and the manifest path `.claude/hitl.json`. End
+with:
 
 > Review the changes and open a pull request. From now on `.claude/` and `HITL.md` are
 > reviewed like code. Nothing was committed.

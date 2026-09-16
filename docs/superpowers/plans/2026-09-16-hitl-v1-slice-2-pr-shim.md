@@ -4,6 +4,8 @@
 
 **Owns:** `scripts/hitl/pr.sh`, the GitHub backend, and the three call sites (`/implement-stack`, `/umbrella-pr`, the handover agent) rewritten to use the shim.
 
+**Reviewed:** round 1 (2026-09-16).
+
 **Goal:** Every PR operation in the installed workflow goes through one bash shim with a normalised JSON contract, so a later host backend is a file swap and no command or agent calls `gh` directly.
 
 **Architecture:** `scripts/hitl/pr.sh` parses one of five verbs, validates flags, and calls a `backend_<verb>` function that `scripts/hitl/backend.sh` defines; init installs the one backend the provider selects (`templates/scripts/backends/github.sh` → `scripts/hitl/backend.sh`). The GitHub backend calls `gh` with `--json` and `gh`'s built-in `--jq`, so normalisation happens without a `jq` prerequisite. Exit codes carry the contract: 0 ok, 1 usage, 2 backend error with the host tool's stderr passed through, 3 "already exists" on `create` with the existing record on stdout. Tests run the shim against a fake `gh` on `PATH`.
@@ -193,12 +195,30 @@ describe("pr.sh list", () => {
     expect(r.calls[0]).toContain("--state open");
   });
 });
+
+describe("pr.sh exit contract", () => {
+  it("exits 2 and passes gh's stderr through on a backend failure", () => {
+    const r = shim(["view", "12"], "fail");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("fake failure");
+    expect(r.stdout).toBe("");
+  });
+
+  it("exits 1 on a usage error without calling gh", () => {
+    for (const args of [[], ["view"], ["view", "abc"], ["list"], ["edit", "12"], ["create", "--base", "x"], ["nope"]]) {
+      const r = shim(args);
+      expect(r.status, args.join(" ")).toBe(1);
+      expect(r.stdout, args.join(" ")).toBe("");
+      expect(r.calls, args.join(" ")).toHaveLength(0);
+    }
+  });
+});
 ```
 
 - [ ] **Step 3: Run the tests to verify they fail**
 
 Run: `pnpm test -- scripts/__tests__/pr-shim.test.ts`
-Expected: FAIL — `ENOENT` copying `templates/scripts/pr.sh`.
+Expected: FAIL — every test, with `ENOENT` copying `templates/scripts/pr.sh`; the exit-contract tests go red here too, before the dispatcher's usage and error paths exist.
 
 - [ ] **Step 4: Write the dispatcher**
 
@@ -359,7 +379,7 @@ chmod +x templates/scripts/pr.sh templates/scripts/backends/github.sh
 - [ ] **Step 6: Run the tests to verify they pass**
 
 Run: `pnpm test -- scripts/__tests__/pr-shim.test.ts`
-Expected: PASS, 3 tests.
+Expected: PASS, 5 tests (three read-verb tests and the two exit-contract tests).
 
 - [ ] **Step 7: Commit**
 
@@ -431,30 +451,14 @@ describe("pr.sh edit and comment", () => {
     expect(r.calls[0]).toBe(`pr comment 12 --body-file ${body}`);
   });
 });
-
-describe("pr.sh exit contract", () => {
-  it("exits 2 and passes gh's stderr through on a backend failure", () => {
-    const r = shim(["view", "12"], "fail");
-    expect(r.status).toBe(2);
-    expect(r.stderr).toContain("fake failure");
-    expect(r.stdout).toBe("");
-  });
-
-  it("exits 1 on a usage error without calling gh", () => {
-    for (const args of [[], ["view"], ["view", "abc"], ["list"], ["edit", "12"], ["create", "--base", "x"], ["nope"]]) {
-      const r = shim(args);
-      expect(r.status, args.join(" ")).toBe(1);
-      expect(r.stdout, args.join(" ")).toBe("");
-      expect(r.calls, args.join(" ")).toHaveLength(0);
-    }
-  });
-});
 ```
+
+(The exit-contract tests were written red in Task 1 and stay green here.)
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `pnpm test -- scripts/__tests__/pr-shim.test.ts`
-Expected: the `create`, `edit` and `comment` tests FAIL with `backend_create: command not found` (exit 127); the exit-contract tests already pass.
+Expected: the `create`, `edit` and `comment` tests FAIL with `backend_create: command not found` (exit 127); Task 1's five tests still pass.
 
 - [ ] **Step 3: Add the write verbs to the backend**
 

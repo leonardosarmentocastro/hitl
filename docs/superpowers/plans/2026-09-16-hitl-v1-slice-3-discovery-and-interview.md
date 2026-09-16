@@ -4,6 +4,8 @@
 
 **Owns:** `discover.mjs`; the five testing fragments and `## Testing and gates` in `HITL.md`; `## Local gates` in `AGENTS.md`; wipe-wrapper selection; the interview in `commands/init.md` producing `ci`, `testing` and `gates`; the `AGENTS.md` hitl block, in this repository too.
 
+**Reviewed:** round 1 (2026-09-16).
+
 **Goal:** `/hitl:init` reads the target repository, asks one question per finding, and renders `HITL.md`, the wipe workflow and `AGENTS.md` from the answers instead of from flags.
 
 **Architecture:** `installer/discover.mjs` is a pure reader that prints one JSON report of what the tree contains; the `/hitl:init` prompt turns each finding into a question and collects the answers JSON that slice 1's `render.mjs` already accepts. `composeHitl` (slice 1) gains its fragment files under `templates/testing/`, and `render.mjs` gains the `AGENTS.md` block through the same `withMarkerBlock` helper the README and `.gitignore` blocks use. A `--mode check` on `render.mjs` lets the prompt refuse before it interviews.
