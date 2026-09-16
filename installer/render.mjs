@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// /hitl:init's writer (`--mode check` runs the refusals only and writes nothing). Refuses before its first write (unknown ci, manifest present,
-// collision, bad settings.json); otherwise writes every owned file, the appended blocks, the
-// merged hook and the manifest, and prints one JSON report. Exit: 0 ok · 1 usage · 2 error · 3 refused.
+// /hitl:init's writer (`--mode check` runs the refusals only and writes nothing). Refuses
+// before its first write (unknown ci, manifest present, collision, bad settings.json);
+// otherwise writes every owned file, the appended blocks, the merged hook and the manifest,
+// and prints one JSON report. Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {

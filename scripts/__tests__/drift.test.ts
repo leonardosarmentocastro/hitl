@@ -44,7 +44,7 @@ import { agentsBlock } from "../../installer/lib.mjs";
 describe("this repository's AGENTS.md carries the hitl block", () => {
   const text = readFileSync(join(ROOT, "AGENTS.md"), "utf8");
   it("holds exactly the rendered gates block between the markers", () => {
-    const expected = `<!-- hitl:start -->\n${agentsBlock(["pnpm test", "pnpm format:check"])}\n<!-- hitl:end -->\n`;
+    const expected = `<!-- hitl:start -->\n${agentsBlock(THIS_REPO_CHOICES.gates, THIS_REPO_CHOICES.testing)}\n<!-- hitl:end -->\n`;
     expect(text).toContain(expected);
     expect(text.split("<!-- hitl:start -->")).toHaveLength(2);
   });
