@@ -1,6 +1,6 @@
 // scripts/__tests__/discover.test.ts
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync } from "node:fs";
+import { cpSync, mkdtempSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -101,6 +101,28 @@ describe("discover.mjs", () => {
       ".gitignore": true,
       ".claude/settings.json": true,
     });
+  });
+
+  it("prints the report when started through a symlinked plugin path", () => {
+    const link = join(mkdtempSync(join(tmpdir(), "hitl-discover-link-")), "plugin");
+    symlinkSync(PLUGIN_ROOT, link);
+    const r = spawnSync(
+      "node",
+      [join(link, "installer/discover.mjs"), "--repo", repoFrom("empty")],
+      {
+        encoding: "utf8",
+      },
+    );
+    expect(r.status, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual(EMPTY_REPORT);
+  });
+
+  it("exits 1 with an error when --repo is not a directory", () => {
+    const missing = join(mkdtempSync(join(tmpdir(), "hitl-discover-missing-")), "nope");
+    const r = spawnSync("node", [DISCOVER, "--repo", missing], { encoding: "utf8" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toBe("");
+    expect(JSON.parse(r.stdout).error).toContain("--repo");
   });
 
   it("exits 1 with usage when --repo is missing", () => {

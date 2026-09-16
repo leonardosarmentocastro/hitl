@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Reads the target repository and prints what /hitl:init's interview needs to know. Pure
-// reader: the only git call is `git remote get-url origin`. Exit: 0 ok · 1 usage.
+// reader: the only git call is `git remote get-url origin`. Exit: 0 ok · 1 usage (or --repo is
+// not a directory).
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib.mjs";
@@ -85,9 +86,25 @@ export function discover(repo) {
   };
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+/** True when `dir` is an existing directory. */
+function isDirectory(dir) {
+  try {
+    return statSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// Compare realpaths: Node resolves symlinks in import.meta.url but not in argv[1], and
+// import.meta.main needs Node 24 while the target is Node 20.
+const isMain =
+  process.argv[1] !== undefined &&
+  existsSync(process.argv[1]) &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+
+if (isMain) {
   const args = parseArgs(process.argv.slice(2));
-  if (!args?.repo) {
+  if (!args?.repo || !isDirectory(args.repo)) {
     process.stdout.write(`${JSON.stringify({ error: "usage: --repo <dir>" })}\n`);
     process.exit(1);
   }
