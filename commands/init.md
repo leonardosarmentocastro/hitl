@@ -35,6 +35,9 @@ For `node`, `git` or `gh` missing, stop and name the one to install.
 node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --mode check
 ```
 
+- exit `3`, `refused: "unknown-ci"` → "the answers named ci `<ci>`, which must be one of
+  <allowed>; this is an init error, not the repository's. Nothing was written." Stop. (Only
+  step 4 can hit this: the check runs without answers.)
 - exit `3`, `refused: "manifest-present"` → "hitl is already initialised at <version>; run
   `/hitl:diff` to see what changed upstream." Stop.
 - exit `3`, `refused: "collision"` → list every path, then: "These files are owned by hitl and
@@ -80,6 +83,13 @@ asked. The package manager for the recommendation is `pnpm` when `pnpm-lock.yaml
 
 A "no" to the wipe-job question sets `ci = "none"`.
 
+When `existing["AGENTS.md"]` is true, read `AGENTS.md` before the local-gates question. If it
+has a `## Local gates` heading outside `<!-- hitl:start -->`…`<!-- hitl:end -->`, say with that
+question: "`AGENTS.md` already has its own `## Local gates`: <its commands>. hitl appends its
+block below it and does not touch yours, so the file will hold two lists the implementer and
+fixer may read differently. Reconcile them after init — keep the list inside the hitl block
+and delete the other." Never edit the repository's section yourself.
+
 ## 4. Render
 
 ```bash
@@ -111,7 +121,8 @@ ones left alone because their block was already there; the repository's own file
 beside hitl's under `.claude/` and left alone (`foreign`), if any; whether the Stop hook was
 added to `.claude/settings.json` or already present; the `## Testing and gates` rules adopted
 and the ones skipped, one line each; the local gates written to `AGENTS.md`; the manifest
-path `.claude/hitl.json`. End with:
+path `.claude/hitl.json`; and, when step 3 found a `## Local gates` of the repository's own in
+`AGENTS.md`, the reminder to reconcile the two lists. End with:
 
 > Review the changes and open a pull request. From now on `.claude/` and `HITL.md` are
 > reviewed like code. Nothing was committed.
