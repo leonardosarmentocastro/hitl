@@ -1,5 +1,6 @@
 ---
-description: Install the hitl workflow into this repository — discover what the tree has, ask one question per finding, render from the plugin's templates. Usage: /hitl:init
+description: Install the hitl workflow into this repository — discover what the tree has, ask one question per finding, render from the plugin's templates; --adopt records a manifest for a repository that already carries the files. Usage: /hitl:init [--adopt]
+argument-hint: [--adopt]
 ---
 
 You are installing the hitl delivery workflow into the repository at the current working
@@ -29,6 +30,40 @@ artefacts this workflow reviews). Install it, then re-run /hitl:init:
 
 For `node`, `git` or `gh` missing, stop and name the one to install.
 
+## `--adopt` — stamp a repository that was ejected by hand
+
+If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
+
+1. Run the prerequisite check above.
+2. Manifest present → "hitl is already initialised at <version>; run `/hitl:diff`." Stop.
+3. Host only: `node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"`. A `host`
+   other than `github` → "no backend for <host> in v1". Stop.
+4. Before asking anything, run `help.mjs` (`--repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}"`).
+   State `not installed` → "nothing to adopt: no hitl-owned file exists. Run `/hitl:init`."
+   Stop. Any other state without a manifest → continue. Then ask exactly two things, one at
+   a time, each with a recommendation:
+   - `ci`: "Is the wipe workflow (`.github/workflows/wipe-superpowers-docs.yml`) part of this
+     repository?" → `github-actions` or `none` (recommend what the tree shows).
+   - `testing`: "Which of the testing rules does this repository's `HITL.md` carry under
+     `## Testing and gates`: e2e, tiers, ci, hooks, effective-date?" → a list, possibly empty
+     (recommend what `HITL.md` shows).
+5. Write the answers file `{ "provider": "github", "ci": ..., "testing": [...], "gates": [] }`
+   and run:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/installer/adopt.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --answers "$ANSWERS"
+   ```
+
+   - exit `3`, `refused: "nothing-to-adopt"` → "nothing to adopt: no hitl-owned file exists.
+     Run `/hitl:init`." Stop. (Unreachable after step 4's check; kept as the script's own
+     guard.)
+   - exit `3`, `refused: "manifest-present"` → as step 2. Stop.
+   - exit `3`, `refused: "unknown-ci"` → "the answers named ci `<ci>`, which must be one of
+     <allowed>; this is an init error, not the repository's. Nothing was written." Stop.
+   - exit `0` → report: "manifest written to `.claude/hitl.json` at hitl <version>. It records
+     the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
+     else was touched. Never commit.
+
 ## 2. Refuse early, then discover
 
 ```bash
@@ -42,7 +77,7 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "$
   `/hitl:diff` to see what changed upstream." Stop.
 - exit `3`, `refused: "collision"` → list every path, then: "These files are owned by hitl and
   already exist. If this repository was ejected from an earlier hitl or from treasury-2, run
-  `/hitl:init --adopt` (available in a later version). Otherwise remove them and re-run.
+  `/hitl:init --adopt`. Otherwise remove them and re-run.
   Nothing was written." Stop.
 - exit `3`, `refused: "settings-unparsable"` → print the error and "fix
   `.claude/settings.json` and re-run; nothing was written." Stop.

@@ -10,16 +10,30 @@ export const MANIFEST_PATH = ".claude/hitl.json";
 export const CI_CHOICES = ["github-actions", "none"];
 export const DEFAULT_CHOICES = { provider: "github", ci: "github-actions", testing: [], gates: [] };
 
-/** `--key value` pairs → object; null on a dangling flag or a token without `--`. */
-export function parseArgs(argv) {
+// Argument parsing and output shared by the installer CLIs. `--name value` pairs; names in
+// `booleans` take no value. Returns null on any malformed argv so the caller prints usage.
+export function parseArgs(argv, booleans = []) {
   const args = {};
-  for (let i = 0; i < argv.length; i += 2) {
+  for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
+    if (!key.startsWith("--")) return null;
+    const name = key.slice(2);
+    if (booleans.includes(name)) {
+      args[name] = true;
+      continue;
+    }
     const value = argv[i + 1];
-    if (!key?.startsWith("--") || value === undefined) return null;
-    args[key.slice(2)] = value;
+    if (value === undefined || value.startsWith("--")) return null;
+    args[name] = value;
+    i += 1;
   }
   return args;
+}
+
+/** Print one JSON document and exit with the code. Exit: 0 ok · 1 usage · 2 error · 3 refused. */
+export function emit({ code, out }) {
+  process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+  process.exit(code);
 }
 
 const AGENTS = [
@@ -102,6 +116,18 @@ export function sha256(text) {
 export function pluginVersion(pluginRoot) {
   const p = join(pluginRoot, ".claude-plugin/plugin.json");
   return JSON.parse(readFileSync(p, "utf8")).version;
+}
+
+/** Compare two dotted versions numerically: -1, 0 or 1. */
+export function compareVersions(a, b) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] ?? 0;
+    const y = pb[i] ?? 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
 }
 
 export function readManifest(repoRoot) {
