@@ -1,6 +1,7 @@
 # hitl v1 — design
 
 **Status:** awaiting spec review.
+**Reviewed:** round 1 (2026-09-16).
 
 ## Goal
 
@@ -14,7 +15,7 @@ The plugin keeps only four commands of its own: `/hitl:init` (with `--adopt`),
 v1 is done when a throwaway GitHub repository, initialised with discovery, carries one
 two-slice feature end to end through the chain and the wipe job fires on merge, and when
 `/hitl:init --adopt` on this repository produces a manifest whose first `/hitl:diff` reports
-no drift.
+every file unchanged except `.claude/review-context.md`, which is repo-specific by definition.
 
 The decisions below were fixed one at a time in the grill session that preceded this spec
 (vehicle, installer-only model, `HITL.md`, core versus optional, provider shim, self-marketplace,
@@ -49,6 +50,8 @@ Checked by `/hitl:init` and reported by `/hitl:help`:
 | Matt Pocock's `grill-me` skill | recommended start for a feature whose shape is unclear | soft — mentioned by help and README |
 
 Node is an install-time prerequisite only. The installed workflow needs bash, `git` and `gh`.
+The installer targets Node 20 or newer; this repository's own `engines` floor of 24 applies
+to developing hitl, not to installing it.
 The installer is Node because two of its operations — merging the Stop hook into
 `.claude/settings.json` and writing and reading a JSON manifest with hashes — need a JSON
 parser, and `node` is far more likely to be present on a machine running Claude Code than
@@ -84,6 +87,11 @@ four commands.
 **Versioning.** The plugin version is `.claude-plugin/plugin.json`'s `version`. A release is
 a git tag `v<version>` on the commit that sets it. `/hitl:diff` reads the templates of a
 recorded version from the marketplace clone at that tag. The first release is `0.1.0`.
+When the recorded version equals the plugin's own version, the recorded render is taken from
+the plugin root's `templates/` and no tag is consulted; the tag is needed only for an older
+recorded version. Every installer script takes `--plugin-root`, defaulting to
+`${CLAUDE_PLUGIN_ROOT}`, so this repository's tests and its own `--adopt` run against its
+working tree before any release exists.
 
 This repository is the first consumer of its own templates: its `.claude/`, `HITL.md`,
 `scripts/hitl/` and wipe workflow are exactly what `/hitl:init` renders with this
@@ -167,11 +175,13 @@ The prompt orchestrates; the scripts do the deterministic work. Steps, in order:
 1. **Prerequisites.** Any hard prerequisite missing stops with what to install.
 2. **Manifest present.** `.claude/hitl.json` exists → "initialised at <version>; run
    `/hitl:diff`". Stop.
-3. **Collision.** Any owned path exists → list every one, offer `--adopt` (the repository was
-   ejected from treasury-2 or an earlier hitl) or removal, write nothing. Owned paths:
-   `HITL.md`, `.claude/agents/`, `.claude/commands/`, `.claude/hooks/`,
-   `.claude/review-context.md`, `.claude/fixtures/`, `scripts/hitl/`,
-   `.github/workflows/wipe-superpowers-docs.yml`.
+3. **Collision.** Inside `.claude/agents/`, `.claude/commands/` and `.claude/hooks/` only the
+   owned **filenames** collide; a repository's own commands, agents and hooks there are left
+   alone and listed as kept, so a repository already using Claude Code can install. `HITL.md`,
+   `.claude/review-context.md` and `.github/workflows/wipe-superpowers-docs.yml` collide as
+   files; `scripts/hitl/` and `.claude/fixtures/` collide as directories. Any collision → list
+   every one, offer `--adopt` (the repository was ejected from treasury-2 or an earlier hitl)
+   or removal, write nothing.
 4. **Discovery.** `discover.mjs` prints:
 
    ```json
@@ -199,7 +209,7 @@ The prompt orchestrates; the scripts do the deterministic work. Steps, in order:
    | `ci` non-empty | adopt the CI rule? | `ci` fragment |
    | `ci` non-empty but no `github-actions` | — | "skipped: no wipe wrapper for <ci> in v1; specs are deleted by hand after merge" |
    | `e2e` non-empty | adopt the e2e rule? | `e2e` fragment |
-   | `e2e` non-empty | adopt test tiers? | `tiers` fragment |
+   | `testRunner` true | adopt test tiers? | `tiers` fragment |
    | `hooks` non-empty | adopt the commit-hook rule? | `hooks` fragment |
    | always | does this repository have code that new rules must not apply to retroactively? | `effective-date` fragment |
    | `scripts` non-empty | confirm the local gate commands (recommended: the test, lint and typecheck scripts found) | `## Local gates` in `AGENTS.md` |
@@ -227,8 +237,9 @@ The prompt orchestrates; the scripts do the deterministic work. Steps, in order:
      here": the chain in one sentence, where specs live and that they are wiped on merge, that
      `.claude/` and `HITL.md` are reviewed like code, the hitl version, `/hitl:diff`, and the
      prerequisites;
-   - `.gitignore`: a block in the same markers with `.claude/reviews/`,
-     `.claude/fixtures/scratch/`, `.claude/settings.local.json`;
+   - `.gitignore`: a block in the same markers with `.claude/reviews/` (review output),
+     `.claude/fixtures/scratch/` (where the review commands copy a fixture for a dry run) and
+     `.claude/settings.local.json`;
    - `.claude/settings.json`: merged as JSON; other hooks kept, the Stop hook entry added if
      absent, and the report says which;
    - `.claude/hitl.json`, the manifest.
@@ -248,13 +259,13 @@ The prompt orchestrates; the scripts do the deterministic work. Steps, in order:
 and `settings.json` are the repository's and are not tracked. `gates` are content of
 `AGENTS.md`, not a render choice, and are not recorded.
 
-**`--adopt`** runs steps 1, 2 and 4, then asks only what a render needs (`ci`, `testing`;
-`provider` is fixed by discovery), and runs `adopt.mjs`, which writes the manifest with the
+**`--adopt`** runs steps 1 and 2; its own step 3 is the inverse check — no owned path exists →
+"nothing to adopt; run `/hitl:init`", stop; then step 4; then it asks only what a render
+needs (`ci`, `testing`; `provider` is fixed by discovery), and runs `adopt.mjs`, which writes the manifest with the
 hashes of the **templates as they would be rendered** at the plugin's current version with
 those answers — not the hashes of the repository's files. Nothing else is touched. The first
 `/hitl:diff` then lists every file whose content differs from its template, which for a
-repository ejected by hand is the check that the templates were cut faithfully. `--adopt`
-refuses when no owned path exists ("nothing to adopt; run `/hitl:init`").
+repository ejected by hand is the check that the templates were cut faithfully.
 
 ### The PR shim
 
@@ -314,14 +325,17 @@ version. Per file it reports one state:
 | both | all three differ | `git merge-file` of repo against recorded and latest; clean result written, or the file written with conflict hunks and named in the PR |
 | missing locally | owned file absent | write latest |
 | new upstream | file has no template at the recorded version | write latest |
+| removed upstream | template at the recorded version, none at latest | delete when repo = recorded; otherwise keep and name it in the PR |
 
-A file that changes only because `testing` or `ci` differ between recorded and latest is
-not a case: choices are constant within a diff. Changing choices is re-running init with
-`--adopt` after removing the manifest, which the report says when asked.
+Choices are constant within a diff: recorded and latest are both rendered with the manifest's
+`ci` and `testing`. Changing a choice after init is done through `/hitl:customize`, knob
+`testing-rules` (see § Customize), which edits `HITL.md` and the workflow file with the
+agent's help and records the new choice in the manifest, so the recorded render stays exact.
 
 Without `--apply` the command prints the table and stops. With `--apply` it cuts
 `chore/hitl-<recorded>-to-<latest>` off the current branch, runs the script, bumps the
-manifest's `version` and `files`, commits `chore(hitl): <recorded> → <latest>`, pushes, and
+manifest's `version` and `files`, rewrites the version line inside the README block, commits
+`chore(hitl): <recorded> → <latest>`, pushes, and
 opens the PR "hitl <recorded> → <latest>" through the shim, whose body lists every file and
 its state and names any file carrying conflict hunks. With every file `unchanged` or `locally
 edited`, `--apply` says "nothing to apply" and does nothing. When the marketplace clone lacks
@@ -329,13 +343,16 @@ the recorded tag the command stops with `claude plugin marketplace update hitl`.
 
 ### `/hitl:help`
 
-`help.mjs` reads the tree and the manifest and prints one of four states plus the prerequisite
-check; the prompt says the matching thing:
+`help.mjs` reads the tree and the manifest and prints one of six states, which partition every
+tree, plus the prerequisite check; the prompt says the matching thing:
 
 - **not installed** (no owned path, no manifest) → "run `/hitl:init`";
 - **ejected, not adopted** (`.claude/agents/` and `HITL.md` present, no manifest) → "run
   `/hitl:init --adopt`";
+- **partially installed** (some owned path, but not both of the above, no manifest) → "run
+  `/hitl:init`; it lists what collides";
 - **behind** (manifest version < plugin version) → "run `/hitl:diff`";
+- **ahead** (manifest version > plugin version, a stale plugin cache) → "update the plugin";
 - **up to date** → the chain in five lines, the four plugin commands and the six workflow
   commands, and "to change a rule: edit `HITL.md` or `.claude/` by PR, or `/hitl:customize`".
 
@@ -352,7 +369,7 @@ paragraphs, every anchor of the knob together, writes to the working tree and ne
 
 | id | anchored in | default and its reason |
 |---|---|---|
-| `review-rounds` | `HITL.md` § Gates ("Rounds"); `review-spec` and `review-plan`, the round count and the round rule | 2 — one is too few, three chases non-deterministic findings |
+| `review-rounds` | `HITL.md` § Gates ("Rounds") and § Review gates, every restatement; `review-spec` and `review-plan`, the round count and the round rule | 2 — one is too few, three chases non-deterministic findings |
 | `severities` | the three reviewer agents, their severity definitions | blocker / major / minor |
 | `reporting-cap` | the three reviewer agents; `HITL.md` § Review gates | every blocker, at most five majors, minors one line — a longer list is not read |
 | `file-tripwire` | `HITL.md` § Delivery slices | ~20 files, a tripwire not a cap |
@@ -361,8 +378,17 @@ paragraphs, every anchor of the knob together, writes to the working tree and ne
 | `local-gates` | `AGENTS.md` § Local gates | discovered at init |
 | `pr-body-sections` | `HITL.md` § Pull requests; `implement-stack`, the PR body block | What / Why / How plus Review decisions |
 | `scare-anchors` | `.claude/review-context.md` | treasury's ladder, 5 to 8 as placeholders |
+| `testing-rules` | `HITL.md` § Testing and gates; the wipe workflow file | the choices made at init |
 
-The severity *definitions* and the cap are knobs; the finding-type **names** are not.
+The severity *definitions* and the cap are knobs; the finding-type **names** are not. A rule
+stated in more than one place is anchored at every place, and customize edits all of them;
+the Rationalizations table is prose and carries no anchor.
+
+`testing-rules` is the one knob that works by whole files rather than by paragraph: it adds
+or removes fragments from the plugin's `templates/testing/` under `## Testing and gates`,
+adds or removes the wipe workflow file, and updates `testing` and `ci` in the manifest. It is
+the only case where customize writes the manifest; without that write `/hitl:diff` would
+report `HITL.md` as locally edited forever.
 
 **Load-bearing invariants** are listed in a short `## Load-bearing invariants` section of
 `HITL.md` and refused by customize with "change it together with its parser, by PR": the
@@ -373,10 +399,12 @@ patterns, the stack-table columns, the seven finding-type names (six plus DEFERR
 ### This repository as a consumer
 
 This repository's own `.claude/`, `HITL.md`, `scripts/hitl/` and wipe workflow are the render
-of `templates/` with choices `provider: github`, `ci: github-actions`, `testing: []`. Its
-manifest is produced by `/hitl:init --adopt` in slice 4, which is the first exercise of
-adopt; until then the drift test states the choices itself. Its `AGENTS.md` already names the
-local gates.
+of `templates/` with choices `provider: github`, `ci: github-actions`, `testing: []`, with one
+exception: `.claude/review-context.md` is repo-specific by definition, this repository's copy
+carries its own anchors, and it is expected to read `locally edited` in `/hitl:diff`. Its
+manifest is produced by `/hitl:init --adopt` in slice 5, the last slice that changes a
+template, so the hashes it records are final; until then the drift test states the choices
+itself. Its `AGENTS.md` already names the local gates.
 
 ## Error handling
 
@@ -399,8 +427,8 @@ Under vitest in `scripts/__tests__/`, fixtures under `scripts/__fixtures__/`. Te
 the disk never read `docs/superpowers/`.
 
 - **Drift test.** Render the templates with this repository's choices and assert the result
-  equals this repository's `.claude/`, `HITL.md`, `scripts/hitl/` and wipe workflow byte for
-  byte. A template edit without its twin fails the suite.
+  equals every owned file in this repository byte for byte, except
+  `.claude/review-context.md`. A template edit without its twin fails the suite.
 - **Init.** Temp git repositories: empty; one per owned-path collision; an existing
   `CLAUDE.md`; a `settings.json` with other hooks; a second run on an initialised repository;
   `--adopt` on an ejected tree. Assert the files, the appended blocks, the merge, the
@@ -424,11 +452,11 @@ Five slices, each one capability a test proves, stacked on `feat/hitl-v1`:
 
 | N | label | owns | proof |
 |---|---|---|---|
-| 1 | `plugin-skeleton-and-init-core` | the plugin manifests; `templates/` cut generically from `.claude/`, with the doctrine changes listed in § Templates except the slice-5 ones; the shared installer module and `render.mjs`; `/hitl:init` taking its answers from flags; the manifest, collision and manifest-present refusals; this repository's wipe script moved to `scripts/hitl/` | drift test green; init on an empty temp repo; refusals |
+| 1 | `plugin-skeleton-and-init-core` | the plugin manifests; `templates/` cut generically from `.claude/`, with the doctrine changes listed in § Templates except the slice-5 ones; the shared installer module and `render.mjs`; `/hitl:init` taking its answers from flags; the manifest with every field (`testing` empty until slice 3 asks); the collision and manifest-present refusals; this repository's wipe script moved to `scripts/hitl/` | drift test green; init on an empty temp repo; refusals |
 | 2 | `pr-shim` | `pr.sh`, the GitHub backend, and the three call sites rewritten to use the shim | fake-`gh` tests; no `gh pr` outside `backend.sh`; drift test |
-| 3 | `discovery-and-interview` | `discover.mjs`; the five fragments and `## Testing and gates`; `## Local gates`; wipe-wrapper selection; the interview in `commands/init.md`; `testing` and `ci` in the manifest | discovery fixtures; init with each answer |
-| 4 | `adopt-diff-help` | `--adopt` and `adopt.mjs`; `diff.mjs` and `/hitl:diff` with `--apply`; `help.mjs` and `/hitl:help`; `--adopt` run on this repository, its manifest committed | diff state tests; this repository's manifest exists and its diff reports no drift |
-| 5 | `customize` | the knob anchors in every template and in this repository's copies; the knob table and the invariants section in `HITL.md`; `commands/customize.md` | anchor test; a dry run refusing an invariant |
+| 3 | `discovery-and-interview` | `discover.mjs`; the five fragments and `## Testing and gates`; `## Local gates`; wipe-wrapper selection; the interview in `commands/init.md` producing `ci`, `testing` and `gates` | discovery fixtures; init with each answer |
+| 4 | `adopt-diff-help` | `--adopt` and `adopt.mjs`; `diff.mjs` and `/hitl:diff` with `--apply`; `help.mjs` and `/hitl:help` | diff state tests; `--adopt` on a fixture ejected tree; help states |
+| 5 | `customize` | the knob anchors in every template and in this repository's copies; the knob table and the invariants section in `HITL.md`; `commands/customize.md`; `--adopt` run on this repository and its manifest committed | anchor test; a dry run refusing an invariant; this repository's manifest exists and its diff reports every file unchanged except `review-context.md` |
 
 Slice 1 crosses the twenty-file tripwire because cutting the templates moves eighteen files;
 its plan's Global Constraints say so. No slice is split below the thinness floor to avoid it.
@@ -449,10 +477,11 @@ PR, merge, wipe fires); then `/hitl:init --adopt` on treasury-2 and a reading of
 4. Every shim verb returns the normalised record against the fake `gh`; `create` on an
    existing head exits 3 with the existing record; no template outside `backend.sh` mentions
    `gh pr`.
-5. `/hitl:diff` reports each of the six states on the fixture marketplace and `--apply` opens
-   one PR through the shim with the manifest bumped.
-6. `/hitl:init --adopt` on this repository writes a manifest whose `/hitl:diff` reports every
-   file `unchanged`.
+5. `diff.mjs` reports each of the seven states on the fixture marketplace, under vitest;
+   `--apply` cutting the branch, bumping the manifest and opening one PR through the shim is
+   proven by a dry run, since those steps are the prompt's.
+6. `/hitl:init --adopt` on this repository, at the end of slice 5, writes a manifest whose
+   `/hitl:diff` reports every file `unchanged` except `.claude/review-context.md`.
 7. `/hitl:customize` refuses an invariant and edits every anchor of a knob it accepts; the
    anchor test passes.
 8. The proof feature lands and the wipe job removes `docs/superpowers/` from `main`.
@@ -485,3 +514,11 @@ PR, merge, wipe fires); then `/hitl:init --adopt` on treasury-2 and a reading of
   an ejected repository as unchanged and hide the drift the adoption exists to reveal.
 - **Installed scripts beside `scripts/wipe-superpowers-docs.sh` as today.** Declined for one
   owned directory, `scripts/hitl/`, so the collision check and ownership are a directory test.
+- **Directory-level collision for `.claude/agents`, `commands` and `hooks`.** Declined in
+  spec review round 1: it would block any repository with a custom command of its own.
+  Those three collide by owned filename.
+- **Changing a choice by re-adopting.** Declined in spec review round 1: adopt writes only the
+  manifest, so a new fragment never reached `HITL.md`. Choices change through the
+  `testing-rules` knob of `/hitl:customize`.
+- *Forwarded to the plan gate:* in `/hitl:diff --apply`, write every file before calling the
+  shim, since `scripts/hitl/pr.sh` may itself be among the files being applied.
