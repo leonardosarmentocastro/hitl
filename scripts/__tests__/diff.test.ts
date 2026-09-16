@@ -57,6 +57,34 @@ function fixtureMarketplace() {
   return { mk, plugin };
 }
 
+/**
+ * A marketplace clone whose v0.1.0 also owned `scripts/hitl/gone.sh`, which the 0.2.0 plugin
+ * no longer ships: a real upstream removal, rendered by the tag's own lib.mjs.
+ */
+function fixtureMarketplaceWithRemoval() {
+  const mk = mkdtempSync(join(tmpdir(), "hitl-mk-removal-"));
+  copyPlugin(mk);
+  const lib = join(mk, "installer/lib.mjs");
+  const anchor = `{ repoPath: "scripts/hitl/pr.sh", template: "scripts/pr.sh", executable: true },`;
+  const text = readFileSync(lib, "utf8");
+  expect(text).toContain(anchor);
+  writeFileSync(
+    lib,
+    text.replace(
+      anchor,
+      `${anchor}\n    { repoPath: "scripts/hitl/gone.sh", template: "scripts/gone.sh", executable: true },`,
+    ),
+  );
+  writeFileSync(join(mk, "templates/scripts/gone.sh"), "gone\n");
+  git(mk, ["init", "-q", "-b", "main"]);
+  git(mk, ["config", "user.email", "t@example.com"]);
+  git(mk, ["config", "user.name", "t"]);
+  git(mk, ["add", "-A"]);
+  git(mk, ["commit", "-q", "-m", "0.1.0"]);
+  git(mk, ["tag", "v0.1.0"]);
+  return mk;
+}
+
 /** A repository installed by the v0.1.0 marketplace's own render.mjs. */
 function installedRepo(mk: string, answers: object = ANSWERS) {
   const repo = mkdtempSync(join(tmpdir(), "hitl-repo-"));
@@ -102,9 +130,11 @@ const FIXER = ".claude/agents/fixer.md";
 const HANDOVER = ".claude/agents/handover.md";
 
 let mk: string;
+let mkRemoval: string;
 let plugin: string;
 beforeAll(() => {
   ({ mk, plugin } = fixtureMarketplace());
+  mkRemoval = fixtureMarketplaceWithRemoval();
 });
 
 describe("diff.mjs refusals", () => {
@@ -129,6 +159,31 @@ describe("diff.mjs refusals", () => {
     const r = diff(repo, plugin, mk);
     expect(r.status).toBe(3);
     expect(r.json).toEqual({ refused: "ahead", recorded: "9.9.9", plugin: "0.2.0" });
+  });
+
+  it("refuses a manifest path outside the repository instead of deleting it", () => {
+    const repo = installedRepo(mk);
+    const outside = join(repo, "..", `outside-${Math.random()}.txt`);
+    writeFileSync(outside, "keep\n");
+    const key = `../${outside.split("/").pop()}`;
+    editManifest(repo, (m) => (m.files[key] = sha256("keep\n")));
+    const r = diff(repo, plugin, mk, true);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "unowned-path", paths: [key] });
+    expect(existsSync(outside)).toBe(true);
+  });
+
+  it("refuses a manifest path hitl never owned instead of deleting it", () => {
+    const repo = installedRepo(mk);
+    writeFileSync(join(repo, "notes.md"), "ours\n");
+    editManifest(repo, (m) => {
+      m.files["notes.md"] = sha256("ours\n");
+      m.files["/etc/hostname"] = "0".repeat(64);
+    });
+    const r = diff(repo, plugin, mk, true);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "unowned-path", paths: ["/etc/hostname", "notes.md"] });
+    expect(readFileSync(join(repo, "notes.md"), "utf8")).toBe("ours\n");
   });
 
   it("refuses when the recorded render does not hash to the manifest", () => {
@@ -227,19 +282,17 @@ describe("diff.mjs absent cases", () => {
   });
 
   it("reports a recorded file with no template at latest as removed upstream, same or edited", () => {
-    const repo = installedRepo(mk);
-    writeFileSync(join(repo, "scripts/hitl/gone.sh"), "gone\n");
-    editManifest(repo, (m) => (m.files["scripts/hitl/gone.sh"] = "2a1c9f3b" + "0".repeat(56)));
-    // A wrong hash first: the repo file is "edited" relative to the record.
-    let f = stateOf(diff(repo, plugin, mk).json, "scripts/hitl/gone.sh");
+    const repo = installedRepo(mkRemoval);
+    let f = stateOf(diff(repo, plugin, mkRemoval).json, "scripts/hitl/gone.sh");
     expect(f.state).toBe("removed upstream");
-    expect(f.local).toBe("edited");
-    // Now the right hash: the repo file is what was installed.
-    editManifest(repo, (m) => (m.files["scripts/hitl/gone.sh"] = sha256("gone\n")));
-    f = stateOf(diff(repo, plugin, mk).json, "scripts/hitl/gone.sh");
     expect(f.local).toBe("same");
+    appendFileSync(join(repo, "scripts/hitl/gone.sh"), "ours\n");
+    f = stateOf(diff(repo, plugin, mkRemoval).json, "scripts/hitl/gone.sh");
+    expect(f.local).toBe("edited");
     rmSync(join(repo, "scripts/hitl/gone.sh"));
-    expect(stateOf(diff(repo, plugin, mk).json, "scripts/hitl/gone.sh").local).toBe("absent");
+    expect(stateOf(diff(repo, plugin, mkRemoval).json, "scripts/hitl/gone.sh").local).toBe(
+      "absent",
+    );
   });
 
   it("never reports the wipe workflow for a repository that declined it (ci: none)", () => {
@@ -253,12 +306,10 @@ describe("diff.mjs absent cases", () => {
 
 describe("diff.mjs --apply", () => {
   it("writes the upstream change, bumps the manifest and the README version, deletes what was removed", () => {
-    const repo = installedRepo(mk);
-    writeFileSync(join(repo, "scripts/hitl/gone.sh"), "gone\n");
-    editManifest(repo, (m) => (m.files["scripts/hitl/gone.sh"] = sha256("gone\n")));
+    const repo = installedRepo(mkRemoval);
     appendFileSync(join(repo, HANDOVER), "\nOurs.\n");
 
-    const r = diff(repo, plugin, mk, true);
+    const r = diff(repo, plugin, mkRemoval, true);
     expect(r.status).toBe(0);
     expect(r.json.applied).toBe(true);
     expect(r.json.written).toEqual([FIXER]);
@@ -284,7 +335,7 @@ describe("diff.mjs --apply", () => {
     expect(readme).not.toContain("Installed by hitl 0.1.0");
 
     // A second diff now sees only the local edit.
-    const again = diff(repo, plugin, mk).json;
+    const again = diff(repo, plugin, mkRemoval).json;
     expect(again.recorded).toBe("0.2.0");
     expect(stateOf(again, FIXER).state).toBe("unchanged");
     expect(stateOf(again, HANDOVER).state).toBe("locally edited");

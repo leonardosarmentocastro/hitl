@@ -16,7 +16,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { emit, parseArgs } from "./lib.mjs";
 import {
@@ -132,6 +132,13 @@ export async function run(args) {
     .sort();
   if (mismatch.length > 0)
     return { code: 3, out: { refused: "manifest-mismatch", paths: mismatch } };
+
+  // A removal deletes a manifest path, so every path must be one the recorded version owned
+  // (which also keeps it relative and inside the repository): a hand-edited key never is.
+  const unowned = Object.keys(manifest.files)
+    .filter((p) => isAbsolute(p) || p.split(/[\\/]/).includes("..") || !recorded.has(p))
+    .sort();
+  if (unowned.length > 0) return { code: 3, out: { refused: "unowned-path", paths: unowned } };
 
   const files = [];
   const writes = []; // { path, content, executable } or { path, delete: true }

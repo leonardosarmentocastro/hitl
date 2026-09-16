@@ -19,6 +19,9 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
   `claude plugin marketplace update hitl` and retry." Stop.
 - exit `3`, `refused: "manifest-mismatch"` → "the manifest and the templates disagree for
   <paths>; delete `.claude/hitl.json` and re-run `/hitl:init --adopt`." Stop.
+- exit `3`, `refused: "unowned-path"` → "the manifest lists <paths>, which hitl <recorded>
+  never installed; nothing was deleted. Remove those keys from `.claude/hitl.json` (or delete
+  it and re-run `/hitl:init --adopt`) and retry." Stop.
 - exit `3`, `refused: "ahead"` → "the install is at <recorded>, newer than the plugin at
   <plugin>; update the plugin: `claude plugin marketplace update hitl` then
   `claude plugin update hitl`."
