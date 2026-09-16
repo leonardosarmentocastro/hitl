@@ -116,6 +116,21 @@ describe("pr.sh exit contract", () => {
       expect(r.calls, args.join(" ")).toHaveLength(0);
     }
   });
+
+  it("exits 1 with the usage message when a flag is missing its value", () => {
+    for (const args of [
+      ["create", "--base"],
+      ["list", "--head-prefix"],
+      ["list", "--head-prefix", "feat/x", "--state"],
+      ["edit", "12", "--body-file"],
+    ]) {
+      const r = shim(args);
+      expect(r.status, args.join(" ")).toBe(1);
+      expect(r.stderr, args.join(" ")).toMatch(/^pr\.sh: .*needs a value/);
+      expect(r.stderr, args.join(" ")).toContain("usage: pr.sh");
+      expect(r.calls, args.join(" ")).toHaveLength(0);
+    }
+  });
 });
 
 function bodyFile(text = "What — x\n") {

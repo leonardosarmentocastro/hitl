@@ -41,6 +41,10 @@ usage() {
   exit 1
 }
 
+need_value() {
+  [ $# -ge 2 ] || usage "$1 needs a value"
+}
+
 need_number() {
   [[ "${1:-}" =~ ^[0-9]+$ ]] || usage "$2 needs a PR number"
 }
@@ -54,10 +58,10 @@ case "$verb" in
     base= head= title= body= draft=0
     while [ $# -gt 0 ]; do
       case "$1" in
-        --base) base=${2:-}; shift 2 ;;
-        --head) head=${2:-}; shift 2 ;;
-        --title) title=${2:-}; shift 2 ;;
-        --body-file) body=${2:-}; shift 2 ;;
+        --base) need_value "$@"; base=$2; shift 2 ;;
+        --head) need_value "$@"; head=$2; shift 2 ;;
+        --title) need_value "$@"; title=$2; shift 2 ;;
+        --body-file) need_value "$@"; body=$2; shift 2 ;;
         --draft) draft=1; shift ;;
         *) usage "unknown flag for create: $1" ;;
       esac
@@ -71,8 +75,8 @@ case "$verb" in
     prefix= state=all
     while [ $# -gt 0 ]; do
       case "$1" in
-        --head-prefix) prefix=${2:-}; shift 2 ;;
-        --state) state=${2:-}; shift 2 ;;
+        --head-prefix) need_value "$@"; prefix=$2; shift 2 ;;
+        --state) need_value "$@"; state=$2; shift 2 ;;
         *) usage "unknown flag for list: $1" ;;
       esac
     done
@@ -92,7 +96,7 @@ case "$verb" in
     body=
     while [ $# -gt 0 ]; do
       case "$1" in
-        --body-file) body=${2:-}; shift 2 ;;
+        --body-file) need_value "$@"; body=$2; shift 2 ;;
         *) usage "unknown flag for $verb: $1" ;;
       esac
     done
