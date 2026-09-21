@@ -1,0 +1,330 @@
+// scripts/__tests__/render.test.ts
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const PLUGIN_ROOT = process.cwd();
+const RENDER = join(PLUGIN_ROOT, "installer/render.mjs");
+
+function tempRepo(files: Record<string, string> = {}) {
+  const dir = mkdtempSync(join(tmpdir(), "hitl-render-"));
+  execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
+  for (const [rel, content] of Object.entries(files)) {
+    mkdirSync(join(dir, rel, ".."), { recursive: true });
+    writeFileSync(join(dir, rel), content);
+  }
+  return dir;
+}
+
+const ANSWERS = { provider: "github", ci: "github-actions", testing: [], gates: ["pnpm test"] };
+
+function render(repo: string, answers: object = ANSWERS) {
+  const answersPath = join(repo, "..", `answers-${Date.now()}-${Math.random()}.json`);
+  writeFileSync(answersPath, JSON.stringify(answers));
+  const r = spawnSync(
+    "node",
+    [RENDER, "--repo", repo, "--plugin-root", PLUGIN_ROOT, "--answers", answersPath],
+    { encoding: "utf8" },
+  );
+  return { ...r, json: r.stdout ? JSON.parse(r.stdout) : null };
+}
+
+describe("render.mjs on an empty repository", () => {
+  it("writes every owned file, executable where needed", () => {
+    const repo = tempRepo();
+    const r = render(repo);
+    expect(r.status).toBe(0);
+    for (const p of [
+      "HITL.md",
+      ".claude/agents/fixer.md",
+      ".claude/commands/implement-stack.md",
+      ".claude/hooks/unreviewed-artifact.sh",
+      ".claude/review-context.md",
+      ".claude/fixtures/spec-fixture-design.md",
+      "scripts/hitl/wipe-superpowers-docs.sh",
+      "scripts/hitl/pr.sh",
+      "scripts/hitl/backend.sh",
+      ".github/workflows/wipe-superpowers-docs.yml",
+    ]) {
+      expect(existsSync(join(repo, p)), p).toBe(true);
+    }
+    expect(statSync(join(repo, ".claude/hooks/unreviewed-artifact.sh")).mode & 0o111).not.toBe(0);
+    expect(r.json.wrote).toContain("HITL.md");
+  });
+
+  it("creates CLAUDE.md with the @HITL.md line and appends it to an existing one", () => {
+    const fresh = tempRepo();
+    render(fresh);
+    expect(readFileSync(join(fresh, "CLAUDE.md"), "utf8")).toBe("@HITL.md\n");
+
+    const existing = tempRepo({ "CLAUDE.md": "# Mine\n\nRules.\n" });
+    render(existing);
+    expect(readFileSync(join(existing, "CLAUDE.md"), "utf8")).toBe(
+      "# Mine\n\nRules.\n\n@HITL.md\n",
+    );
+  });
+
+  it("appends marked blocks to README.md and .gitignore, creating them if absent", () => {
+    const repo = tempRepo({ "README.md": "# app\n" });
+    const r = render(repo);
+    const readme = readFileSync(join(repo, "README.md"), "utf8");
+    expect(readme.startsWith("# app\n")).toBe(true);
+    expect(readme).toContain("<!-- hitl:start -->");
+    expect(readme).toContain("## How changes land here");
+    expect(readme).toContain("hitl 0.1.0");
+    expect(readme).toContain("<!-- hitl:end -->");
+    const ignore = readFileSync(join(repo, ".gitignore"), "utf8");
+    expect(ignore).toContain(".claude/reviews/");
+    expect(ignore).toContain(".claude/fixtures/scratch/");
+    expect(ignore).toContain(".claude/settings.local.json");
+    expect(r.json.appended).toEqual(
+      expect.arrayContaining(["CLAUDE.md", "README.md", ".gitignore"]),
+    );
+  });
+
+  it("merges the Stop hook into settings.json and keeps other hooks", () => {
+    const repo = tempRepo({
+      ".claude/settings.json": JSON.stringify({
+        hooks: { PreToolUse: [{ hooks: [{ type: "command", command: "echo hi" }] }] },
+        permissions: { allow: ["Bash(ls)"] },
+      }),
+    });
+    const r = render(repo);
+    const settings = JSON.parse(readFileSync(join(repo, ".claude/settings.json"), "utf8"));
+    expect(settings.permissions.allow).toEqual(["Bash(ls)"]);
+    expect(settings.hooks.PreToolUse).toHaveLength(1);
+    expect(JSON.stringify(settings.hooks.Stop)).toContain("unreviewed-artifact.sh");
+    expect(r.json.settings).toBe("added");
+  });
+
+  it("writes the manifest with the version, the choices and a hash per owned file", () => {
+    const repo = tempRepo();
+    render(repo);
+    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    expect(manifest.version).toBe("0.1.0");
+    expect(manifest.provider).toBe("github");
+    expect(manifest.ci).toBe("github-actions");
+    expect(manifest.testing).toEqual([]);
+    expect(manifest).not.toHaveProperty("gates");
+    expect(Object.keys(manifest.files)).toHaveLength(22);
+    expect(manifest.files["HITL.md"]).toMatch(/^[0-9a-f]{64}$/);
+    expect(Object.keys(manifest.files)).toEqual([...Object.keys(manifest.files)].sort());
+  });
+
+  it("omits the workflow when ci is none", () => {
+    const repo = tempRepo();
+    render(repo, { ...ANSWERS, ci: "none" });
+    expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
+    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    expect(manifest.ci).toBe("none");
+    expect(Object.keys(manifest.files)).toHaveLength(21);
+  });
+});
+
+function tree(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((p) => !p.startsWith(".git/") && p !== ".git")
+    .sort();
+}
+
+describe("render.mjs refusals", () => {
+  it("refuses a second run with the installed version and writes nothing", () => {
+    const repo = tempRepo();
+    render(repo);
+    const before = tree(repo);
+    const r = render(repo);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "manifest-present", version: "0.1.0" });
+    expect(tree(repo)).toEqual(before);
+  });
+
+  it("refuses on an owned filename inside .claude/commands but not on a foreign one", () => {
+    const foreign = tempRepo({ ".claude/commands/deploy.md": "mine\n" });
+    const ok = render(foreign);
+    expect(ok.status).toBe(0);
+    expect(ok.json.foreign).toEqual([".claude/commands/deploy.md"]);
+    expect(readFileSync(join(foreign, ".claude/commands/deploy.md"), "utf8")).toBe("mine\n");
+
+    const owned = tempRepo({ ".claude/commands/review-spec.md": "old\n" });
+    const r = render(owned);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "collision", paths: [".claude/commands/review-spec.md"] });
+    expect(existsSync(join(owned, "HITL.md"))).toBe(false);
+  });
+
+  it("refuses on scripts/hitl/ and .claude/fixtures/ as directories", () => {
+    const repo = tempRepo({ "scripts/hitl/other.sh": "", ".claude/fixtures/mine.md": "" });
+    const r = render(repo);
+    expect(r.status).toBe(3);
+    expect(r.json.refused).toBe("collision");
+    expect(r.json.paths).toEqual(expect.arrayContaining(["scripts/hitl", ".claude/fixtures"]));
+  });
+
+  it("refuses on HITL.md, review-context.md and the workflow as files", () => {
+    for (const p of [
+      "HITL.md",
+      ".claude/review-context.md",
+      ".github/workflows/wipe-superpowers-docs.yml",
+    ]) {
+      const repo = tempRepo({ [p]: "x\n" });
+      const r = render(repo);
+      expect(r.status, p).toBe(3);
+      expect(r.json.paths, p).toEqual([p]);
+    }
+  });
+
+  it("refuses an unknown ci value before writing anything", () => {
+    const repo = tempRepo();
+    const before = tree(repo);
+    const r = render(repo, { ...ANSWERS, ci: "github" });
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({
+      refused: "unknown-ci",
+      ci: "github",
+      allowed: ["github-actions", "none"],
+    });
+    expect(tree(repo)).toEqual(before);
+  });
+
+  it("refuses an unparsable settings.json before writing anything", () => {
+    const repo = tempRepo({ ".claude/settings.json": "{ not json" });
+    const before = tree(repo);
+    const r = render(repo);
+    expect(r.status).toBe(3);
+    expect(r.json.refused).toBe("settings-unparsable");
+    expect(tree(repo)).toEqual(before);
+  });
+
+  // Root ignores directory modes, so this cannot go red under root (some CI images).
+  it.skipIf(process.getuid?.() === 0)(
+    "reports the files written before a mid-write failure",
+    () => {
+      const repo = tempRepo();
+      mkdirSync(join(repo, "scripts"));
+      chmodSync(join(repo, "scripts"), 0o555); // scripts/hitl/ cannot be created
+      const r = render(repo);
+      expect(r.status).toBe(2);
+      expect(r.json.error).toMatch(/EACCES|permission/i);
+      expect(r.json.wrote).toContain("HITL.md");
+      expect(r.json.wrote).not.toContain("scripts/hitl/wipe-superpowers-docs.sh");
+      expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+      chmodSync(join(repo, "scripts"), 0o755);
+    },
+  );
+
+  it.skipIf(process.getuid?.() === 0)(
+    "reports appended files apart from created ones when a later write fails",
+    () => {
+      const repo = tempRepo({
+        "README.md": "# app\n",
+        ".claude/settings.json": JSON.stringify({ permissions: { allow: [] } }),
+      });
+      chmodSync(join(repo, ".claude/settings.json"), 0o444); // the settings write fails
+      const r = render(repo);
+      expect(r.status).toBe(2);
+      expect(r.json.wrote).toContain("HITL.md");
+      expect(r.json.wrote).not.toContain("README.md");
+      expect(r.json.appended).toEqual(
+        expect.arrayContaining(["CLAUDE.md", "README.md", ".gitignore"]),
+      );
+      expect(r.json.settings).toBe("untouched");
+      expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+      chmodSync(join(repo, ".claude/settings.json"), 0o644);
+    },
+  );
+
+  it("reports settings as added when only the manifest write fails", () => {
+    const repo = tempRepo();
+    mkdirSync(join(repo, ".claude"));
+    // A dangling link reads as absent, and writing through it fails.
+    symlinkSync(join(repo, "missing-dir", "hitl.json"), join(repo, ".claude/hitl.json"));
+    const r = render(repo);
+    expect(r.status).toBe(2);
+    expect(r.json.settings).toBe("added");
+    expect(r.json.wrote).not.toContain(".claude/hitl.json");
+  });
+});
+
+function check(repo: string) {
+  const r = spawnSync(
+    "node",
+    [RENDER, "--repo", repo, "--plugin-root", PLUGIN_ROOT, "--mode", "check"],
+    {
+      encoding: "utf8",
+    },
+  );
+  return { ...r, json: r.stdout ? JSON.parse(r.stdout) : null };
+}
+
+describe("render.mjs --mode check", () => {
+  it("reports ok on a clean repository and writes nothing", () => {
+    const repo = tempRepo({ "README.md": "# app\n" });
+    const before = tree(repo);
+    const r = check(repo);
+    expect(r.status).toBe(0);
+    expect(r.json).toEqual({ ok: true });
+    expect(tree(repo)).toEqual(before);
+  });
+
+  it("refuses on a collision with the same JSON as a write would, and writes nothing", () => {
+    const repo = tempRepo({ "HITL.md": "x\n" });
+    const r = check(repo);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "collision", paths: ["HITL.md"] });
+    expect(tree(repo)).toEqual(["HITL.md"]);
+  });
+
+  it("refuses on a present manifest", () => {
+    const repo = tempRepo();
+    render(repo);
+    expect(check(repo).json).toEqual({ refused: "manifest-present", version: "0.1.0" });
+  });
+});
+
+describe("render.mjs and AGENTS.md", () => {
+  it("creates AGENTS.md as a stub plus the gates block when absent", () => {
+    const repo = tempRepo();
+    const r = render(repo, { ...ANSWERS, gates: ["pnpm test", "pnpm lint"] });
+    const text = readFileSync(join(repo, "AGENTS.md"), "utf8");
+    expect(text.startsWith(`# ${repo.split("/").pop()} — agent working agreements\n`)).toBe(true);
+    expect(text).toContain(
+      "<!-- hitl:start -->\n<!-- hitl:knob local-gates -->\n## Local gates\n\n- `pnpm test`\n- `pnpm lint`\n<!-- hitl:end -->\n",
+    );
+    expect(r.json.appended).toContain("AGENTS.md");
+    expect(r.json.wrote).not.toContain("AGENTS.md");
+  });
+
+  it("keeps an existing AGENTS.md above the block", () => {
+    const repo = tempRepo({ "AGENTS.md": "# app\n\nOurs.\n" });
+    render(repo);
+    const text = readFileSync(join(repo, "AGENTS.md"), "utf8");
+    expect(text.startsWith("# app\n\nOurs.\n\n<!-- hitl:start -->")).toBe(true);
+  });
+
+  it("writes the none-yet line when gates is empty", () => {
+    const repo = tempRepo();
+    render(repo, { ...ANSWERS, gates: [] });
+    expect(readFileSync(join(repo, "AGENTS.md"), "utf8")).toContain(
+      "none yet — the first TDD task adds the harness and names its command here",
+    );
+  });
+
+  it("never records gates in the manifest", () => {
+    const repo = tempRepo();
+    render(repo, { ...ANSWERS, gates: ["pnpm test"] });
+    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    expect(manifest).not.toHaveProperty("gates");
+  });
+});

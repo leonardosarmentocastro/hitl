@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const SCRIPT = fileURLToPath(new URL("../wipe-superpowers-docs.sh", import.meta.url));
+const SCRIPT = fileURLToPath(new URL("../hitl/wipe-superpowers-docs.sh", import.meta.url));
 
 function tempRepo(withDocs: boolean) {
   const dir = mkdtempSync(join(tmpdir(), "wiperepo-"));

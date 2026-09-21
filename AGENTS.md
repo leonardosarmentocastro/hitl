@@ -10,18 +10,40 @@ a Claude Code plugin that installs that workflow into other repositories.
   them. This repository's own `.claude/` is the first consumer of its templates.
 - Bootstrapped on 2026-09-15 as an ejected copy of `treasury-2`'s `.claude/` tooling.
 
+<!-- hitl:start -->
+<!-- hitl:knob local-gates -->
 ## Local gates
 
-- `pnpm test` — the script tests under `scripts/__tests__/` (the Stop hook, the wipe
-  script, and every script this plugin installs). Run before a PR opens.
-- `pnpm format:check` — Prettier, `printWidth: 100`; Markdown is never formatted (the
-  prompts, doctrine and templates are read as instructions).
+- `pnpm test`
+- `pnpm format:check`
+<!-- hitl:end -->
+
+`pnpm test` runs the script tests under `scripts/__tests__/`: the Stop hook, the wipe script,
+the installer under `installer/`, every script this plugin installs, and the drift test that
+proves this repository equals its own render. `pnpm format:check` is Prettier at
+`printWidth: 100`; Markdown is never formatted, because the prompts, doctrine and templates
+are read as instructions. Both run before a PR opens.
+
+**Refreshing this repository's manifest.** A change under `templates/` changes the render, so
+the self-manifest test fails until `.claude/hitl.json` is regenerated. `adopt.mjs` refuses
+while a manifest exists, so delete it first; from the repository root:
+
+```bash
+rm .claude/hitl.json
+node --input-type=module -e 'import { THIS_REPO_CHOICES as c } from "./installer/lib.mjs"; console.log(JSON.stringify(c))' > /tmp/hitl-answers.json
+node installer/adopt.mjs --repo . --plugin-root . --answers /tmp/hitl-answers.json
+```
+
+Commit the regenerated manifest with the template change.
 
 ## Test-driven development, here
 
-- Everything under `scripts/` and `.claude/hooks/` has behaviour of its own and is tested
-  under `scripts/__tests__/`. Tests that read the disk use `scripts/__fixtures__/`, never
-  `docs/superpowers/`, which the wipe deletes.
+- Everything under `scripts/`, `installer/` and `.claude/hooks/` has behaviour of its own
+  and is tested under `scripts/__tests__/`. `templates/` is tested by the drift test: this
+  repository's own `.claude/`, `HITL.md`, `scripts/hitl/` and wipe workflow must equal what
+  `installer/` renders from `templates/` with this repository's choices, except
+  `.claude/review-context.md`, which is repo-specific. Tests that read the disk use temp
+  directories or `scripts/__fixtures__/`, never `docs/superpowers/`, which the wipe deletes.
 - Prompts (agents, commands) are validated by running them on a fixture under
   `.claude/fixtures/` (a dry run — see `/review-spec`), not by unit tests.
 - Workflow YAML is validated by a human watching it run.
