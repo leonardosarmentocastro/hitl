@@ -246,6 +246,18 @@ describe("cleanup.mjs — classes", () => {
     expect(at(r.json, path)).toMatchObject({ offered: false });
     expect(at(r.json, path).unsaved).toContain("the worktree folder is missing");
   });
+
+  it("has unsaved work: a detached HEAD with commits on no branch", () => {
+    const w = world();
+    const { path } = designWorktree(w, "h");
+    git(path, "checkout", "-q", "--detach");
+    commit(path, "loose.md");
+    git(path, "checkout", "-q", "--detach", "origin/main");
+    commit(path, "loose2.md");
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("has unsaved work");
+    expect(e.unsaved.join(" ")).toContain("detached HEAD");
+  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {

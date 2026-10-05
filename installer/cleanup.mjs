@@ -93,6 +93,11 @@ function classify(main, here, wt) {
   const unsaved = present
     ? lines(git(wt.path, "status", "--porcelain").out).map((l) => `not committed: ${l.slice(3)}`)
     : ["the worktree folder is missing"];
+  if (present && !wt.checkedOut) {
+    const loose = git(wt.path, "rev-list", "HEAD", "--not", "--branches", "--remotes");
+    if (!loose.ok || loose.out !== "")
+      unsaved.push("detached HEAD has commits that are on no branch and no remote");
+  }
 
   let cls = "in progress";
   if (merged) {
