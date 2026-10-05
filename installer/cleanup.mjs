@@ -17,7 +17,8 @@ class Failure extends Error {}
 
 function git(cwd, ...args) {
   const r = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8" });
-  return { ok: r.status === 0, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim() };
+  const raw = r.stdout ?? "";
+  return { ok: r.status === 0, out: raw.trim(), raw, err: (r.stderr ?? "").trim() };
 }
 
 const lines = (text) => text.split("\n").filter(Boolean);
@@ -49,11 +50,19 @@ function listPrs(main, branch) {
     const why = (r.stderr || r.error?.message || `exit ${r.status}`).trim();
     throw new Failure(`the PR shim failed: ${why}`);
   }
-  return JSON.parse(r.stdout);
+  try {
+    return JSON.parse(r.stdout);
+  } catch {
+    throw new Failure("the PR shim printed something that is not a JSON list of PRs");
+  }
 }
 
 const exists = (main, b) => git(main, "rev-parse", "--verify", "--quiet", `refs/heads/${b}`).ok;
-const beyondBase = (main, b) => lines(git(main, "rev-list", `${BASE}..${b}`).out).length;
+function beyondBase(main, b) {
+  const r = git(main, "rev-list", `${BASE}..${b}`);
+  if (!r.ok) throw new Failure(`could not compare ${b} with ${BASE}: ${r.err}`);
+  return lines(r.out).length;
+}
 
 /** On a remote-tracking ref, or at/behind the head commit of a merged PR for that branch. */
 function isSaved(main, b, prs) {
@@ -75,7 +84,7 @@ function sizeKb(path) {
 }
 
 function ignoredEntries(path) {
-  return lines(git(path, "status", "--porcelain", "--ignored=matching").out)
+  return lines(git(path, "status", "--porcelain", "--ignored=matching").raw)
     .filter((l) => l.startsWith("!! "))
     .map((l) => l.slice(3))
     .map((entry) => ({ entry, sizeKb: sizeKb(join(path, entry)) }));
@@ -91,7 +100,7 @@ function classify(main, here, wt) {
   const merged = umbrella.find((p) => p.state === "merged") ?? null;
   const present = existsSync(wt.path);
   const unsaved = present
-    ? lines(git(wt.path, "status", "--porcelain").out).map((l) => `not committed: ${l.slice(3)}`)
+    ? lines(git(wt.path, "status", "--porcelain").raw).map((l) => `not committed: ${l.slice(3)}`)
     : ["the worktree folder is missing"];
   if (present && !wt.checkedOut) {
     const loose = git(wt.path, "rev-list", "HEAD", "--not", "--branches", "--remotes");
@@ -140,6 +149,11 @@ function run(args) {
   const fetch = git(main, "fetch", "--prune", "origin");
   if (!fetch.ok)
     return { code: 2, out: { error: `git fetch --prune origin failed: ${fetch.err}` } };
+  if (!git(main, "rev-parse", "--verify", "--quiet", `refs/remotes/${BASE}^{commit}`).ok)
+    return {
+      code: 2,
+      out: { error: `${BASE} does not exist after the fetch; nothing can be checked against it` },
+    };
   try {
     const worktrees = hitlWorktrees(main).map((wt) => classify(main, here, wt));
     if (!args.remove) return { code: 0, out: { main, pruned: true, worktrees } };

@@ -32,16 +32,16 @@ function git(cwd: string, ...args: string[]): string {
 type Pr = { number: number; head: string; state: "open" | "merged" | "closed"; head_sha?: string };
 
 /** A bare remote, a clone of it with one pushed commit on main, and the stub shim installed. */
-function world() {
+function world(defaultBranch = "main") {
   const base = realpathSync(mkdtempSync(join(tmpdir(), "hitl-cleanup-")));
   const remote = join(base, "remote.git");
-  git(base, "init", "-q", "--bare", "-b", "main", remote);
+  git(base, "init", "-q", "--bare", "-b", defaultBranch, remote);
   const main = join(base, "main");
   git(base, "clone", "-q", remote, main);
   writeFileSync(join(main, ".gitignore"), ".claude/worktrees/\nnode_modules/\nscripts/hitl/\n");
   git(main, "add", ".gitignore");
   git(main, "commit", "-q", "-m", "init");
-  git(main, "push", "-q", "origin", "HEAD:main");
+  git(main, "push", "-q", "origin", `HEAD:${defaultBranch}`);
   git(main, "fetch", "-q", "origin");
   mkdirSync(join(main, "scripts/hitl"), { recursive: true });
   copyFileSync(STUB, join(main, "scripts/hitl/pr.sh"));
@@ -67,10 +67,10 @@ function world() {
 }
 type World = ReturnType<typeof world>;
 
-function designWorktree(w: World, topic: string, prefix = "feat") {
+function designWorktree(w: World, topic: string, prefix = "feat", start = "origin/main") {
   const path = join(w.main, ".claude/worktrees", topic);
   const branch = `${prefix}/${topic}`;
-  git(w.main, "worktree", "add", "-q", path, "-b", branch, "origin/main");
+  git(w.main, "worktree", "add", "-q", path, "-b", branch, start);
   git(w.main, "worktree", "lock", "--reason", `hitl design session: ${topic} on ${branch}`, path);
   return { path, branch };
 }
@@ -208,6 +208,15 @@ describe("cleanup.mjs — classes", () => {
     expect(at(cleanup(w).json, path).class).toBe("has unsaved work");
   });
 
+  it("has unsaved work: a tracked edit names the file in full", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    writeFileSync(join(path, ".gitignore"), "changed\n");
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("has unsaved work");
+    expect(e.unsaved).toContain("not committed: .gitignore");
+  });
+
   it("finds slice branches of a fix/ branch", () => {
     const w = world();
     const { path, branch } = designWorktree(w, "api-v2", "fix");
@@ -267,6 +276,28 @@ describe("cleanup.mjs — failures offer nothing", () => {
     const r = cleanup(w, [], { FAKE_PRS_FAIL: "1" });
     expect(r.status).toBe(2);
     expect(r.json.error).toMatch(/PR shim/);
+  });
+
+  it("exits 2 when the PR shim prints something that is not JSON", () => {
+    const w = world();
+    designWorktree(w, "a");
+    writeFileSync(w.prsFile, "<html>rate limited</html>");
+    const r = cleanup(w);
+    expect(r.status).toBe(2);
+    expect(r.json.error).toMatch(/PR shim/);
+  });
+
+  it("exits 2 and removes nothing when origin/main does not exist", () => {
+    const w = world("master");
+    const { path, branch } = designWorktree(w, "x", "feat", "origin/master");
+    const tip = commit(path, "unpushed.md");
+    const listed = cleanup(w);
+    expect(listed.status).toBe(2);
+    expect(listed.json.error).toMatch(/origin\/main/);
+    const r = cleanup(w, ["--remove", path]);
+    expect(r.status).toBe(2);
+    expect(existsSync(path)).toBe(true);
+    expect(git(w.main, "rev-parse", branch)).toBe(tip);
   });
 
   it("exits 2 when the fetch fails", () => {
