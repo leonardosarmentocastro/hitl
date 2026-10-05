@@ -33,7 +33,7 @@
 
 ## Review Focus
 
-- A worktree whose folder was deleted by hand (`rm -rf`) but is still registered — `git status` fails there; the engine must not crash or offer it. Test in Task 2 (classified "in progress" with `unsaved: ["worktree folder is missing"]`… see Step 1 case `missing folder`).
+- A worktree whose folder was deleted by hand (`rm -rf`) but is still registered — `git status` fails there; the engine must not crash or offer it, and lists it with `unsaved` containing "the worktree folder is missing". Test in Task 2 ("does not crash on a registered worktree whose folder was deleted").
 - Two hitl worktrees, one removable, one not — one question removes only the offered one; Task 3's mixed test.
 - A feature branch name containing a slash beyond the prefix (`fix/api/v2`) — `for-each-ref refs/heads/fix/api/v2-slice-*` must still find slices; covered in Task 2 by using `fix/api-v2` and `feat/…` names in different tests, and `B-slice-*` built from `B` verbatim.
 - A repository with no `origin` remote — `fetch` fails → exit 2 with a plain message; Task 2's fetch-failure test.
