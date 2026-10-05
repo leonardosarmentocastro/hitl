@@ -71,7 +71,9 @@ function classify(main, here, wt) {
   const branches = [wt.branch].filter((b) => exists(main, b));
   const umbrella = prs.filter((p) => p.head === wt.branch);
   const merged = umbrella.find((p) => p.state === "merged") ?? null;
-  const unsaved = [];
+  const unsaved = lines(git(wt.path, "status", "--porcelain").out).map(
+    (l) => `not committed: ${l.slice(3)}`,
+  );
 
   let cls = "in progress";
   if (merged) {

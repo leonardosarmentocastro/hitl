@@ -150,6 +150,15 @@ describe("cleanup.mjs — classes", () => {
     expect(e).toMatchObject({ class: "has unsaved work", offered: false });
     expect(e.unsaved.join(" ")).toContain(branch);
   });
+
+  it("has unsaved work: an untracked file", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    writeFileSync(join(path, "notes.txt"), "x");
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("has unsaved work");
+    expect(e.unsaved.join(" ")).toContain("notes.txt");
+  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {
