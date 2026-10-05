@@ -344,4 +344,11 @@ describe("cleanup.mjs --remove", () => {
     expect(r.json.removed.map((x: { path: string }) => x.path)).toEqual([a.path]);
     expect(r.json.refused.map((x: { path: string }) => x.path)).toEqual([p.path]);
   });
+
+  it("refuses a path that is not a hitl worktree", () => {
+    const w = world();
+    const r = cleanup(w, ["--remove", join(w.base, "elsewhere")]);
+    expect(r.status).toBe(0);
+    expect(r.json.refused[0].why).toBe("not a hitl design-session worktree");
+  });
 });
