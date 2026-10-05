@@ -302,4 +302,25 @@ describe("cleanup.mjs --remove", () => {
     expect(cleanup(w, ["--remove", path]).json.removed).toHaveLength(1);
     expect(existsSync(path)).toBe(false);
   });
+
+  it("removes B and its slice branches when the worktree sits on a slice branch", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "s");
+    const feat = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    const slice = `${branch}-slice-1-api`;
+    git(path, "checkout", "-q", "-b", slice);
+    const sliceTip = commit(path, "api.ts");
+    git(path, "push", "-q", "origin", slice);
+    w.setPrs([
+      { number: 1, head: slice, state: "merged", head_sha: sliceTip },
+      { number: 2, head: branch, state: "merged", head_sha: feat },
+    ]);
+    const r = cleanup(w, ["--remove", path]);
+    expect(r.json.removed).toHaveLength(1);
+    expect(r.json.removed[0].branches.sort()).toEqual([branch, slice].sort());
+    expect(git(w.main, "branch", "--list", branch, slice)).toBe("");
+    expect(git(w.main, "ls-remote", "--heads", "origin", branch)).not.toBe("");
+    expect(git(w.main, "ls-remote", "--heads", "origin", slice)).not.toBe("");
+  });
 });
