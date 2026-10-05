@@ -131,7 +131,7 @@ umbrella PR, and the sentence "Nothing is merged. The stack is yours to review."
 anything ready for review. Do not merge.
 
 End the report with this block, in plain words, `<abs path>` being `git rev-parse
---show-toplevel` and the branches the feature branch and its local slice branches:
+--show-toplevel` and the branches being the feature branch and its local slice branches:
 
 > When the umbrella PR merges, clean up from the **main checkout** — not from this session,
 > which is running inside the worktree: run `/hitl:cleanup`, or
