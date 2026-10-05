@@ -167,7 +167,14 @@ function removeAll(main, worktrees, list) {
     git(main, "worktree", "unlock", path);
     const rm = git(main, "worktree", "remove", path);
     if (!rm.ok) {
-      git(main, "worktree", "lock", "--reason", `hitl design session: ${wt.topic} on ${wt.branch}`, path);
+      git(
+        main,
+        "worktree",
+        "lock",
+        "--reason",
+        `hitl design session: ${wt.topic} on ${wt.branch}`,
+        path,
+      );
       refused.push({ path, why: rm.err });
       continue;
     }
