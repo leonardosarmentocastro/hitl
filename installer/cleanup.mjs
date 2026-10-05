@@ -105,7 +105,11 @@ function classify(main, here, wt) {
     for (const b of branches)
       if (!isSaved(main, b, prs))
         unsaved.push(`${b} has commits that are on no remote branch and in no merged PR`);
-  } else if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0) {
+  } else if (
+    umbrella.length === 0 &&
+    exists(main, wt.branch) &&
+    beyondBase(main, wt.branch) === 0
+  ) {
     cls = "abandoned";
     for (const b of slices)
       if (!isSaved(main, b, prs) && beyondBase(main, b) > 0)
@@ -134,7 +138,8 @@ function run(args) {
   const main = dirname(common.out);
   const here = git(args.repo, "rev-parse", "--show-toplevel").out;
   const fetch = git(main, "fetch", "--prune", "origin");
-  if (!fetch.ok) return { code: 2, out: { error: `git fetch --prune origin failed: ${fetch.err}` } };
+  if (!fetch.ok)
+    return { code: 2, out: { error: `git fetch --prune origin failed: ${fetch.err}` } };
   try {
     const worktrees = hitlWorktrees(main).map((wt) => classify(main, here, wt));
     if (!args.remove) return { code: 0, out: { main, pruned: true, worktrees } };
