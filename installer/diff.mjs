@@ -24,10 +24,12 @@ import {
   BLOCK_START,
   MANIFEST_PATH,
   compareVersions,
+  gitignoreBlock,
   manifestFor,
   pluginVersion,
   readManifest,
   renderAll,
+  replaceMarkerBlock,
   sha256,
 } from "./lib.mjs";
 
@@ -203,6 +205,7 @@ export async function run(args) {
   const deleted = [];
   let manifestWritten = false;
   let readmeBumped = false;
+  let gitignoreRefreshed = false;
   try {
     for (const w of writes) {
       const abs = join(repo, w.path);
@@ -237,6 +240,15 @@ export async function run(args) {
         readmeBumped = true;
       }
     }
+
+    const ignorePath = join(repo, ".gitignore");
+    if (existsSync(ignorePath)) {
+      const r = replaceMarkerBlock(readFileSync(ignorePath, "utf8"), gitignoreBlock());
+      if (r.changed) {
+        writeFileSync(ignorePath, r.text);
+        gitignoreRefreshed = true;
+      }
+    }
   } catch (e) {
     const manifestState = manifestWritten ? "written" : "untouched";
     return {
@@ -245,7 +257,10 @@ export async function run(args) {
     };
   }
 
-  return { code: 0, out: { ...report, applied: true, written, deleted, readmeBumped } };
+  return {
+    code: 0,
+    out: { ...report, applied: true, written, deleted, readmeBumped, gitignoreRefreshed },
+  };
 }
 
 const args = parseArgs(process.argv.slice(2), ["apply"]);

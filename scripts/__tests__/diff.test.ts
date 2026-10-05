@@ -352,6 +352,32 @@ describe("diff.mjs --apply", () => {
     expect(existsSync(join(repo, "README.md"))).toBe(false);
   });
 
+  it("--apply refreshes the hitl block in .gitignore and keeps the lines around it", () => {
+    const repo = installedRepo(mk);
+    const p = join(repo, ".gitignore");
+    writeFileSync(
+      p,
+      "dist/\n\n<!-- hitl:start -->\n# old block\n.claude/reviews/\n<!-- hitl:end -->\nafter/\n",
+    );
+    const r = diff(repo, plugin, mk, true);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.json.gitignoreRefreshed).toBe(true);
+    const text = readFileSync(p, "utf8");
+    expect(text).toContain(".claude/worktrees/");
+    expect(text).not.toContain("# old block");
+    expect(text.startsWith("dist/\n\n<!-- hitl:start -->\n")).toBe(true);
+    expect(text.endsWith("<!-- hitl:end -->\nafter/\n")).toBe(true);
+  });
+
+  it("--apply leaves a .gitignore without the hitl markers alone", () => {
+    const repo = installedRepo(mk);
+    const p = join(repo, ".gitignore");
+    writeFileSync(p, "dist/\n");
+    const r = diff(repo, plugin, mk, true);
+    expect(r.json.gitignoreRefreshed).toBe(false);
+    expect(readFileSync(p, "utf8")).toBe("dist/\n");
+  });
+
   it("writes a conflicted file with its hunks and reports it", () => {
     const repo = installedRepo(mk);
     appendFileSync(join(repo, FIXER), "\nOurs, at the end.\n");

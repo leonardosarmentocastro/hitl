@@ -181,6 +181,15 @@ export function withMarkerBlock(existing, block) {
   return { text: `${base}${gap}${BLOCK_START}\n${block.trimEnd()}\n${BLOCK_END}\n`, changed: true };
 }
 
+/** Replace what sits between the markers with the current block; text without them is left alone. */
+export function replaceMarkerBlock(existing, block) {
+  const start = existing.indexOf(BLOCK_START);
+  const end = existing.indexOf(BLOCK_END);
+  if (start === -1 || end < start) return { text: existing, changed: false };
+  const text = `${existing.slice(0, start)}${BLOCK_START}\n${block.trimEnd()}\n${existing.slice(end)}`;
+  return { text, changed: text !== existing };
+}
+
 /** Append the `@HITL.md` import line to CLAUDE.md; recognised and left alone on a re-run. */
 export function withClaudeLine(existing) {
   if (existing !== null && existing.split("\n").includes("@HITL.md")) {

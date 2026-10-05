@@ -55,7 +55,7 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
   overwritten and every path under `deleted` removed; nothing is committed. To undo: save any
   of those files that held uncommitted edits of yours, then
   `git restore --source=HEAD --worktree -- <the tracked paths among written and deleted, plus
-  .claude/hitl.json and README.md>`, delete the paths under `written` that git does not track,
+  .claude/hitl.json, README.md and .gitignore>`, delete the paths under `written` that git does not track,
   `git checkout <FROM>` and `git branch -D <BRANCH>`. Fix the error and re-run
   `/hitl:diff --apply`." Stop.
 - exit `0` → stage exactly what this apply run reported touching — never the step-1 report's
@@ -69,6 +69,8 @@ git add -- .claude/hitl.json <every path in the apply output's `written`>
 git rm -q --cached --ignore-unmatch -- <every path in `deleted`>
 # only when `readmeBumped` is true:
 git add -- README.md
+# only when `gitignoreRefreshed` is true:
+git add -- .gitignore
 git commit -q -m "chore(hitl): <recorded> → <latest>"
 git push -u origin "$BRANCH"
 scripts/hitl/pr.sh create --base "$FROM" --head "$BRANCH" --title "hitl <recorded> → <latest>" --body-file <tmp>
