@@ -107,11 +107,12 @@ function classify(main, here, wt) {
   }
   if (cls !== "in progress" && unsaved.length > 0) cls = "has unsaved work";
   const shown = merged ?? umbrella[0] ?? null;
+  const isHere = resolve(wt.path) === resolve(here);
   return {
     ...wt,
     class: cls,
-    offered: cls === "merged" || cls === "abandoned",
-    here: false,
+    offered: (cls === "merged" || cls === "abandoned") && !isHere,
+    here: isHere,
     umbrella: shown ? { number: shown.number, url: shown.url } : null,
     branches,
     unsaved,

@@ -226,6 +226,16 @@ describe("cleanup.mjs — classes", () => {
     expect(e.class).toBe("abandoned");
     expect(e.ignored).toEqual([{ entry: "node_modules/", sizeKb: expect.any(Number) }]);
   });
+
+  it("never offers the worktree it runs in", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    expect(at(cleanup(w, [], {}, path).json, path)).toMatchObject({
+      class: "abandoned",
+      offered: false,
+      here: true,
+    });
+  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {
