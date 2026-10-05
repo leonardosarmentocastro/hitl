@@ -13,7 +13,7 @@ Read `.claude/hitl.json` (stop with "hitl is not installed or not adopted; run `
 if absent), `HITL.md` and its `## Load-bearing invariants` section, and this table. A
 **knob** is a rule a repository may tune. Each knob has one or more **anchors**: the line
 `<!-- hitl:knob <id> -->` immediately above the paragraph, bullet or heading that states the
-rule. `grep -rn "hitl:knob <id>" HITL.md AGENTS.md .claude/` finds every anchor of a knob.
+rule. `grep -rn --exclude-dir=worktrees "hitl:knob <id>" HITL.md AGENTS.md .claude/` finds every anchor of a knob.
 
 | id | what it tunes | where | treasury default — and why |
 |---|---|---|---|
@@ -47,7 +47,7 @@ Ask what the human wants the rule to say, one question at a time, and recommend 
 default with its reason from the table before accepting a change. When the wording is
 agreed:
 
-1. `grep -rn "hitl:knob <id>" HITL.md AGENTS.md .claude/` — every hit is an anchor of this
+1. `grep -rn --exclude-dir=worktrees "hitl:knob <id>" HITL.md AGENTS.md .claude/` — every hit is an anchor of this
    knob.
 2. For each anchor, edit only the block below it: from the line after the anchor to the next
    blank line (for a heading such as `## Local gates`, the heading's section up to the next
