@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -148,5 +148,58 @@ describe("unreviewed-artifact Stop hook", () => {
         encoding: "utf8",
       }),
     ).not.toThrow();
+  });
+});
+
+/** A PATH holding only the tools the hook needs besides node. */
+function pathWithoutNode(): string {
+  const bin = mkdtempSync(join(tmpdir(), "bin-"));
+  for (const tool of ["git", "awk", "cat", "dirname"]) {
+    const where = execFileSync("bash", ["-c", `command -v ${tool}`], { encoding: "utf8" }).trim();
+    symlinkSync(where, join(bin, tool));
+  }
+  return bin;
+}
+
+describe("fallback to CLAUDE_PROJECT_DIR", () => {
+  const dirty = () =>
+    gitRepoWith({ "docs/superpowers/plans/2026-09-06-x-slice-1-a.md": UNREVIEWED });
+  const cleanRepo = () => gitRepoWith({ "README.md": "hi\n" });
+
+  for (const [name, input] of [
+    ["no payload", ""],
+    ["a payload that is not JSON", "not json"],
+    ["JSON that is not an object", "[]"],
+    ["JSON null", "null"],
+    ["a payload without cwd", JSON.stringify({ hook_event_name: "Stop" })],
+    ["a cwd that is not a string", JSON.stringify({ cwd: 42 })],
+  ] as const) {
+    it(`falls back on ${name}`, () => {
+      expect(runHook(dirty(), input).status).toBe(2);
+    });
+  }
+
+  it("falls back when the cwd is not in a git repository", () => {
+    const loose = repoWith({ "README.md": "hi\n" });
+    expect(runHook(dirty(), payload(loose)).status).toBe(2);
+  });
+
+  it("falls back when the cwd no longer exists", () => {
+    expect(runHook(dirty(), payload(join(tmpdir(), "gone-" + Date.now()))).status).toBe(2);
+  });
+
+  it("falls back when node is not on PATH", () => {
+    const root = dirty();
+    const r = spawnSync(
+      execFileSync("bash", ["-c", "command -v bash"], { encoding: "utf8" }).trim(),
+      [HOOK],
+      {
+        cwd: root,
+        env: { ...process.env, PATH: pathWithoutNode(), CLAUDE_PROJECT_DIR: root },
+        input: payload(cleanRepo()),
+        encoding: "utf8",
+      },
+    );
+    expect(r.status).toBe(2);
   });
 });
