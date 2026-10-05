@@ -239,10 +239,11 @@ export function agentsBlock(gates, testing = []) {
 }
 
 export function gitignoreBlock() {
-  return `# hitl: review output and dry-run scratch space are never committed.
+  return `# hitl: review output, dry-run scratch space and design-session worktrees are never committed.
 .claude/reviews/
 .claude/fixtures/scratch/
-.claude/settings.local.json`;
+.claude/settings.local.json
+.claude/worktrees/`;
 }
 
 /** Owned paths that already exist: directories for OWNED_DIRS, files for everything else. */
