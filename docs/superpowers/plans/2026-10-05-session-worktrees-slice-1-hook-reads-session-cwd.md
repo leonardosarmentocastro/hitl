@@ -4,6 +4,8 @@
 
 **Owns:** the Stop hook gates the git root of the folder the session is currently in (the payload's `cwd`), falling back to `CLAUDE_PROJECT_DIR` and then `$PWD`.
 
+**Reviewed:** round 1 (2026-10-05).
+
 **Goal:** A session that moved into a worktree is gated on its own specs and plans, never on a sibling session's.
 
 **Architecture:** `unreviewed-artifact.sh` gains a small resolver in front of its existing `cd`: read stdin (only when it is not a terminal), pull `cwd` out with `node -e`, resolve it with `git -C "$cwd" rev-parse --show-toplevel`; any failure falls through to `CLAUDE_PROJECT_DIR`, then `$PWD`. The scan itself is unchanged. Template and this repository's copy change together; the manifest is regenerated.
@@ -22,7 +24,7 @@
 - `.claude/settings.json` (and `templates/claude/settings.hook.json`) keep launching the hook through `${CLAUDE_PROJECT_DIR}`; not changed.
 - Tests use temp directories, never `docs/superpowers/`.
 - `.sh` files keep their bytes under Prettier (Markdown is never formatted). Run `pnpm prettier --write` on any `.ts` file you touch before `pnpm format:check`.
-- The slice PR body carries a `## Harness observation` section listing the manual check in Task 3 for the human to run before merging (every automated test feeds a synthetic payload).
+- The slice PR body carries a `## Harness observation` section with the manual check in Task 3 (every automated test feeds a synthetic payload). **The human** runs it, ticks the boxes, and only then merges the slice PR; the implementer and the orchestrator cannot run it, because it needs two interactive sessions.
 
 ## Review Focus
 
@@ -301,4 +303,4 @@ No code. The automated tests prove the resolver; only the real harness proves th
 - [ ] Delete the probe spec.
 ```
 
-- [ ] **Step 1:** Confirm the section is in the PR body (the orchestrator writes PR bodies; this plan is its source).
+- [ ] **Step 1:** Confirm the section is in the PR body (the orchestrator writes PR bodies; this plan is its source). The boxes stay unticked: the human runs the check before merging this slice PR.

@@ -111,7 +111,10 @@ anchored.
 
 **`.gitignore`.** `gitignoreBlock()` in `installer/lib.mjs` gains `.claude/worktrees/`, so every
 install and every `/hitl:diff --apply` adds it; this repository's `.gitignore` gets the same
-line.
+line. For `/hitl:diff --apply` that needs a change: it used to leave an existing hitl marker
+block in `.gitignore` alone (`withMarkerBlock` skips a file that has the markers), so it now
+replaces the block's contents with the current `gitignoreBlock()`, and `/hitl:diff` stages
+`.gitignore` when it did.
 
 **Recursive scans skip sibling worktrees.** A worktree nested in the main checkout is visible to
 anything that walks the tree; `.gitignore` does not stop `grep -r` or an agent's file search.
@@ -284,3 +287,7 @@ slice 3 depends on slice 2 (it finds worktrees by the lock reason slice 2 introd
   handover agent only creates `<feature-branch>-slice-<N>-<label>`, which `B-slice-*` matches.
 - Spec review round 1 — *proving a host-deleted, squash-merged branch saved*: the human chose to
   add `head_sha` to the PR shim's record over listing such worktrees as unprovable.
+- **Bubbled up from plan review (round 1)** — `/hitl:diff --apply` now refreshes the hitl
+  block in an existing `.gitignore` (it used to leave it untouched), so an already-installed
+  repository gets `.claude/worktrees/` on upgrade. The human chose this over a manual upgrade
+  note. Owned by slice 2.

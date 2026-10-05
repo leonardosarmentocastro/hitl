@@ -4,6 +4,8 @@
 
 **Owns:** `/hitl:cleanup` — finding the hitl design-session worktrees, classifying each (merged · abandoned · has unsaved work · in progress), and removing the ones the human picks — plus `head_sha` in the PR shim's record and `/implement-stack`'s end-of-stack cleanup hint.
 
+**Reviewed:** round 1 (2026-10-05).
+
 **Goal:** After an umbrella PR merges (or a design is abandoned), one command shows which design worktrees are provably safe to remove, why, how much space they hold, and removes the chosen ones with their local branches — never a remote branch.
 
 **Architecture:** `installer/cleanup.mjs` (the engine, like `installer/help.mjs`: plain Node, prints one JSON document, never prompts) is driven by the plugin command `commands/cleanup.md`, which does the asking. The engine reads `git worktree list --porcelain`, keeps worktrees whose lock reason is `hitl design session: <topic> on <branch>`, fetches with `--prune`, asks the installed PR shim (`<main>/scripts/hitl/pr.sh list`) about the feature branch's PRs, and classifies. The shim's record gains `head_sha`, which keeps a squash-merged branch provably saved after the host deleted it.
@@ -134,7 +136,7 @@ git commit -m "feat(pr-shim): records carry the PR's head commit as head_sha"
 
 ---
 
-### Task 2: the engine lists and classifies
+### Task 2: the engine lists and classifies — one red/green cycle per behaviour
 
 **Files:**
 - Create: `installer/cleanup.mjs`
@@ -146,6 +148,8 @@ git commit -m "feat(pr-shim): records carry the PR's head commit as head_sha"
 - Produces: `node installer/cleanup.mjs --repo <dir>` → exit 0 and
   `{ main, pruned: true, worktrees: [{ path, topic, branch, checkedOut, class, offered, here, umbrella: {number,url}|null, branches: string[], unsaved: string[], sizeKb: number|null, ignored: [{entry, sizeKb}] }] }`;
   exit 1 `{ error }` on usage; exit 2 `{ error }` when the fetch or the shim fails. `class` is one of `"merged" | "abandoned" | "has unsaved work" | "in progress"`.
+
+Each cycle: add the test(s), run `pnpm vitest run --config scripts/vitest.config.ts scripts/__tests__/cleanup.test.ts`, see the stated failure, apply the code change, run again to green, commit. Never add a later cycle's code early: each test must be seen failing for its own reason.
 
 - [ ] **Step 1: The stub shim**
 
@@ -164,9 +168,9 @@ fi
 cat "${FAKE_PRS:?FAKE_PRS must be set}"
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [ ] **Step 2: Cycle 1 — tracer: listing, abandoned, in progress, failures**
 
-`scripts/__tests__/cleanup.test.ts`:
+Create `scripts/__tests__/cleanup.test.ts` with the helpers and the first tests:
 
 ```ts
 // scripts/__tests__/cleanup.test.ts
@@ -299,122 +303,6 @@ describe("cleanup.mjs — classes", () => {
     commit(path, "spec.md");
     expect(at(cleanup(w).json, path)).toMatchObject({ class: "in progress", offered: false });
   });
-
-  it("merged: squash-merged umbrella PR, pushed branch, clean", () => {
-    const w = world();
-    const { path, branch } = designWorktree(w, "m");
-    const tip = commit(path, "spec.md");
-    git(path, "push", "-q", "origin", branch);
-    w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
-    const e = at(cleanup(w).json, path);
-    expect(e).toMatchObject({ class: "merged", offered: true, umbrella: { number: 7 } });
-  });
-
-  it("has unsaved work: a local commit on no remote and in no merged PR", () => {
-    const w = world();
-    const { path, branch } = designWorktree(w, "m");
-    const tip = commit(path, "spec.md");
-    git(path, "push", "-q", "origin", branch);
-    w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
-    commit(path, "later.md");
-    const e = at(cleanup(w).json, path);
-    expect(e).toMatchObject({ class: "has unsaved work", offered: false });
-    expect(e.unsaved.join(" ")).toContain(branch);
-  });
-
-  it("has unsaved work: an untracked file", () => {
-    const w = world();
-    const { path } = designWorktree(w, "a");
-    writeFileSync(join(path, "notes.txt"), "x");
-    const e = at(cleanup(w).json, path);
-    expect(e.class).toBe("has unsaved work");
-    expect(e.unsaved.join(" ")).toContain("notes.txt");
-  });
-
-  it("merged: a branch the host deleted and the fetch pruned is saved through head_sha", () => {
-    const w = world();
-    const { path, branch } = designWorktree(w, "d");
-    const tip = commit(path, "spec.md");
-    git(path, "push", "-q", "origin", branch);
-    git(w.main, "push", "-q", "origin", "--delete", branch);
-    w.setPrs([{ number: 8, head: branch, state: "merged", head_sha: tip }]);
-    expect(at(cleanup(w).json, path).class).toBe("merged");
-    commit(path, "beyond.md");
-    expect(at(cleanup(w).json, path).class).toBe("has unsaved work");
-  });
-
-  it("in progress while the worktree sits on a merged slice and the umbrella is open; merged after", () => {
-    const w = world();
-    const { path, branch } = designWorktree(w, "s");
-    const feat = commit(path, "spec.md");
-    git(path, "push", "-q", "origin", branch);
-    const slice = `${branch}-slice-1-api`;
-    git(path, "checkout", "-q", "-b", slice);
-    const sliceTip = commit(path, "api.ts");
-    git(path, "push", "-q", "origin", slice);
-    w.setPrs([
-      { number: 1, head: slice, state: "merged", head_sha: sliceTip },
-      { number: 2, head: branch, state: "open", head_sha: feat },
-    ]);
-    expect(at(cleanup(w).json, path)).toMatchObject({
-      class: "in progress",
-      offered: false,
-      branch,
-      checkedOut: slice,
-    });
-    w.setPrs([
-      { number: 1, head: slice, state: "merged", head_sha: sliceTip },
-      { number: 2, head: branch, state: "merged", head_sha: feat },
-    ]);
-    const e = at(cleanup(w).json, path);
-    expect(e.class).toBe("merged");
-    expect(e.branches.sort()).toEqual([branch, slice].sort());
-  });
-
-  it("has unsaved work: abandoned, but a local slice branch carries an unpushed commit", () => {
-    const w = world();
-    const { path, branch } = designWorktree(w, "u");
-    git(path, "checkout", "-q", "-b", `${branch}-slice-1-a`);
-    commit(path, "wip.ts");
-    expect(at(cleanup(w).json, path).class).toBe("has unsaved work");
-  });
-
-  it("finds slice branches of a fix/ branch", () => {
-    const w = world();
-    const { path, branch } = designWorktree(w, "api-v2", "fix");
-    git(w.main, "branch", `${branch}-slice-1-a`, branch);
-    expect(at(cleanup(w).json, path).branches.sort()).toEqual([branch, `${branch}-slice-1-a`].sort());
-  });
-
-  it("reports gitignored entries with their size", () => {
-    const w = world();
-    const { path } = designWorktree(w, "a");
-    mkdirSync(join(path, "node_modules/x"), { recursive: true });
-    writeFileSync(join(path, "node_modules/x/index.js"), "x".repeat(10_000));
-    const e = at(cleanup(w).json, path);
-    expect(e.class).toBe("abandoned");
-    expect(e.ignored).toEqual([{ entry: "node_modules/", sizeKb: expect.any(Number) }]);
-  });
-
-  it("never offers the worktree it runs in", () => {
-    const w = world();
-    const { path } = designWorktree(w, "a");
-    expect(at(cleanup(w, [], {}, path).json, path)).toMatchObject({
-      class: "abandoned",
-      offered: false,
-      here: true,
-    });
-  });
-
-  it("does not crash on a registered worktree whose folder was deleted", () => {
-    const w = world();
-    const { path } = designWorktree(w, "gone");
-    rmSync(path, { recursive: true, force: true });
-    const r = cleanup(w);
-    expect(r.status).toBe(0);
-    expect(at(r.json, path)).toMatchObject({ offered: false });
-    expect(at(r.json, path).unsaved).toContain("the worktree folder is missing");
-  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {
@@ -437,14 +325,9 @@ describe("cleanup.mjs — failures offer nothing", () => {
 });
 ```
 
-- [ ] **Step 3: Run them to verify they fail**
+Expected red: every test fails — `installer/cleanup.mjs` does not exist (`JSON.parse` of empty stdout). This is the tracer cycle; the module's absence is the right failure here.
 
-Run: `pnpm vitest run --config scripts/vitest.config.ts scripts/__tests__/cleanup.test.ts`
-Expected: FAIL — `installer/cleanup.mjs` does not exist (`JSON.parse` of empty stdout).
-
-- [ ] **Step 4: Implementation**
-
-`installer/cleanup.mjs`:
+Green — create `installer/cleanup.mjs`:
 
 ```js
 #!/usr/bin/env node
@@ -504,70 +387,30 @@ function listPrs(main, branch) {
 const exists = (main, b) => git(main, "rev-parse", "--verify", "--quiet", `refs/heads/${b}`).ok;
 const beyondBase = (main, b) => lines(git(main, "rev-list", `${BASE}..${b}`).out).length;
 
-/** On a remote-tracking ref, or at/behind the head commit of a merged PR for that branch. */
-function isSaved(main, b, prs) {
-  const r = git(main, "rev-list", b, "--not", "--remotes");
-  if (r.ok && r.out === "") return true;
-  const tip = git(main, "rev-parse", b).out;
-  return prs.some(
-    (p) =>
-      p.head === b &&
-      p.state === "merged" &&
-      p.head_sha &&
-      git(main, "merge-base", "--is-ancestor", tip, p.head_sha).ok,
-  );
-}
-
 function sizeKb(path) {
   const r = spawnSync("du", ["-sk", path], { encoding: "utf8" });
   return r.status === 0 ? Number(r.stdout.split(/\s/)[0]) : null;
 }
 
-function ignoredEntries(path) {
-  return lines(git(path, "status", "--porcelain", "--ignored=matching").out)
-    .filter((l) => l.startsWith("!! "))
-    .map((l) => l.slice(3))
-    .map((entry) => ({ entry, sizeKb: sizeKb(join(path, entry)) }));
-}
-
 function classify(main, here, wt) {
   const prs = listPrs(main, wt.branch);
-  const slices = lines(
-    git(main, "for-each-ref", "--format=%(refname:short)", `refs/heads/${wt.branch}-slice-*`).out,
-  );
-  const branches = [wt.branch, ...slices].filter((b) => exists(main, b));
+  const branches = [wt.branch].filter((b) => exists(main, b));
   const umbrella = prs.filter((p) => p.head === wt.branch);
-  const merged = umbrella.find((p) => p.state === "merged") ?? null;
-  const present = existsSync(wt.path);
-  const unsaved = present
-    ? lines(git(wt.path, "status", "--porcelain").out).map((l) => `not committed: ${l.slice(3)}`)
-    : ["the worktree folder is missing"];
+  const unsaved = [];
 
   let cls = "in progress";
-  if (merged) {
-    cls = "merged";
-    for (const b of branches)
-      if (!isSaved(main, b, prs))
-        unsaved.push(`${b} has commits that are on no remote branch and in no merged PR`);
-  } else if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0) {
+  if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0)
     cls = "abandoned";
-    for (const b of slices)
-      if (!isSaved(main, b, prs) && beyondBase(main, b) > 0)
-        unsaved.push(`${b} has commits that are on no remote branch`);
-  }
-  if (cls !== "in progress" && unsaved.length > 0) cls = "has unsaved work";
-  const isHere = resolve(wt.path) === resolve(here);
-  const shown = merged ?? umbrella[0] ?? null;
   return {
     ...wt,
     class: cls,
-    offered: (cls === "merged" || cls === "abandoned") && !isHere && present,
-    here: isHere,
-    umbrella: shown ? { number: shown.number, url: shown.url } : null,
+    offered: cls === "merged" || cls === "abandoned",
+    here: false,
+    umbrella: null,
     branches,
     unsaved,
-    sizeKb: present ? sizeKb(wt.path) : null,
-    ignored: present ? ignoredEntries(wt.path) : [],
+    sizeKb: sizeKb(wt.path),
+    ignored: [],
   };
 }
 
@@ -596,21 +439,313 @@ function removeAll() {
 emit(run(parseArgs(process.argv.slice(2))));
 ```
 
-(`removeAll` is replaced in Task 3.)
+Green: all six pass. Commit: `feat(cleanup): list hitl design-session worktrees; abandoned and in progress`.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [ ] **Step 3: Cycle 2 — merged (squash-merged umbrella, branch on the remote)**
 
-Run: `pnpm vitest run --config scripts/vitest.config.ts scripts/__tests__/cleanup.test.ts`
-Expected: PASS. If `git worktree list --porcelain` prints the deleted-folder worktree with a `prunable` line, the block still parses (unknown keys are ignored).
+```ts
+  it("merged: squash-merged umbrella PR, pushed branch, clean", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "m");
+    const tip = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
+    const e = at(cleanup(w).json, path);
+    expect(e).toMatchObject({ class: "merged", offered: true, umbrella: { number: 7 } });
+  });
+```
 
-- [ ] **Step 6: Gates and commit**
+Expected red: `class` is `"in progress"`, expected `"merged"`.
+
+Green — in `classify`, after `const umbrella = …`:
+
+```js
+  const merged = umbrella.find((p) => p.state === "merged") ?? null;
+```
+
+replace the classification and the `umbrella` field:
+
+```js
+  let cls = "in progress";
+  if (merged) cls = "merged";
+  else if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0)
+    cls = "abandoned";
+  const shown = merged ?? umbrella[0] ?? null;
+```
+
+and in the returned object `umbrella: shown ? { number: shown.number, url: shown.url } : null,`. Commit: `feat(cleanup): a merged umbrella PR classifies as merged`.
+
+- [ ] **Step 4: Cycle 3 — a local commit on no remote is unsaved work**
+
+```ts
+  it("has unsaved work: a local commit on no remote and in no merged PR", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "m");
+    const tip = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
+    commit(path, "later.md");
+    const e = at(cleanup(w).json, path);
+    expect(e).toMatchObject({ class: "has unsaved work", offered: false });
+    expect(e.unsaved.join(" ")).toContain(branch);
+  });
+```
+
+Expected red: `class` is `"merged"`.
+
+Green — add the remotes-only saved test:
+
+```js
+/** On a remote-tracking ref. (Cycle 5 adds: or at/behind a merged PR's head commit.) */
+function isSaved(main, b) {
+  const r = git(main, "rev-list", b, "--not", "--remotes");
+  return r.ok && r.out === "";
+}
+```
+
+in `classify`, after `if (merged) cls = "merged";` make it a block:
+
+```js
+  if (merged) {
+    cls = "merged";
+    for (const b of branches)
+      if (!isSaved(main, b, prs))
+        unsaved.push(`${b} has commits that are on no remote branch and in no merged PR`);
+  } else if (…unchanged…)
+```
+
+and before the `return`:
+
+```js
+  if (cls !== "in progress" && unsaved.length > 0) cls = "has unsaved work";
+```
+
+Commit: `feat(cleanup): a branch with commits on no remote is unsaved work`.
+
+- [ ] **Step 5: Cycle 4 — an untracked file is unsaved work**
+
+```ts
+  it("has unsaved work: an untracked file", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    writeFileSync(join(path, "notes.txt"), "x");
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("has unsaved work");
+    expect(e.unsaved.join(" ")).toContain("notes.txt");
+  });
+```
+
+Expected red: `class` is `"abandoned"`.
+
+Green — replace `const unsaved = [];` with:
+
+```js
+  const unsaved = lines(git(wt.path, "status", "--porcelain").out).map(
+    (l) => `not committed: ${l.slice(3)}`,
+  );
+```
+
+Commit: `feat(cleanup): uncommitted or untracked files are unsaved work`.
+
+- [ ] **Step 6: Cycle 5 — a host-deleted, pruned branch is saved through `head_sha`**
+
+```ts
+  it("merged: a branch the host deleted and the fetch pruned is saved through head_sha", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "d");
+    const tip = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    git(w.main, "push", "-q", "origin", "--delete", branch);
+    w.setPrs([{ number: 8, head: branch, state: "merged", head_sha: tip }]);
+    expect(at(cleanup(w).json, path).class).toBe("merged");
+    commit(path, "beyond.md");
+    expect(at(cleanup(w).json, path).class).toBe("has unsaved work");
+  });
+```
+
+Expected red: the first expectation gets `"has unsaved work"` — after `fetch --prune` the branch is on no remote-tracking ref, and the remotes-only `isSaved` cannot see the merged PR.
+
+Green — replace `isSaved`:
+
+```js
+/** On a remote-tracking ref, or at/behind the head commit of a merged PR for that branch. */
+function isSaved(main, b, prs) {
+  const r = git(main, "rev-list", b, "--not", "--remotes");
+  if (r.ok && r.out === "") return true;
+  const tip = git(main, "rev-parse", b).out;
+  return prs.some(
+    (p) =>
+      p.head === b &&
+      p.state === "merged" &&
+      p.head_sha &&
+      git(main, "merge-base", "--is-ancestor", tip, p.head_sha).ok,
+  );
+}
+```
+
+Commit: `feat(cleanup): a squash-merged branch the host deleted is saved through the PR's head commit`.
+
+- [ ] **Step 7: Cycle 6 — slice branches**
+
+```ts
+  it("in progress while the worktree sits on a merged slice and the umbrella is open; merged after", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "s");
+    const feat = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    const slice = `${branch}-slice-1-api`;
+    git(path, "checkout", "-q", "-b", slice);
+    const sliceTip = commit(path, "api.ts");
+    git(path, "push", "-q", "origin", slice);
+    w.setPrs([
+      { number: 1, head: slice, state: "merged", head_sha: sliceTip },
+      { number: 2, head: branch, state: "open", head_sha: feat },
+    ]);
+    expect(at(cleanup(w).json, path)).toMatchObject({
+      class: "in progress",
+      offered: false,
+      branch,
+      checkedOut: slice,
+    });
+    w.setPrs([
+      { number: 1, head: slice, state: "merged", head_sha: sliceTip },
+      { number: 2, head: branch, state: "merged", head_sha: feat },
+    ]);
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("merged");
+    expect(e.branches.sort()).toEqual([branch, slice].sort());
+  });
+
+  it("has unsaved work: abandoned, but a local slice branch carries an unpushed commit", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "u");
+    git(path, "checkout", "-q", "-b", `${branch}-slice-1-a`);
+    commit(path, "wip.ts");
+    expect(at(cleanup(w).json, path).class).toBe("has unsaved work");
+  });
+
+  it("finds slice branches of a fix/ branch", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "api-v2", "fix");
+    git(w.main, "branch", `${branch}-slice-1-a`, branch);
+    expect(at(cleanup(w).json, path).branches.sort()).toEqual(
+      [branch, `${branch}-slice-1-a`].sort(),
+    );
+  });
+```
+
+Expected red: the first test's last expectation gets `[branch]` (slices not collected); the second gets `"abandoned"`; the third gets `[branch]`.
+
+Green — in `classify`, replace `const branches = …` with:
+
+```js
+  const slices = lines(
+    git(main, "for-each-ref", "--format=%(refname:short)", `refs/heads/${wt.branch}-slice-*`).out,
+  );
+  const branches = [wt.branch, ...slices].filter((b) => exists(main, b));
+```
+
+and make the abandoned branch a block:
+
+```js
+  } else if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0) {
+    cls = "abandoned";
+    for (const b of slices)
+      if (!isSaved(main, b, prs) && beyondBase(main, b) > 0)
+        unsaved.push(`${b} has commits that are on no remote branch`);
+  }
+```
+
+Commit: `feat(cleanup): slice branches are found from the lock's branch and checked before removal`.
+
+- [ ] **Step 8: Cycle 7 — gitignored entries are reported**
+
+```ts
+  it("reports gitignored entries with their size", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    mkdirSync(join(path, "node_modules/x"), { recursive: true });
+    writeFileSync(join(path, "node_modules/x/index.js"), "x".repeat(10_000));
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("abandoned");
+    expect(e.ignored).toEqual([{ entry: "node_modules/", sizeKb: expect.any(Number) }]);
+  });
+```
+
+Expected red: `ignored` is `[]`.
+
+Green — add:
+
+```js
+function ignoredEntries(path) {
+  return lines(git(path, "status", "--porcelain", "--ignored=matching").out)
+    .filter((l) => l.startsWith("!! "))
+    .map((l) => l.slice(3))
+    .map((entry) => ({ entry, sizeKb: sizeKb(join(path, entry)) }));
+}
+```
+
+and in the returned object `ignored: ignoredEntries(wt.path),`. Commit: `feat(cleanup): report the gitignored files a removal also deletes`.
+
+- [ ] **Step 9: Cycle 8 — never offer the worktree it runs in**
+
+```ts
+  it("never offers the worktree it runs in", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    expect(at(cleanup(w, [], {}, path).json, path)).toMatchObject({
+      class: "abandoned",
+      offered: false,
+      here: true,
+    });
+  });
+```
+
+Expected red: `offered` is `true`, `here` is `false`.
+
+Green — before the `return` in `classify`:
+
+```js
+  const isHere = resolve(wt.path) === resolve(here);
+```
+
+and `offered: (cls === "merged" || cls === "abandoned") && !isHere,` · `here: isHere,`. Commit: `feat(cleanup): never offer the worktree the command runs in`.
+
+- [ ] **Step 10: Cycle 9 — a registered worktree whose folder was deleted**
+
+```ts
+  it("does not crash on a registered worktree whose folder was deleted", () => {
+    const w = world();
+    const { path } = designWorktree(w, "gone");
+    rmSync(path, { recursive: true, force: true });
+    const r = cleanup(w);
+    expect(r.status).toBe(0);
+    expect(at(r.json, path)).toMatchObject({ offered: false });
+    expect(at(r.json, path).unsaved).toContain("the worktree folder is missing");
+  });
+```
+
+Expected red: `offered` is `true` (an empty `git status` in a missing folder reads as clean) and `unsaved` lacks the message.
+
+Green — in `classify`:
+
+```js
+  const present = existsSync(wt.path);
+  const unsaved = present
+    ? lines(git(wt.path, "status", "--porcelain").out).map((l) => `not committed: ${l.slice(3)}`)
+    : ["the worktree folder is missing"];
+```
+
+and `offered: (cls === "merged" || cls === "abandoned") && !isHere && present,` · `sizeKb: present ? sizeKb(wt.path) : null,` · `ignored: present ? ignoredEntries(wt.path) : [],`. Commit: `fix(cleanup): a worktree whose folder is gone is listed, never offered`.
+
+- [ ] **Step 11: Gates**
 
 ```bash
 pnpm prettier --write installer/cleanup.mjs scripts/__tests__/cleanup.test.ts
 pnpm test && pnpm format:check
-git add installer/cleanup.mjs scripts/__fixtures__/stub-pr-shim/pr.sh scripts/__tests__/cleanup.test.ts
-git commit -m "feat(cleanup): list and classify hitl design-session worktrees"
 ```
+
+Commit any formatting change: `style(cleanup): prettier`.
 
 ---
 
@@ -624,7 +759,9 @@ git commit -m "feat(cleanup): list and classify hitl design-session worktrees"
 - Consumes: `classify` output from Task 2 (`offered`, `here`, `class`, `branches`, `topic`, `branch`).
 - Produces: `--remove <p>[,<p>…]` → exit 0 and `{ main, pruned: true, removed: [{ path, branches }], refused: [{ path, why }] }`.
 
-- [ ] **Step 1: Write the failing tests**
+Same cycle discipline as Task 2.
+
+- [ ] **Step 1: Cycle 1 — remove a merged worktree and its local branches, keep the remote**
 
 ```ts
 describe("cleanup.mjs --remove", () => {
@@ -650,7 +787,37 @@ describe("cleanup.mjs --remove", () => {
     expect(cleanup(w, ["--remove", path]).json.removed).toHaveLength(1);
     expect(existsSync(path)).toBe(false);
   });
+});
+```
 
+Expected red: exit 2, "--remove is not implemented yet".
+
+Green — replace `removeAll`:
+
+```js
+function removeAll(main, worktrees, list) {
+  const removed = [];
+  const refused = [];
+  for (const path of list.split(",").map((p) => resolve(p))) {
+    const wt = worktrees.find((w) => resolve(w.path) === path);
+    git(main, "worktree", "unlock", path);
+    const rm = git(main, "worktree", "remove", path);
+    if (!rm.ok) {
+      git(main, "worktree", "lock", "--reason", `hitl design session: ${wt.topic} on ${wt.branch}`, path);
+      refused.push({ path, why: rm.err });
+      continue;
+    }
+    removed.push({ path, branches: wt.branches.filter((b) => git(main, "branch", "-D", b).ok) });
+  }
+  return { removed, refused };
+}
+```
+
+Commit: `feat(cleanup): --remove deletes the worktree and its local branches`.
+
+- [ ] **Step 2: Cycle 2 — re-check: refuse what is no longer offered**
+
+```ts
   it("re-checks: refuses a worktree that gained a commit since the listing", () => {
     const w = world();
     const { path } = designWorktree(w, "a");
@@ -671,65 +838,54 @@ describe("cleanup.mjs --remove", () => {
     expect(r.json.removed.map((x: { path: string }) => x.path)).toEqual([a.path]);
     expect(r.json.refused.map((x: { path: string }) => x.path)).toEqual([p.path]);
   });
-
-  it("refuses a path that is not a hitl worktree", () => {
-    const w = world();
-    const r = cleanup(w, ["--remove", join(w.base, "elsewhere")]);
-    expect(r.json.refused[0].why).toBe("not a hitl design-session worktree");
-  });
-});
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+Expected red: the in-progress worktree is removed (`removed` has it; `existsSync` is false).
 
-Run: `pnpm vitest run --config scripts/vitest.config.ts scripts/__tests__/cleanup.test.ts`
-Expected: FAIL — exit 2, "--remove is not implemented yet".
-
-- [ ] **Step 3: Implementation**
-
-Replace `removeAll` in `installer/cleanup.mjs`:
+Green — at the top of the loop body, after `const wt = …`:
 
 ```js
-function removeAll(main, worktrees, list) {
-  const removed = [];
-  const refused = [];
-  for (const path of list.split(",").map((p) => resolve(p))) {
-    const wt = worktrees.find((w) => resolve(w.path) === path);
-    if (!wt) {
-      refused.push({ path, why: "not a hitl design-session worktree" });
-      continue;
-    }
     if (!wt.offered) {
       const why = wt.here ? "this command is running inside it" : `it is ${wt.class}`;
       refused.push({ path, why });
       continue;
     }
-    git(main, "worktree", "unlock", path);
-    const rm = git(main, "worktree", "remove", path);
-    if (!rm.ok) {
-      git(main, "worktree", "lock", "--reason", `hitl design session: ${wt.topic} on ${wt.branch}`, path);
-      refused.push({ path, why: rm.err });
-      continue;
-    }
-    removed.push({ path, branches: wt.branches.filter((b) => git(main, "branch", "-D", b).ok) });
-  }
-  return { removed, refused };
-}
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+Commit: `fix(cleanup): --remove refuses a worktree that is no longer safe`.
 
-Run: `pnpm vitest run --config scripts/vitest.config.ts scripts/__tests__/cleanup.test.ts`
-Expected: PASS.
+- [ ] **Step 3: Cycle 3 — a path that is not a hitl worktree**
 
-- [ ] **Step 5: Gates and commit**
+```ts
+  it("refuses a path that is not a hitl worktree", () => {
+    const w = world();
+    const r = cleanup(w, ["--remove", join(w.base, "elsewhere")]);
+    expect(r.status).toBe(0);
+    expect(r.json.refused[0].why).toBe("not a hitl design-session worktree");
+  });
+```
+
+Expected red: the engine throws on `wt.offered` of `undefined` (non-zero exit, unparsable stdout).
+
+Green — right after `const wt = …`:
+
+```js
+    if (!wt) {
+      refused.push({ path, why: "not a hitl design-session worktree" });
+      continue;
+    }
+```
+
+Commit: `fix(cleanup): --remove refuses a path that is not a hitl worktree`.
+
+- [ ] **Step 4: Gates**
 
 ```bash
 pnpm prettier --write installer/cleanup.mjs scripts/__tests__/cleanup.test.ts
 pnpm test && pnpm format:check
-git add installer/cleanup.mjs scripts/__tests__/cleanup.test.ts
-git commit -m "feat(cleanup): --remove re-checks and removes worktree and local branches"
 ```
+
+The `git worktree remove` refusal branch (lock restored, refusal reported) has no test: it is reachable only through a race between classification and removal — see `## Review decisions`.
 
 ---
 
@@ -826,3 +982,8 @@ In a scratch clone with one merged and one abandoned hitl worktree, run `/hitl:c
 git add commands/cleanup.md commands/help.md templates/claude/commands/implement-stack.md .claude/commands/implement-stack.md .claude/hitl.json
 git commit -m "feat(cleanup): /hitl:cleanup command; /implement-stack ends with the cleanup hint"
 ```
+
+## Review decisions
+
+- Plan review round 1 — *ignored files are listed as nested paths, not top-level entries*: declined, not worth it. A nested path such as `src/.env` tells the human more than the size of all of `src/`; the spec's "top-level" was illustrative.
+- Plan review round 1 — *no test for a refused `git worktree remove` (refusal reported, lock restored)*: declined, not worth it. Only a worktree with untracked or modified files or submodules is refused up front, and the engine never offers one; the branch is reachable only through a race between the listing and the removal. A test would need to fake git itself.

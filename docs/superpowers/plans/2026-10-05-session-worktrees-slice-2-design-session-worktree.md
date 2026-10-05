@@ -4,6 +4,8 @@
 
 **Owns:** design sessions start in their own locked worktree on the feature branch — the HITL.md rule, the `.claude/worktrees/` ignore entry, recursive scans that skip sibling worktrees, and the launch line that `cd`s into the worktree.
 
+**Reviewed:** round 1 (2026-10-05).
+
 **Goal:** Every session that begins the chain puts itself in `<main checkout>/.claude/worktrees/<topic>` on `feat/<topic>` before reading code, and the design session ends with a launch line that starts the implementation session in that same worktree.
 
 **Architecture:** One tested behaviour (`gitignoreBlock()` gains `.claude/worktrees/`) plus prompt and doctrine edits mirrored between `templates/` and this repository's copies, which the drift test keeps equal. Prompt behaviour is shown by dry runs recorded in the PR body, as AGENTS.md prescribes for prompts.
@@ -26,13 +28,15 @@
 - The handover document's `Launch:` line uses the relative path `.claude/worktrees/<topic>`; the line printed on screen uses the absolute path from `git rev-parse --show-toplevel`. Outside a linked worktree both omit the `cd`, exactly as today.
 - `/implement-stack`'s cleanup hint is **not** in this slice (slice 3 owns it, with `/hitl:cleanup`).
 - Markdown is never formatted. Load-bearing invariants (HITL.md § Load-bearing invariants) are untouched.
-- The slice PR body carries a `## Dry runs` section with the four dry runs of Task 5, results filled in by whoever runs them (the orchestrator if it can, otherwise the human before merging).
+- The slice PR body carries a `## Dry runs` section with the four dry runs of Task 6. Dry run (d) is a shell command the implementer runs and records. (a)–(c) need fresh sessions: the human fills them in, and the slice PR does not merge until they are filled in — (c) is the only proof of what this slice owns.
+- `/hitl:diff --apply` replaces the contents of an existing hitl marker block in `.gitignore` with the current `gitignoreBlock()`, and `/hitl:diff` stages `.gitignore` when it did — otherwise an already-installed repository never gets the new line (Task 2; bubbled up to the spec).
+- **File tripwire.** About 26 files, the spec and plan included, crosses the ~20-file tripwire. Justification: 13 of them are template/copy pairs the drift test requires to move together (HITL.md, five agents, two commands), plus the regenerated manifest. Splitting along them would be horizontal: the rule, the scan exclusions and the launch line are one capability, "a design session lives in its worktree".
 
 ## Review Focus
 
-- A session started inside *another* linked worktree (a `claude -w` worktree, or another topic's) — the rule must create the new worktree under the main checkout's `.claude/worktrees/`, not nested inside the current worktree; the `$MAIN` line in Task 2's rule text pins it, dry run (c) exercises it.
-- A topic whose branch exists only on the remote (`origin/feat/<topic>`) — the collision check after the fetch must catch it; Task 2's rule text names `origin/<branch>`.
-- `/review-plan`'s handover path (not only `/handover`) — both must split the launch line; Task 4 edits both, dry run (a) runs `/handover`, and Task 4 Step 3 diffs the two commands' launch wording.
+- A session started inside *another* linked worktree (a `claude -w` worktree, or another topic's) — the rule must create the new worktree under the main checkout's `.claude/worktrees/`, not nested inside the current worktree; the `$MAIN` line in Task 3's rule text pins it, dry run (c) exercises it.
+- A topic whose branch exists only on the remote (`origin/feat/<topic>`) — the collision check after the fetch must catch it; Task 3's rule text names `origin/<branch>`.
+- `/review-plan`'s handover path (not only `/handover`) — both must split the launch line; Task 5 edits both, dry run (a) runs `/handover`, and Task 5 Step 3 diffs the two commands' launch wording.
 - `pnpm format:check` in this repository while a worktree exists — Prettier must skip `.claude/worktrees/`; Task 1 Step 5 checks it with a real worktree present.
 - `/hitl:customize`'s anchor grep from the main checkout with a sibling worktree present — must not return the sibling's anchors; dry run (d).
 
@@ -49,6 +53,9 @@
 | `templates/claude/agents/{spec-reviewer,plan-reviewer,slice-reviewer,implementer,fixer}.md` and `.claude/agents/` copies | "every `AGENTS.md` in the tree" excludes `.claude/worktrees/` |
 | `commands/customize.md` | anchor grep excludes `worktrees` |
 | `templates/claude/commands/handover.md`, `templates/claude/commands/review-plan.md` and `.claude/commands/` copies | split launch line |
+| `installer/diff.mjs`, `installer/lib.mjs` | `--apply` refreshes the hitl block in `.gitignore` (`replaceMarkerBlock`) |
+| `scripts/__tests__/diff.test.ts` | an install with the old block gains `.claude/worktrees/` after `--apply` |
+| `commands/diff.md` | stages `.gitignore` when `gitignoreRefreshed` is true |
 | `.claude/hitl.json` | regenerated |
 
 ---
@@ -126,7 +133,111 @@ git commit -m "feat(installer): gitignore .claude/worktrees/"
 
 ---
 
-### Task 2: the worktree rule in HITL.md
+### Task 2: `/hitl:diff --apply` refreshes the hitl block in `.gitignore`
+
+**Files:**
+- Modify: `installer/lib.mjs` (add `replaceMarkerBlock` next to `withMarkerBlock`)
+- Modify: `installer/diff.mjs` (apply path, after the README bump)
+- Modify: `commands/diff.md` (stage `.gitignore`; include it in the undo line)
+- Test: `scripts/__tests__/diff.test.ts`
+
+**Interfaces:**
+- Consumes: `BLOCK_START`, `BLOCK_END`, `gitignoreBlock()` from `installer/lib.mjs` (Task 1's block).
+- Produces: `replaceMarkerBlock(existing: string, block: string) → { text, changed }`; the `--apply` output gains `gitignoreRefreshed: boolean`.
+
+- [ ] **Step 1: Write the failing test**
+
+In `scripts/__tests__/diff.test.ts`, in the `describe` that holds the `--apply` tests (next to the merge tests), add:
+
+```ts
+  it("--apply refreshes the hitl block in .gitignore and keeps the lines around it", () => {
+    const repo = installedRepo(mk);
+    const p = join(repo, ".gitignore");
+    writeFileSync(
+      p,
+      "dist/\n\n<!-- hitl:start -->\n# old block\n.claude/reviews/\n<!-- hitl:end -->\nafter/\n",
+    );
+    const r = diff(repo, plugin, mk, true);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.json.gitignoreRefreshed).toBe(true);
+    const text = readFileSync(p, "utf8");
+    expect(text).toContain(".claude/worktrees/");
+    expect(text).not.toContain("# old block");
+    expect(text.startsWith("dist/\n\n<!-- hitl:start -->\n")).toBe(true);
+    expect(text.endsWith("<!-- hitl:end -->\nafter/\n")).toBe(true);
+  });
+
+  it("--apply leaves a .gitignore without the hitl markers alone", () => {
+    const repo = installedRepo(mk);
+    const p = join(repo, ".gitignore");
+    writeFileSync(p, "dist/\n");
+    const r = diff(repo, plugin, mk, true);
+    expect(r.json.gitignoreRefreshed).toBe(false);
+    expect(readFileSync(p, "utf8")).toBe("dist/\n");
+  });
+```
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `pnpm vitest run --config scripts/vitest.config.ts scripts/__tests__/diff.test.ts`
+Expected: FAIL — `gitignoreRefreshed` is `undefined`, and the old block is still there.
+
+- [ ] **Step 3: Implementation**
+
+`installer/lib.mjs`, after `withMarkerBlock`:
+
+```js
+/** Replace what sits between the markers with the current block; text without them is left alone. */
+export function replaceMarkerBlock(existing, block) {
+  const start = existing.indexOf(BLOCK_START);
+  const end = existing.indexOf(BLOCK_END);
+  if (start === -1 || end < start) return { text: existing, changed: false };
+  const text = `${existing.slice(0, start)}${BLOCK_START}\n${block.trimEnd()}\n${existing.slice(end)}`;
+  return { text, changed: text !== existing };
+}
+```
+
+`installer/diff.mjs`: add `gitignoreBlock` and `replaceMarkerBlock` to the `./lib.mjs` import; declare `let gitignoreRefreshed = false;` next to `let readmeBumped = false;`; after the README block inside the `try`:
+
+```js
+    const ignorePath = join(repo, ".gitignore");
+    if (existsSync(ignorePath)) {
+      const r = replaceMarkerBlock(readFileSync(ignorePath, "utf8"), gitignoreBlock());
+      if (r.changed) {
+        writeFileSync(ignorePath, r.text);
+        gitignoreRefreshed = true;
+      }
+    }
+```
+
+and return it: `return { code: 0, out: { ...report, applied: true, written, deleted, readmeBumped, gitignoreRefreshed } };`.
+
+`commands/diff.md`: after `git add -- README.md` in the staging block add
+
+```bash
+# only when `gitignoreRefreshed` is true:
+git add -- .gitignore
+```
+
+and in the exit-2 undo sentence change `plus .claude/hitl.json and README.md>` to `plus .claude/hitl.json, README.md and .gitignore>`.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `pnpm test`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+pnpm prettier --write installer/lib.mjs installer/diff.mjs scripts/__tests__/diff.test.ts
+pnpm format:check
+git add installer/lib.mjs installer/diff.mjs commands/diff.md scripts/__tests__/diff.test.ts
+git commit -m "feat(diff): --apply refreshes the hitl block in .gitignore"
+```
+
+---
+
+### Task 3: the worktree rule in HITL.md
 
 **Files:**
 - Modify: `templates/HITL.md` (§ Feature branches, § Where things live)
@@ -202,7 +313,7 @@ git commit -m "docs(hitl): a design session starts in its own locked worktree"
 
 ---
 
-### Task 3: recursive scans skip sibling worktrees
+### Task 4: recursive scans skip sibling worktrees
 
 **Files:**
 - Modify: `templates/claude/agents/spec-reviewer.md:21`, `plan-reviewer.md:22`, `slice-reviewer.md:20`, `implementer.md:17`, `fixer.md:17` and their `.claude/agents/` copies
@@ -246,7 +357,7 @@ git commit -m "fix(agents,customize): recursive scans skip .claude/worktrees/"
 
 ---
 
-### Task 4: the launch line `cd`s into the worktree
+### Task 5: the launch line `cd`s into the worktree
 
 **Files:**
 - Modify: `templates/claude/commands/handover.md` (steps 2 and 4), `.claude/commands/handover.md`
@@ -305,7 +416,7 @@ git commit -m "feat(handover): the launch line cds into the design worktree; abs
 
 ---
 
-### Task 5: dry runs (recorded in the PR body)
+### Task 6: dry runs (recorded in the PR body)
 
 No code. Prompts are validated by running them (AGENTS.md). The slice PR body carries this section; each line gets its observed result.
 
