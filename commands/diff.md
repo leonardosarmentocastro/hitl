@@ -96,6 +96,7 @@ latest template). Files this repository edited were kept; files both changed wer
 | file | state |
 |---|---|
 <one row per file whose state is not unchanged>
+<only when `gitignoreRefreshed` is true:> | .gitignore | hitl block replaced wholesale — lines added inside the hitl markers were dropped |
 
 <if any file has merged: conflict:> **Conflicts to resolve by hand:** <paths>. They carry
 `<<<<<<<` / `>>>>>>>` hunks as committed.
