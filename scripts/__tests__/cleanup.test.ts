@@ -138,6 +138,18 @@ describe("cleanup.mjs — classes", () => {
     const e = at(cleanup(w).json, path);
     expect(e).toMatchObject({ class: "merged", offered: true, umbrella: { number: 7 } });
   });
+
+  it("has unsaved work: a local commit on no remote and in no merged PR", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "m");
+    const tip = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
+    commit(path, "later.md");
+    const e = at(cleanup(w).json, path);
+    expect(e).toMatchObject({ class: "has unsaved work", offered: false });
+    expect(e.unsaved.join(" ")).toContain(branch);
+  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {

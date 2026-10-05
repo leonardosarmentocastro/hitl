@@ -55,6 +55,12 @@ function listPrs(main, branch) {
 const exists = (main, b) => git(main, "rev-parse", "--verify", "--quiet", `refs/heads/${b}`).ok;
 const beyondBase = (main, b) => lines(git(main, "rev-list", `${BASE}..${b}`).out).length;
 
+/** On a remote-tracking ref. (Cycle 5 adds: or at/behind a merged PR's head commit.) */
+function isSaved(main, b) {
+  const r = git(main, "rev-list", b, "--not", "--remotes");
+  return r.ok && r.out === "";
+}
+
 function sizeKb(path) {
   const r = spawnSync("du", ["-sk", path], { encoding: "utf8" });
   return r.status === 0 ? Number(r.stdout.split(/\s/)[0]) : null;
@@ -68,9 +74,14 @@ function classify(main, here, wt) {
   const unsaved = [];
 
   let cls = "in progress";
-  if (merged) cls = "merged";
-  else if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0)
+  if (merged) {
+    cls = "merged";
+    for (const b of branches)
+      if (!isSaved(main, b, prs))
+        unsaved.push(`${b} has commits that are on no remote branch and in no merged PR`);
+  } else if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0)
     cls = "abandoned";
+  if (cls !== "in progress" && unsaved.length > 0) cls = "has unsaved work";
   const shown = merged ?? umbrella[0] ?? null;
   return {
     ...wt,
