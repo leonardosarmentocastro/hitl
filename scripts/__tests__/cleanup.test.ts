@@ -159,6 +159,18 @@ describe("cleanup.mjs — classes", () => {
     expect(e.class).toBe("has unsaved work");
     expect(e.unsaved.join(" ")).toContain("notes.txt");
   });
+
+  it("merged: a branch the host deleted and the fetch pruned is saved through head_sha", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "d");
+    const tip = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    git(w.main, "push", "-q", "origin", "--delete", branch);
+    w.setPrs([{ number: 8, head: branch, state: "merged", head_sha: tip }]);
+    expect(at(cleanup(w).json, path).class).toBe("merged");
+    commit(path, "beyond.md");
+    expect(at(cleanup(w).json, path).class).toBe("has unsaved work");
+  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {

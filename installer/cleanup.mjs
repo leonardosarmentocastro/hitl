@@ -55,10 +55,18 @@ function listPrs(main, branch) {
 const exists = (main, b) => git(main, "rev-parse", "--verify", "--quiet", `refs/heads/${b}`).ok;
 const beyondBase = (main, b) => lines(git(main, "rev-list", `${BASE}..${b}`).out).length;
 
-/** On a remote-tracking ref. (Cycle 5 adds: or at/behind a merged PR's head commit.) */
-function isSaved(main, b) {
+/** On a remote-tracking ref, or at/behind the head commit of a merged PR for that branch. */
+function isSaved(main, b, prs) {
   const r = git(main, "rev-list", b, "--not", "--remotes");
-  return r.ok && r.out === "";
+  if (r.ok && r.out === "") return true;
+  const tip = git(main, "rev-parse", b).out;
+  return prs.some(
+    (p) =>
+      p.head === b &&
+      p.state === "merged" &&
+      p.head_sha &&
+      git(main, "merge-base", "--is-ancestor", tip, p.head_sha).ok,
+  );
 }
 
 function sizeKb(path) {
