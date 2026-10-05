@@ -19,7 +19,7 @@
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md": "be55290b2a215fab748dbd4cbc5a2a3110c6f3516b797feb27d50534248bee2b",
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md": "4844682a12664356822133235d8c59ce3bdb8182a6b845d9caf39c861cecd0ec",
     ".claude/fixtures/spec-fixture-design.md": "cbd4e622259ec14bfe21c9901a6e05c55c5865dfc5056a47f6c7cdad83d5ca7b",
-    ".claude/hooks/unreviewed-artifact.sh": "b9e1bcda3e20196cad0413ef0ac20b22cf1760e79e671a726c6f5e70805d4c12",
+    ".claude/hooks/unreviewed-artifact.sh": "9f754e246f4e4bab44f84b36011cd2dc92627fda1ce4553a25f2e04d65ed454e",
     ".claude/review-context.md": "1e5675474b8cdadc6db01d3c595da602d7949a2d44a479402658f7949be29399",
     ".github/workflows/wipe-superpowers-docs.yml": "2eb4199ec7d3fb1e4e40b1da5a3e6418b5db0bf77a231e8c311ab5c718ddbe60",
     "HITL.md": "6e103c306a30caafdf79f75c88e836534625ad06eed0a73e69f51ebc7fb88b5d",
