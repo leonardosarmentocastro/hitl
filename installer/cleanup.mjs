@@ -74,6 +74,13 @@ function sizeKb(path) {
   return r.status === 0 ? Number(r.stdout.split(/\s/)[0]) : null;
 }
 
+function ignoredEntries(path) {
+  return lines(git(path, "status", "--porcelain", "--ignored=matching").out)
+    .filter((l) => l.startsWith("!! "))
+    .map((l) => l.slice(3))
+    .map((entry) => ({ entry, sizeKb: sizeKb(join(path, entry)) }));
+}
+
 function classify(main, here, wt) {
   const prs = listPrs(main, wt.branch);
   const slices = lines(
@@ -109,7 +116,7 @@ function classify(main, here, wt) {
     branches,
     unsaved,
     sizeKb: sizeKb(wt.path),
-    ignored: [],
+    ignored: ignoredEntries(wt.path),
   };
 }
 

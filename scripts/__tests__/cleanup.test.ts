@@ -216,6 +216,16 @@ describe("cleanup.mjs — classes", () => {
       [branch, `${branch}-slice-1-a`].sort(),
     );
   });
+
+  it("reports gitignored entries with their size", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    mkdirSync(join(path, "node_modules/x"), { recursive: true });
+    writeFileSync(join(path, "node_modules/x/index.js"), "x".repeat(10_000));
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("abandoned");
+    expect(e.ignored).toEqual([{ entry: "node_modules/", sizeKb: expect.any(Number) }]);
+  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {
