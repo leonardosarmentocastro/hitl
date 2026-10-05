@@ -155,6 +155,11 @@ function removeAll(main, worktrees, list) {
   const refused = [];
   for (const path of list.split(",").map((p) => resolve(p))) {
     const wt = worktrees.find((w) => resolve(w.path) === path);
+    if (!wt.offered) {
+      const why = wt.here ? "this command is running inside it" : `it is ${wt.class}`;
+      refused.push({ path, why });
+      continue;
+    }
     git(main, "worktree", "unlock", path);
     const rm = git(main, "worktree", "remove", path);
     if (!rm.ok) {

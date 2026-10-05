@@ -323,4 +323,25 @@ describe("cleanup.mjs --remove", () => {
     expect(git(w.main, "ls-remote", "--heads", "origin", branch)).not.toBe("");
     expect(git(w.main, "ls-remote", "--heads", "origin", slice)).not.toBe("");
   });
+
+  it("re-checks: refuses a worktree that gained a commit since the listing", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    expect(at(cleanup(w).json, path).offered).toBe(true);
+    commit(path, "spec.md");
+    const r = cleanup(w, ["--remove", path]);
+    expect(r.json.removed).toEqual([]);
+    expect(r.json.refused).toEqual([{ path, why: "it is in progress" }]);
+    expect(existsSync(path)).toBe(true);
+  });
+
+  it("removes only the offered one of two", () => {
+    const w = world();
+    const a = designWorktree(w, "a");
+    const p = designWorktree(w, "p");
+    commit(p.path, "spec.md");
+    const r = cleanup(w, ["--remove", `${a.path},${p.path}`]);
+    expect(r.json.removed.map((x: { path: string }) => x.path)).toEqual([a.path]);
+    expect(r.json.refused.map((x: { path: string }) => x.path)).toEqual([p.path]);
+  });
 });
