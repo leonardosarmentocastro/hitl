@@ -59,6 +59,7 @@ const RECORD = {
   draft: true,
   title: "Slice 1: api",
   body: "Plan: docs/superpowers/plans/p.md",
+  head_sha: "abc1234",
 };
 
 describe("pr.sh view", () => {
@@ -100,6 +101,7 @@ describe("pr.sh list", () => {
         draft: false,
         title: "t",
         body: "",
+        head_sha: "sha12",
       },
     ]);
   });
