@@ -9,11 +9,12 @@ Mode: `$ARGUMENTS` (one of `start`, `resume`, `fix-up`; if empty or not one of t
    `-slice-<N>-<label>` suffix. Feature key = the `<feature>` segment shared by the plan
    filenames on this branch. If either is ambiguous, ask.
 2. Spawn the `handover` agent with the brief: mode, feature branch, feature key, and the
-   launch line. If this session's git root is a linked worktree (`git rev-parse --git-dir`
-   differs from `git rev-parse --git-common-dir`), the line is — exactly, with `<topic>` the
-   worktree's folder name:
+   launch line. If this session's git root (`git rev-parse --show-toplevel`) is
+   `$MAIN/.claude/worktrees/<topic>`, where `$MAIN` is the main checkout
+   (`dirname "$(git rev-parse --path-format=absolute --git-common-dir)"`), the line is —
+   exactly, with `<topic>` the worktree's folder name:
    ``Launch: `cd .claude/worktrees/<topic> && claude --model opus` then `/implement-stack docs/superpowers/handover/<feature>.md` ``.
-   Otherwise it is — exactly:
+   Otherwise — the main checkout, or any other linked worktree — it is — exactly:
    ``Launch: `claude --model opus` then `/implement-stack docs/superpowers/handover/<feature>.md` ``.
    Nothing else. (The model tier lives here, in the command, never in the agent body.)
 3. Relay its reply verbatim. If it begins `refused:`, stop — do not retry with another mode;
