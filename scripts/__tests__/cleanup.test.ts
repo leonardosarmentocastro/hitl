@@ -128,6 +128,16 @@ describe("cleanup.mjs — classes", () => {
     commit(path, "spec.md");
     expect(at(cleanup(w).json, path)).toMatchObject({ class: "in progress", offered: false });
   });
+
+  it("merged: squash-merged umbrella PR, pushed branch, clean", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "m");
+    const tip = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
+    const e = at(cleanup(w).json, path);
+    expect(e).toMatchObject({ class: "merged", offered: true, umbrella: { number: 7 } });
+  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {

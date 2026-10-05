@@ -64,17 +64,20 @@ function classify(main, here, wt) {
   const prs = listPrs(main, wt.branch);
   const branches = [wt.branch].filter((b) => exists(main, b));
   const umbrella = prs.filter((p) => p.head === wt.branch);
+  const merged = umbrella.find((p) => p.state === "merged") ?? null;
   const unsaved = [];
 
   let cls = "in progress";
-  if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0)
+  if (merged) cls = "merged";
+  else if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0)
     cls = "abandoned";
+  const shown = merged ?? umbrella[0] ?? null;
   return {
     ...wt,
     class: cls,
     offered: cls === "merged" || cls === "abandoned",
     here: false,
-    umbrella: null,
+    umbrella: shown ? { number: shown.number, url: shown.url } : null,
     branches,
     unsaved,
     sizeKb: sizeKb(wt.path),
