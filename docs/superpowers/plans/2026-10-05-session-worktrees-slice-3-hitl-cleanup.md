@@ -4,7 +4,7 @@
 
 **Owns:** `/hitl:cleanup` — finding the hitl design-session worktrees, classifying each (merged · abandoned · has unsaved work · in progress), and removing the ones the human picks — plus `head_sha` in the PR shim's record and `/implement-stack`'s end-of-stack cleanup hint.
 
-**Reviewed:** round 1 (2026-10-05).
+**Reviewed:** round 1 (2026-10-05) · round 2 (2026-10-05).
 
 **Goal:** After an umbrella PR merges (or a design is abandoned), one command shows which design worktrees are provably safe to remove, why, how much space they hold, and removes the chosen ones with their local branches — never a remote branch.
 
@@ -36,8 +36,9 @@
 ## Review Focus
 
 - A worktree whose folder was deleted by hand (`rm -rf`) but is still registered — `git status` fails there; the engine must not crash or offer it, and lists it with `unsaved` containing "the worktree folder is missing". Test in Task 2 ("does not crash on a registered worktree whose folder was deleted").
+- A worktree left on a detached HEAD with commits on no branch — removing it would discard them; Task 2 Cycle 10.
 - Two hitl worktrees, one removable, one not — one question removes only the offered one; Task 3's mixed test.
-- A feature branch name containing a slash beyond the prefix (`fix/api/v2`) — `for-each-ref refs/heads/fix/api/v2-slice-*` must still find slices; covered in Task 2 by using `fix/api-v2` and `feat/…` names in different tests, and `B-slice-*` built from `B` verbatim.
+- A `fix/` feature branch (bugfixes use `fix/<topic>`) — its slices must be found from `B` verbatim, not from a hard-coded `feat/`; Task 2 Cycle 6 ("finds slice branches of a fix/ branch").
 - A repository with no `origin` remote — `fetch` fails → exit 2 with a plain message; Task 2's fetch-failure test.
 - `--remove` given a path that is a hitl worktree but now classified "in progress" (a commit landed since the listing) — refused, worktree untouched; Task 3.
 
@@ -738,7 +739,37 @@ Green — in `classify`:
 
 and `offered: (cls === "merged" || cls === "abandoned") && !isHere && present,` · `sizeKb: present ? sizeKb(wt.path) : null,` · `ignored: present ? ignoredEntries(wt.path) : [],`. Commit: `fix(cleanup): a worktree whose folder is gone is listed, never offered`.
 
-- [ ] **Step 11: Gates**
+- [ ] **Step 11: Cycle 10 — commits on a detached HEAD are unsaved work**
+
+```ts
+  it("has unsaved work: a detached HEAD with commits on no branch", () => {
+    const w = world();
+    const { path } = designWorktree(w, "h");
+    git(path, "checkout", "-q", "--detach");
+    commit(path, "loose.md");
+    git(path, "checkout", "-q", "--detach", "origin/main");
+    commit(path, "loose2.md");
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("has unsaved work");
+    expect(e.unsaved.join(" ")).toContain("detached HEAD");
+  });
+```
+
+Expected red: `class` is `"abandoned"` — `B` has no commits beyond `origin/main`, the tree is clean, and the loose commit is on no branch the classification looks at.
+
+Green — in `classify`, after the `unsaved` initialisation:
+
+```js
+  if (present && !wt.checkedOut) {
+    const loose = git(wt.path, "rev-list", "HEAD", "--not", "--branches", "--remotes");
+    if (!loose.ok || loose.out !== "")
+      unsaved.push("detached HEAD has commits that are on no branch and no remote");
+  }
+```
+
+Commit: `fix(cleanup): commits on a detached HEAD count as unsaved work`.
+
+- [ ] **Step 12: Gates**
 
 ```bash
 pnpm prettier --write installer/cleanup.mjs scripts/__tests__/cleanup.test.ts
@@ -815,7 +846,36 @@ function removeAll(main, worktrees, list) {
 
 Commit: `feat(cleanup): --remove deletes the worktree and its local branches`.
 
-- [ ] **Step 2: Cycle 2 — re-check: refuse what is no longer offered**
+- [ ] **Step 2: Cycle 2 — a worktree on a slice branch: `B` and every `B-slice-*` go, remotes stay**
+
+```ts
+  it("removes B and its slice branches when the worktree sits on a slice branch", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "s");
+    const feat = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    const slice = `${branch}-slice-1-api`;
+    git(path, "checkout", "-q", "-b", slice);
+    const sliceTip = commit(path, "api.ts");
+    git(path, "push", "-q", "origin", slice);
+    w.setPrs([
+      { number: 1, head: slice, state: "merged", head_sha: sliceTip },
+      { number: 2, head: branch, state: "merged", head_sha: feat },
+    ]);
+    const r = cleanup(w, ["--remove", path]);
+    expect(r.json.removed).toHaveLength(1);
+    expect(r.json.removed[0].branches.sort()).toEqual([branch, slice].sort());
+    expect(git(w.main, "branch", "--list", branch, slice)).toBe("");
+    expect(git(w.main, "ls-remote", "--heads", "origin", branch)).not.toBe("");
+    expect(git(w.main, "ls-remote", "--heads", "origin", slice)).not.toBe("");
+  });
+```
+
+Expected: green on arrival if Cycle 1 deletes `wt.branches` — this pins the path `/implement-stack` leaves behind (worktree on a slice branch). If it is red, the failure names which branch survived; fix `removeAll` so it deletes every entry of `wt.branches` after the worktree is gone.
+
+Commit: `test(cleanup): --remove deletes the feature and slice branches of a worktree on a slice`.
+
+- [ ] **Step 3: Cycle 3 — re-check: refuse what is no longer offered**
 
 ```ts
   it("re-checks: refuses a worktree that gained a commit since the listing", () => {
@@ -854,7 +914,7 @@ Green — at the top of the loop body, after `const wt = …`:
 
 Commit: `fix(cleanup): --remove refuses a worktree that is no longer safe`.
 
-- [ ] **Step 3: Cycle 3 — a path that is not a hitl worktree**
+- [ ] **Step 4: Cycle 4 — a path that is not a hitl worktree**
 
 ```ts
   it("refuses a path that is not a hitl worktree", () => {
@@ -878,7 +938,7 @@ Green — right after `const wt = …`:
 
 Commit: `fix(cleanup): --remove refuses a path that is not a hitl worktree`.
 
-- [ ] **Step 4: Gates**
+- [ ] **Step 5: Gates**
 
 ```bash
 pnpm prettier --write installer/cleanup.mjs scripts/__tests__/cleanup.test.ts

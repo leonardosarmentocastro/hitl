@@ -4,7 +4,7 @@
 
 **Owns:** design sessions start in their own locked worktree on the feature branch — the HITL.md rule, the `.claude/worktrees/` ignore entry, recursive scans that skip sibling worktrees, and the launch line that `cd`s into the worktree.
 
-**Reviewed:** round 1 (2026-10-05).
+**Reviewed:** round 1 (2026-10-05) · round 2 (2026-10-05).
 
 **Goal:** Every session that begins the chain puts itself in `<main checkout>/.claude/worktrees/<topic>` on `feat/<topic>` before reading code, and the design session ends with a launch line that starts the implementation session in that same worktree.
 
@@ -219,7 +219,7 @@ and return it: `return { code: 0, out: { ...report, applied: true, written, dele
 git add -- .gitignore
 ```
 
-and in the exit-2 undo sentence change `plus .claude/hitl.json and README.md>` to `plus .claude/hitl.json, README.md and .gitignore>`.
+and in the exit-2 undo sentence, which wraps, change the line `  .claude/hitl.json and README.md>`, delete the paths under `written` that git does not track,` so that it reads `  .claude/hitl.json, README.md and .gitignore>`, delete the paths under `written` that git does not track,` (keep the wrap; Markdown is never formatted).
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -438,4 +438,4 @@ No code. Prompts are validated by running them (AGENTS.md). The slice PR body ca
       returns only main-checkout paths.
 ```
 
-- [ ] **Step 1:** Run (d) yourself (it is a shell command) and record the output; leave (a)–(c) for the orchestrator or the human.
+- [ ] **Step 1:** Run (d) yourself (it is a shell command) and record the output. (a)–(c) belong to the human, who fills them in before merging this slice PR.

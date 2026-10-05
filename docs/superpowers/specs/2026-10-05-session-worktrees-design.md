@@ -194,7 +194,7 @@ checkout.
 **The prompt.** One list, then one question. For each removable worktree: its path, branch, the
 size `du -sh` reports, the reason it is safe in plain words ("its umbrella PR #12 is merged and
 nothing in it is unsaved" / "nothing was ever committed or saved in it"), and the gitignored
-top-level entries that will also be deleted (e.g. `node_modules/ (412 MB), .env, .superpowers/`)
+entries that will also be deleted, as `git status --ignored` names them (e.g. `node_modules/ (412 MB), .env, .superpowers/`)
 — so the human's yes is informed rather than resting on a "nothing is lost" that ignored files
 make untrue. Then the total size, and: *Remove all N? (yes / pick some / no)*; "pick some" means
 naming the listed paths. The "has unsaved work" and "in progress" entries follow, not offered. With nothing removable and
@@ -242,7 +242,7 @@ together, with the manifest regenerated.
   enters `.claude/worktrees/<topic>`; (d) `/hitl:customize`'s anchor search from the main checkout
   with a sibling worktree present returns only the main checkout's anchors.
 - **`/hitl:cleanup`** (`scripts/__tests__/cleanup.test.ts`): temp repositories with real linked
-  worktrees and the `scripts/__fixtures__/fake-gh` host. Cases: one per class; an unlocked or
+  worktrees and a stub of the installed PR shim (`scripts/__fixtures__/stub-pr-shim/pr.sh`) — the engine depends on the shim's contract, whose `gh` mapping `pr-shim.test.ts` proves with `fake-gh`. Cases: one per class; an unlocked or
   differently-locked worktree is ignored; a worktree checked out on a slice branch whose slice
   PR is merged while the umbrella PR is open is "in progress", and once the umbrella merges its
   `B` and every `B-slice-*` are removed; an abandoned worktree with a local slice branch carrying
@@ -291,3 +291,7 @@ slice 3 depends on slice 2 (it finds worktrees by the lock reason slice 2 introd
   block in an existing `.gitignore` (it used to leave it untouched), so an already-installed
   repository gets `.claude/worktrees/` on upgrade. The human chose this over a manual upgrade
   note. Owned by slice 2.
+- **Bubbled up from plan review (round 2)** — a worktree on a detached HEAD whose commits are on
+  no branch and no remote is "has unsaved work": removing it would discard them. Ignored files are
+  reported as `git status --ignored` names them (possibly nested), not reduced to top-level
+  entries. The cleanup tests use a stub of the installed PR shim rather than `fake-gh`.

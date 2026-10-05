@@ -4,7 +4,7 @@
 
 **Owns:** the Stop hook gates the git root of the folder the session is currently in (the payload's `cwd`), falling back to `CLAUDE_PROJECT_DIR` and then `$PWD`.
 
-**Reviewed:** round 1 (2026-10-05).
+**Reviewed:** round 1 (2026-10-05) · round 2 (2026-10-05).
 
 **Goal:** A session that moved into a worktree is gated on its own specs and plans, never on a sibling session's.
 
@@ -271,6 +271,8 @@ describe("fallback to CLAUDE_PROJECT_DIR", () => {
 Add `symlinkSync` to the `node:fs` import.
 
 - [ ] **Step 2: Run the tests**
+
+These are green on arrival, and today's hook (which ignores the payload) would pass them too: they are not red-first. They pin the fallback contract next to Task 1's tests, which are the ones that prove the payload is read.
 
 Run: `pnpm vitest run --config scripts/vitest.config.ts scripts/__tests__/unreviewed-artifact.test.ts`
 Expected: PASS if Task 1's resolver is right. These pin the fallback contract; if any is red, fix the resolver in the template (not the test), copy it to `.claude/hooks/`, regenerate the manifest, and rerun.
