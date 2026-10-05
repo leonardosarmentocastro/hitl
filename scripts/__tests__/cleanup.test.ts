@@ -278,3 +278,28 @@ describe("cleanup.mjs — failures offer nothing", () => {
     expect(r.json.error).toMatch(/fetch/);
   });
 });
+
+describe("cleanup.mjs --remove", () => {
+  it("removes the worktree and its local branches, leaves the remote branch", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "m");
+    const tip = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
+    const r = cleanup(w, ["--remove", path]);
+    expect(r.status).toBe(0);
+    expect(r.json.removed).toEqual([{ path, branches: [branch] }]);
+    expect(existsSync(path)).toBe(false);
+    expect(git(w.main, "branch", "--list", branch)).toBe("");
+    expect(git(w.main, "ls-remote", "--heads", "origin", branch)).not.toBe("");
+  });
+
+  it("removes a worktree holding gitignored files", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    mkdirSync(join(path, "node_modules"), { recursive: true });
+    writeFileSync(join(path, "node_modules/x.js"), "x");
+    expect(cleanup(w, ["--remove", path]).json.removed).toHaveLength(1);
+    expect(existsSync(path)).toBe(false);
+  });
+});

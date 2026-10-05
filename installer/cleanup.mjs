@@ -150,8 +150,21 @@ function run(args) {
   }
 }
 
-function removeAll() {
-  throw new Failure("--remove is not implemented yet");
+function removeAll(main, worktrees, list) {
+  const removed = [];
+  const refused = [];
+  for (const path of list.split(",").map((p) => resolve(p))) {
+    const wt = worktrees.find((w) => resolve(w.path) === path);
+    git(main, "worktree", "unlock", path);
+    const rm = git(main, "worktree", "remove", path);
+    if (!rm.ok) {
+      git(main, "worktree", "lock", "--reason", `hitl design session: ${wt.topic} on ${wt.branch}`, path);
+      refused.push({ path, why: rm.err });
+      continue;
+    }
+    removed.push({ path, branches: wt.branches.filter((b) => git(main, "branch", "-D", b).ok) });
+  }
+  return { removed, refused };
 }
 
 emit(run(parseArgs(process.argv.slice(2))));
