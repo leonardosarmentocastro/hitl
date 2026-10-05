@@ -9,10 +9,16 @@ Mode: `$ARGUMENTS` (one of `start`, `resume`, `fix-up`; if empty or not one of t
    `-slice-<N>-<label>` suffix. Feature key = the `<feature>` segment shared by the plan
    filenames on this branch. If either is ambiguous, ask.
 2. Spawn the `handover` agent with the brief: mode, feature branch, feature key, and the
-   launch line — exactly:
+   launch line. If this session's git root is a linked worktree (`git rev-parse --git-dir`
+   differs from `git rev-parse --git-common-dir`), the line is — exactly, with `<topic>` the
+   worktree's folder name:
+   ``Launch: `cd .claude/worktrees/<topic> && claude --model opus` then `/implement-stack docs/superpowers/handover/<feature>.md` ``.
+   Otherwise it is — exactly:
    ``Launch: `claude --model opus` then `/implement-stack docs/superpowers/handover/<feature>.md` ``.
    Nothing else. (The model tier lives here, in the command, never in the agent body.)
 3. Relay its reply verbatim. If it begins `refused:`, stop — do not retry with another mode;
    the human decides.
-4. If it wrote the document, print the launch line on its own line and stop. Do not push;
-   the human decides when the feature branch goes to the remote.
+4. If it wrote the document, print the launch line on its own line and stop — with the
+   relative `cd .claude/worktrees/<topic>` replaced by `cd <absolute path>`, the output of
+   `git rev-parse --show-toplevel`, so it can be pasted from any folder. The document keeps the
+   relative line. Do not push; the human decides when the feature branch goes to the remote.
