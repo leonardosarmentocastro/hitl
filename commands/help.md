@@ -33,7 +33,7 @@ Say the matching thing for `state`, then always end with the prerequisites.
     4. per slice: implementer → /review-slice → fixer → PR onto the parent
     5. draft umbrella PR; nothing merges — the human reviews the stack
 
-  Plugin commands:   /hitl:init [--adopt] · /hitl:diff [--apply] · /hitl:help · /hitl:customize
+  Plugin commands:   /hitl:init [--adopt] · /hitl:diff [--apply] · /hitl:help · /hitl:customize · /hitl:cleanup
   Workflow commands: /review-spec · /review-plan · /review-slice · /handover · /implement-stack · /umbrella-pr
 
   To change a rule: edit HITL.md or .claude/ by pull request, or run /hitl:customize.
