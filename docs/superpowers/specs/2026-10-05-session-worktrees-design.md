@@ -1,6 +1,6 @@
 # Session worktrees — one design session, one worktree
 
-**Reviewed:** round 1 (2026-10-05).
+**Reviewed:** round 1 (2026-10-05) · round 2 (2026-10-05).
 
 **Feature branch:** `feat/session-worktrees` · **Deferred elsewhere:** issue #10 (auto-launching
 `/implement-stack` in a fresh session).
@@ -77,7 +77,7 @@ anchored.
 > git fetch origin
 > git worktree add "$MAIN/.claude/worktrees/<topic>" -b feat/<topic> origin/main
 > git branch --unset-upstream feat/<topic>
-> git worktree lock --reason "hitl design session: <topic>" "$MAIN/.claude/worktrees/<topic>"
+> git worktree lock --reason "hitl design session: <topic> on feat/<topic>" "$MAIN/.claude/worktrees/<topic>"
 > ```
 >
 > then `EnterWorktree` with `path: $MAIN/.claude/worktrees/<topic>`. `$MAIN` is the main
@@ -136,16 +136,17 @@ check out a branch that is checked out in another worktree. So:
 - The **line printed on screen** at the end of the design session uses the absolute path, from
   `git rev-parse --show-toplevel` in the session's worktree, so it can be pasted from anywhere.
   `/handover` and `/review-plan` print this one. The two lines differ only in that path.
-- When the session is not in a linked worktree (a repository that has not adopted the rule yet,
-  or the human declined), both lines omit the `cd`, as today.
+- When the session is not in a linked worktree (a repository that has not adopted the rule
+  yet), both lines omit the `cd`, as today.
 
-**End of the implementation session.** `/implement-stack` § 2's final report gains, after
-"Nothing is merged. The stack is yours to review.", a block in plain words: *after the umbrella
-PR merges, from the main checkout (not from this session — it is running inside the worktree),
-run `/hitl:cleanup`, or these commands:* `git worktree unlock <abs path>` (only when the
-worktree is locked), `git worktree remove <abs path>`, `git branch -D feat/<topic> <its local slice branches>`. The
-session never removes the worktree itself: a fix-up round (`/implement-stack … fix-up`) needs it
-until the umbrella merges.
+**End of the implementation session (slice 3, with the command it names).** `/implement-stack`
+§ 2's final report gains, after "Nothing is merged. The stack is yours to review.", a block in
+plain words: *after the umbrella PR merges, from the main checkout (not from this session — it
+is running inside the worktree), run `/hitl:cleanup`, or these commands:* `git worktree unlock
+<abs path>` (only when the worktree is locked), `git worktree remove <abs path>`, `git branch -D
+feat/<topic> <its local slice branches>`. The session never removes the worktree itself: a
+fix-up round (`/implement-stack … fix-up`) needs it until the umbrella merges. The block lands in
+slice 3 so it never names a command that does not exist yet.
 
 ### 3. `/hitl:cleanup`
 
@@ -153,12 +154,15 @@ A plugin command, like `/hitl:help`: `commands/cleanup.md` plus `installer/clean
 not installed into target repositories, so the drift test does not cover it; its tests do.
 
 **Which worktrees it considers.** Only those `git worktree list --porcelain` shows as locked with
-a reason beginning `hitl design session:`. A worktree made by hand, or locked for any other
-reason, is never listed.
+a reason of the form `hitl design session: <topic> on <branch>`. A worktree made by hand, or
+locked for any other reason, is never listed. The feature branch `B` is the `<branch>` in the
+lock reason — **not** the checked-out branch: `/implement-stack` runs in the same worktree and
+leaves it on a slice branch, so what is checked out may be `B` or any `B-slice-*`.
 
 **Freshness.** Before classifying (and again before `--remove` re-checks), the script runs
-`git fetch --prune origin`. If the fetch fails, it offers nothing, says why, and exits 2 — the
-same as a PR-shim failure.
+`git fetch --prune origin`, and its output says so (pruning removes stale remote-tracking refs
+repo-wide). If the fetch fails, it offers nothing, says why, and exits 2 — the same as a
+PR-shim failure.
 
 **Saved.** A local branch is *saved* when its tip is reachable from a remote-tracking ref
 (`git rev-list <branch> --not --remotes` is empty), **or** a merged PR whose head is exactly that
@@ -167,15 +171,15 @@ branch records a head commit that is the tip or a descendant of it (`git merge-b
 test is what keeps a squash-merged branch saved after the host deleted it and the fetch pruned
 it. It needs a new `head_sha` field in the PR shim's record (see Interface).
 
-**Classification.** For each considered worktree, with `B` its checked-out branch and the
-slice branches `B-slice-*` that exist locally:
+**Classification.** For each considered worktree, with `B` from its lock reason and the slice
+branches `B-slice-*` that exist locally (together, "the branches to delete"):
 
 | Class | Conditions (all must hold) | Offered for removal |
 |---|---|---|
 | **merged** | the PR shim (`scripts/hitl/pr.sh list --head-prefix B --state merged`) reports a merged PR whose head is exactly `B`; no tracked change and no untracked, non-ignored file in the worktree; every branch to delete is saved | yes |
-| **abandoned** | no PR in any state has head `B`; `git rev-list origin/main..B` is empty; no tracked change and no untracked, non-ignored file | yes |
+| **abandoned** | no PR in any state has head `B`; `git rev-list origin/main..B` is empty; every slice branch to delete is saved or has no commit beyond `origin/main`; no tracked change and no untracked, non-ignored file | yes |
 | **has unsaved work** | merged or abandoned by the PR test, but one of the "nothing lost" checks fails | no — listed with what is unsaved |
-| **in progress** | anything else (open PR, or commits with no merged PR — e.g. a design abandoned after its spec was committed) | no — listed one line each, so nothing is invisible |
+| **in progress** | anything else (open umbrella PR — even when slice PRs are merged —, or commits with no merged umbrella PR, e.g. a design abandoned after its spec was committed) | no — listed one line each, so nothing is invisible |
 
 The PR shim is used rather than `git branch --merged` because a squash-merged umbrella is not
 an ancestor of `main`. If the shim exits non-zero (host unreachable, not authenticated), the
@@ -190,17 +194,19 @@ nothing in it is unsaved" / "nothing was ever committed or saved in it"), and th
 top-level entries that will also be deleted (e.g. `node_modules/ (412 MB), .env, .superpowers/`)
 — so the human's yes is informed rather than resting on a "nothing is lost" that ignored files
 make untrue. Then the total size, and: *Remove all N? (yes / pick some / no)*; "pick some" means
-naming topics. The "has unsaved work" and "in progress" entries follow, not offered. With nothing removable and
+naming the listed paths. The "has unsaved work" and "in progress" entries follow, not offered. With nothing removable and
 nothing unsaved it says so in one line.
 
 **Removal**, per chosen worktree: `git worktree unlock`, `git worktree remove` (no `--force`;
 a refusal is reported, not overridden), then `git branch -D` on `B` and its local slice
-branches — `-D` because a squash-merged branch is not "merged" to git; the `--not --remotes`
-"saved" test above is what makes it safe. Remote branches are never touched; the report ends with
+branches — `-D` because a squash-merged branch is not "merged" to git; the "saved" test above
+is what makes it safe. Remote branches are never touched; the report ends with
 "Remote branches are left alone — delete them on the host if it does not do so on merge."
 
 **Interface.** `installer/cleanup.mjs --repo <dir>` prints one JSON document classifying every
-considered worktree; `--remove <topic>[,<topic>…]` removes exactly those, re-checking each
+considered worktree; `--remove <abs worktree path>[,<abs worktree path>…]` removes exactly
+those — a worktree is named by its path, never by a topic, which a reused name could make
+ambiguous — re-checking each
 one's class first, and prints what it removed and what it refused. Exit 0 ok · 1 usage · 2 the
 PR shim or the fetch failed. The command prompt does the asking; the script never prompts.
 
@@ -216,10 +222,15 @@ together, with the manifest regenerated.
   payload's `cwd` wins over `CLAUDE_PROJECT_DIR`. New cases: a `cwd` in a subfolder gates the
   repository root; a `cwd` in a linked worktree gates the worktree, not the main checkout; no
   payload, a non-JSON payload, a payload without `cwd`, a `cwd` outside any git repository, and
-  Node absent from `PATH` each fall back to `CLAUDE_PROJECT_DIR`.
+  Node absent from `PATH` each fall back to `CLAUDE_PROJECT_DIR`. Slice 1's PR also records one
+  observation of the real harness, since every test feeds a synthetic payload: with an
+  unreviewed spec in the main checkout, a session that has entered a sibling worktree with
+  `EnterWorktree` ends its turn unrefused, and a session in the main checkout is still refused.
 - **`.gitignore`**: the render tests assert `.claude/worktrees/` in the rendered block; the drift
-  and self-manifest tests cover this repository's copy.
-- **Doctrine and prompts** (HITL.md, `/handover`, `/review-plan`, `/implement-stack`, the five
+  and self-manifest tests cover this repository's copy. In this repository the line is also
+  load-bearing for a local gate: `pnpm format:check` (`prettier --check .`) only skips nested
+  worktrees once `.gitignore` lists them.
+- **Doctrine and prompts** (HITL.md, `/handover`, `/review-plan`, the five
   agents, `/hitl:customize`): not unit tested (AGENTS.md); the drift test proves template and copy
   agree, and behaviour is shown by dry runs on `.claude/fixtures/`, recorded in slice 2's PR:
   (a) `/handover` run from a linked worktree prints the absolute `cd` line and the document
@@ -229,7 +240,10 @@ together, with the manifest regenerated.
   with a sibling worktree present returns only the main checkout's anchors.
 - **`/hitl:cleanup`** (`scripts/__tests__/cleanup.test.ts`): temp repositories with real linked
   worktrees and the `scripts/__fixtures__/fake-gh` host. Cases: one per class; an unlocked or
-  differently-locked worktree is ignored; a squash-merged PR classifies as merged; a local
+  differently-locked worktree is ignored; a worktree checked out on a slice branch whose slice
+  PR is merged while the umbrella PR is open is "in progress", and once the umbrella merges its
+  `B` and every `B-slice-*` are removed; an abandoned worktree with a local slice branch carrying
+  an unpushed commit is "has unsaved work"; a squash-merged PR classifies as merged; a local
   commit not on the remote makes it "has unsaved work"; an untracked file does too; ignored
   entries are reported with sizes; shim failure offers nothing and exits 2; `--remove` deletes
   the worktree and local branches and leaves the remote branch; `--remove` re-checks and
@@ -239,6 +253,8 @@ together, with the manifest regenerated.
   has a commit beyond `head_sha` is not.
 - **PR shim** (`scripts/__tests__/pr-shim.test.ts`): the record carries `head_sha` from the
   backend.
+- **`/implement-stack`'s cleanup block** (slice 3): a prompt; the drift test covers
+  template/copy agreement.
 
 ## Delivery slices
 
@@ -246,11 +262,10 @@ together, with the manifest regenerated.
 |---|---|---|
 | 1 | The Stop hook gates the session's own tree | hook tests above; template + copy + manifest |
 | 2 | Design sessions start in a worktree | `.gitignore` block render test; fixture dry runs (a)–(d); drift test for template/copy agreement |
-| 3 | `/hitl:cleanup` offers safe removals | `cleanup.test.ts`; `head_sha` in `pr-shim.test.ts` |
+| 3 | `/hitl:cleanup` offers safe removals | `cleanup.test.ts`; `head_sha` in `pr-shim.test.ts`; `/implement-stack`'s cleanup block |
 
 Slice 2 depends on slice 1 (a session in a worktree is only isolated once the hook follows it);
-slice 3 depends on slice 2 (it finds worktrees by the lock reason slice 2 introduces, and the
-cleanup hint names it).
+slice 3 depends on slice 2 (it finds worktrees by the lock reason slice 2 introduces).
 
 ## Out of scope
 
