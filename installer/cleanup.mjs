@@ -76,7 +76,10 @@ function sizeKb(path) {
 
 function classify(main, here, wt) {
   const prs = listPrs(main, wt.branch);
-  const branches = [wt.branch].filter((b) => exists(main, b));
+  const slices = lines(
+    git(main, "for-each-ref", "--format=%(refname:short)", `refs/heads/${wt.branch}-slice-*`).out,
+  );
+  const branches = [wt.branch, ...slices].filter((b) => exists(main, b));
   const umbrella = prs.filter((p) => p.head === wt.branch);
   const merged = umbrella.find((p) => p.state === "merged") ?? null;
   const unsaved = lines(git(wt.path, "status", "--porcelain").out).map(
@@ -89,8 +92,12 @@ function classify(main, here, wt) {
     for (const b of branches)
       if (!isSaved(main, b, prs))
         unsaved.push(`${b} has commits that are on no remote branch and in no merged PR`);
-  } else if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0)
+  } else if (umbrella.length === 0 && exists(main, wt.branch) && beyondBase(main, wt.branch) === 0) {
     cls = "abandoned";
+    for (const b of slices)
+      if (!isSaved(main, b, prs) && beyondBase(main, b) > 0)
+        unsaved.push(`${b} has commits that are on no remote branch`);
+  }
   if (cls !== "in progress" && unsaved.length > 0) cls = "has unsaved work";
   const shown = merged ?? umbrella[0] ?? null;
   return {

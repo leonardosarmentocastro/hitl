@@ -171,6 +171,51 @@ describe("cleanup.mjs — classes", () => {
     commit(path, "beyond.md");
     expect(at(cleanup(w).json, path).class).toBe("has unsaved work");
   });
+
+  it("in progress while the worktree sits on a merged slice and the umbrella is open; merged after", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "s");
+    const feat = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    const slice = `${branch}-slice-1-api`;
+    git(path, "checkout", "-q", "-b", slice);
+    const sliceTip = commit(path, "api.ts");
+    git(path, "push", "-q", "origin", slice);
+    w.setPrs([
+      { number: 1, head: slice, state: "merged", head_sha: sliceTip },
+      { number: 2, head: branch, state: "open", head_sha: feat },
+    ]);
+    expect(at(cleanup(w).json, path)).toMatchObject({
+      class: "in progress",
+      offered: false,
+      branch,
+      checkedOut: slice,
+    });
+    w.setPrs([
+      { number: 1, head: slice, state: "merged", head_sha: sliceTip },
+      { number: 2, head: branch, state: "merged", head_sha: feat },
+    ]);
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("merged");
+    expect(e.branches.sort()).toEqual([branch, slice].sort());
+  });
+
+  it("has unsaved work: abandoned, but a local slice branch carries an unpushed commit", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "u");
+    git(path, "checkout", "-q", "-b", `${branch}-slice-1-a`);
+    commit(path, "wip.ts");
+    expect(at(cleanup(w).json, path).class).toBe("has unsaved work");
+  });
+
+  it("finds slice branches of a fix/ branch", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "api-v2", "fix");
+    git(w.main, "branch", `${branch}-slice-1-a`, branch);
+    expect(at(cleanup(w).json, path).branches.sort()).toEqual(
+      [branch, `${branch}-slice-1-a`].sort(),
+    );
+  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {
