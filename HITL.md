@@ -89,6 +89,7 @@ run time) · `docs/superpowers/` (transient specs, plans, handover).
   ```bash
   MAIN=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
   git fetch origin
+  git ls-remote --exit-code --heads origin feat/<topic> >/dev/null && { echo "collision: origin/feat/<topic> exists — ask the human"; exit 1; }
   git worktree add "$MAIN/.claude/worktrees/<topic>" -b feat/<topic> origin/main
   git branch --unset-upstream feat/<topic>
   git worktree lock --reason "hitl design session: <topic> on feat/<topic>" "$MAIN/.claude/worktrees/<topic>"
@@ -104,6 +105,7 @@ run time) · `docs/superpowers/` (transient specs, plans, handover).
     (another topic, a `claude -w` worktree) does not count.
   - *Collision* — after the fetch, if the path, the local branch or `origin/<branch>` already
     exists, ask the human whether to reuse it or pick another name. Never overwrite or delete.
+    `git worktree add` refuses the first two itself; the `ls-remote` line stops on the third.
   - The implementation session runs in the same worktree (the launch line `cd`s into it), and
     the worktree stays until the umbrella PR merges.
 - Name it by intent, e.g. `feat/expense-details`, `fix/port-in-use`.
