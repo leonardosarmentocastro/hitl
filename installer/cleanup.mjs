@@ -89,9 +89,10 @@ function classify(main, here, wt) {
   const branches = [wt.branch, ...slices].filter((b) => exists(main, b));
   const umbrella = prs.filter((p) => p.head === wt.branch);
   const merged = umbrella.find((p) => p.state === "merged") ?? null;
-  const unsaved = lines(git(wt.path, "status", "--porcelain").out).map(
-    (l) => `not committed: ${l.slice(3)}`,
-  );
+  const present = existsSync(wt.path);
+  const unsaved = present
+    ? lines(git(wt.path, "status", "--porcelain").out).map((l) => `not committed: ${l.slice(3)}`)
+    : ["the worktree folder is missing"];
 
   let cls = "in progress";
   if (merged) {
@@ -111,13 +112,13 @@ function classify(main, here, wt) {
   return {
     ...wt,
     class: cls,
-    offered: (cls === "merged" || cls === "abandoned") && !isHere,
+    offered: (cls === "merged" || cls === "abandoned") && !isHere && present,
     here: isHere,
     umbrella: shown ? { number: shown.number, url: shown.url } : null,
     branches,
     unsaved,
-    sizeKb: sizeKb(wt.path),
-    ignored: ignoredEntries(wt.path),
+    sizeKb: present ? sizeKb(wt.path) : null,
+    ignored: present ? ignoredEntries(wt.path) : [],
   };
 }
 

@@ -236,6 +236,16 @@ describe("cleanup.mjs — classes", () => {
       here: true,
     });
   });
+
+  it("does not crash on a registered worktree whose folder was deleted", () => {
+    const w = world();
+    const { path } = designWorktree(w, "gone");
+    rmSync(path, { recursive: true, force: true });
+    const r = cleanup(w);
+    expect(r.status).toBe(0);
+    expect(at(r.json, path)).toMatchObject({ offered: false });
+    expect(at(r.json, path).unsaved).toContain("the worktree folder is missing");
+  });
 });
 
 describe("cleanup.mjs — failures offer nothing", () => {
