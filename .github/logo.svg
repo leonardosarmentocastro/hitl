@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="150" viewBox="0 0 360 150" role="img" aria-label="hitl: a human and an AI robot in a loop">
+  <title>hitl — human in the loop</title>
+  <style>
+    .e { font: 64px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
+    .w { font: 600 28px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #8b949e; letter-spacing: 4px; }
+  </style>
+  <text class="e" x="40" y="85">🧑‍💻</text>
+  <text class="e" x="148" y="85">🔁</text>
+  <text class="e" x="256" y="85">🤖</text>
+  <text class="w" x="180" y="135" text-anchor="middle">hitl</text>
+</svg>
