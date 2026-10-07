@@ -87,6 +87,7 @@ describe("render.mjs on an empty repository", () => {
     expect(readme).toContain("<!-- hitl:end -->");
     const ignore = readFileSync(join(repo, ".gitignore"), "utf8");
     expect(ignore).toContain(".claude/reviews/");
+    expect(ignore).toContain(".claude/worktrees/");
     expect(ignore).toContain(".claude/fixtures/scratch/");
     expect(ignore).toContain(".claude/settings.local.json");
     expect(r.json.appended).toEqual(

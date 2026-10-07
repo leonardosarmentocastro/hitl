@@ -74,14 +74,40 @@ You cannot end your turn while a spec or plan in the working tree lacks a
 (`/review-spec`, `/review-plan`, `/handover`, `/implement-stack`, `/umbrella-pr`) ·
 `.claude/hooks/` and `.claude/settings.json` (the Stop hook above, declared for everyone who
 clones the repo) · `.claude/review-context.md` (repo-specific reviewer context) ·
-`.claude/reviews/` (gitignored review output) · `scripts/hitl/` (the PR shim and the wipe
+`.claude/reviews/` (gitignored review output) · `.claude/worktrees/` (gitignored design-session worktrees) · `scripts/hitl/` (the PR shim and the wipe
 script) · `.claude/hitl.json` (install metadata written by `/hitl:init`, read by nothing at
 run time) · `docs/superpowers/` (transient specs, plans, handover).
 
 ## Feature branches
 
-- **Always** create a dedicated feature branch off up-to-date `main` before
-  implementation. Do not commit feature work directly on `master` / `main`.
+- **Always** create a dedicated feature branch off up-to-date `main` at the start of design.
+  Do not commit feature work directly on `master` / `main`.
+- **A design session runs in its own worktree.** The first action of any session that begins
+  the chain — a brainstorm, a grill, a design discussion — before it reads any code, is to put
+  itself in its own worktree on the feature branch:
+
+  ```bash
+  MAIN=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+  git fetch origin
+  git ls-remote --exit-code --heads origin feat/<topic> >/dev/null && { echo "collision: origin/feat/<topic> exists — ask the human"; exit 1; }
+  git worktree add "$MAIN/.claude/worktrees/<topic>" -b feat/<topic> origin/main
+  git branch --unset-upstream feat/<topic>
+  git worktree lock --reason "hitl design session: <topic> on feat/<topic>" "$MAIN/.claude/worktrees/<topic>"
+  ```
+
+  then `EnterWorktree` with `path: $MAIN/.claude/worktrees/<topic>`. `<topic>` is kebab-case,
+  chosen from the request; the prefix follows the naming bullet below (`fix/<topic>` for a
+  bugfix, in the branch and the lock reason alike). Another session in the same checkout can
+  switch its branch at any time; a worktree is the only checkout nobody else moves.
+  - *Already in this topic's worktree* — the session's git root is a linked worktree (`git
+    rev-parse --git-dir` differs from `--git-common-dir`) on this topic's branch: stay, create
+    nothing, and lock it with the reason above if it is not locked. Any other linked worktree
+    (another topic, a `claude -w` worktree) does not count.
+  - *Collision* — after the fetch, if the path, the local branch or `origin/<branch>` already
+    exists, ask the human whether to reuse it or pick another name. Never overwrite or delete.
+    `git worktree add` refuses the first two itself; the `ls-remote` line stops on the third.
+  - The implementation session runs in the same worktree (the launch line `cd`s into it), and
+    the worktree stays until the umbrella PR merges.
 - Name it by intent, e.g. `feat/expense-details`, `fix/port-in-use`.
 - That branch is the **integration target**, not a slice. It holds the umbrella
   spec + slice plans. Slice 1 is a *separate* branch; do not open

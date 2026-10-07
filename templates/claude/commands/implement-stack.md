@@ -130,6 +130,18 @@ Run `/umbrella-pr` (no `--dry-run`). Report `created: #N (draft)` or `updated: #
 umbrella PR, and the sentence "Nothing is merged. The stack is yours to review." Do not mark
 anything ready for review. Do not merge.
 
+End the report with this block, in plain words, `<abs path>` being `git rev-parse
+--show-toplevel` and the branches being the feature branch and its local slice branches:
+
+> When the umbrella PR merges, clean up from the **main checkout** — not from this session,
+> which is running inside the worktree: run `/hitl:cleanup`, or
+> `git worktree unlock <abs path>` (only if `git worktree list` shows it locked) ·
+> `git worktree remove <abs path>` · `git branch -D <feature branch> <slice branches>`.
+> Until then the worktree stays: a fix-up round runs in it.
+
+Omit the block when this session is not in a linked worktree (`git rev-parse --git-dir` equals
+`--git-common-dir`). Never remove the worktree yourself.
+
 ## Fix-up
 
 For each `### Slice <N>` section under `## Fix-up`, in order:

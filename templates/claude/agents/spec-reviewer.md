@@ -18,7 +18,7 @@ spec as if you were the first to see it, whatever its header says about previous
 
 Your FIRST action is ONE message that reads all of these together:
 
-- `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/`) — the standards ground truth;
+- `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/` and `.claude/worktrees/`) — the standards ground truth;
 - `CONTEXT.md` if present — the domain ground truth;
 - `.claude/review-context.md` if present — repo-owned reviewer context;
 - the spec under review, named in your brief.
