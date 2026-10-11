@@ -1,4 +1,6 @@
 // scripts/__tests__/lib.test.ts
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { ownedFiles, pluginVersion, sha256 } from "../../installer/lib.mjs";
 
@@ -6,7 +8,10 @@ const ROOT = process.cwd();
 
 describe("installer/lib primitives", () => {
   it("reads the plugin version from .claude-plugin/plugin.json", () => {
-    expect(pluginVersion(ROOT)).toBe("0.1.0");
+    const root = mkdtempSync(join(tmpdir(), "hitl-version-"));
+    mkdirSync(join(root, ".claude-plugin"));
+    writeFileSync(join(root, ".claude-plugin/plugin.json"), JSON.stringify({ version: "1.2.3" }));
+    expect(pluginVersion(root)).toBe("1.2.3");
   });
 
   it("hashes with sha256 hex", () => {

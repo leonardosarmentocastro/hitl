@@ -11,8 +11,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { pluginVersion } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
+const CURRENT = pluginVersion(PLUGIN_ROOT);
 const HELP = join(PLUGIN_ROOT, "installer/help.mjs");
 const RENDER = join(PLUGIN_ROOT, "installer/render.mjs");
 
@@ -80,7 +82,7 @@ describe("help.mjs states", () => {
   it("up to date, behind and ahead by the manifest version", () => {
     const repo = installed();
     expect(help(repo).json.state).toBe("up to date");
-    expect(help(repo).json.manifestVersion).toBe("0.1.0");
+    expect(help(repo).json.manifestVersion).toBe(CURRENT);
     setVersion(repo, "0.0.1");
     expect(help(repo).json.state).toBe("behind");
     setVersion(repo, "9.9.9");

@@ -14,8 +14,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { pluginVersion } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
+const CURRENT = pluginVersion(PLUGIN_ROOT);
 const RENDER = join(PLUGIN_ROOT, "installer/render.mjs");
 
 function tempRepo(files: Record<string, string> = {}) {
@@ -83,7 +85,7 @@ describe("render.mjs on an empty repository", () => {
     expect(readme.startsWith("# app\n")).toBe(true);
     expect(readme).toContain("<!-- hitl:start -->");
     expect(readme).toContain("## How changes land here");
-    expect(readme).toContain("hitl 0.1.0");
+    expect(readme).toContain(`hitl ${CURRENT}`);
     expect(readme).toContain("<!-- hitl:end -->");
     const ignore = readFileSync(join(repo, ".gitignore"), "utf8");
     expect(ignore).toContain(".claude/reviews/");
@@ -114,7 +116,7 @@ describe("render.mjs on an empty repository", () => {
     const repo = tempRepo();
     render(repo);
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
-    expect(manifest.version).toBe("0.1.0");
+    expect(manifest.version).toBe(CURRENT);
     expect(manifest.provider).toBe("github");
     expect(manifest.ci).toBe("github-actions");
     expect(manifest.testing).toEqual([]);
@@ -147,7 +149,7 @@ describe("render.mjs refusals", () => {
     const before = tree(repo);
     const r = render(repo);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "manifest-present", version: "0.1.0" });
+    expect(r.json).toEqual({ refused: "manifest-present", version: CURRENT });
     expect(tree(repo)).toEqual(before);
   });
 
@@ -290,7 +292,7 @@ describe("render.mjs --mode check", () => {
   it("refuses on a present manifest", () => {
     const repo = tempRepo();
     render(repo);
-    expect(check(repo).json).toEqual({ refused: "manifest-present", version: "0.1.0" });
+    expect(check(repo).json).toEqual({ refused: "manifest-present", version: CURRENT });
   });
 });
 
