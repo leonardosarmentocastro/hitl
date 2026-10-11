@@ -8,7 +8,9 @@
 #   pr.sh comment <number> --body-file <path>
 #
 # stdout is exactly one JSON document: `list` prints an array, every other verb a record:
-#   { number, url, head, base, state: open|merged|closed, draft, title, body }
+#   { number, url, head, base, state: open|merged|closed, draft, title, body, head_sha }
+# head_sha is the PR's head commit (what the host merged, for a merged PR); /hitl:cleanup uses
+# it to prove a squash-merged branch saved after the host deleted it. A backend must supply it.
 # `view` adds reviews: [{ author, state: approved|changes_requested|commented, body }] and
 # comments: [{ author, body, created_at }]. `edit` and `comment` return the record they touched.
 #

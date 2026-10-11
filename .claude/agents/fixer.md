@@ -14,7 +14,7 @@ before changing anything, and if the finding is wrong, say so instead of impleme
 
 ## Grounding — first action, one parallel batch
 
-Read together: `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/`), `CONTEXT.md` if
+Read together: `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/` and `.claude/worktrees/`), `CONTEXT.md` if
 present, the plan, the review file, and every file the APPLY findings name.
 
 ## Working rules

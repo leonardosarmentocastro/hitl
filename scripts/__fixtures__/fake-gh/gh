@@ -16,7 +16,7 @@ if [ "$mode" = fail ]; then
   exit 1
 fi
 
-record='{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md"}'
+record='{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md","head_sha":"abc1234"}'
 
 case "$sub" in
   "pr create")
@@ -29,7 +29,7 @@ case "$sub" in
     ;;
   "pr view")
     if [[ "$*" == *reviews* ]]; then
-      echo '{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md","reviews":[{"author":"ana","state":"changes_requested","body":"rename it"}],"comments":[{"author":"bo","body":"+1","created_at":"2026-09-16T10:00:00Z"}]}'
+      echo '{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md","head_sha":"abc1234","reviews":[{"author":"ana","state":"changes_requested","body":"rename it"}],"comments":[{"author":"bo","body":"+1","created_at":"2026-09-16T10:00:00Z"}]}'
     else
       echo "$record"
     fi
@@ -46,8 +46,8 @@ case "$sub" in
       done
       total=${FAKE_GH_LIST_TOTAL:-3}
       rec() { # number head state
-        printf '{"number":%s,"url":"https://github.com/o/r/pull/%s","headRefName":%s,"baseRefName":"feat/x","state":"%s","isDraft":false,"title":"t","body":""}' \
-          "$1" "$1" "$2" "$3"
+        printf '{"number":%s,"url":"https://github.com/o/r/pull/%s","headRefName":%s,"baseRefName":"feat/x","state":"%s","isDraft":false,"title":"t","body":"","headRefOid":"sha%s"}' \
+          "$1" "$1" "$2" "$3" "$1"
       }
       out=$(rec 12 '"feat/x-slice-1-api"' OPEN)
       [ "$total" -ge 2 ] && [ "$limit" -ge 2 ] && out+=,$(rec 13 '"feat/y-slice-1-api"' MERGED)
@@ -60,7 +60,7 @@ case "$sub" in
       printf '[%s]' "$out" | jq -c "$jqexpr"
       exit $?
     fi
-    echo '[{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":""},{"number":13,"url":"https://github.com/o/r/pull/13","head":"feat/x-slice-2-web","base":"feat/x-slice-1-api","state":"merged","draft":false,"title":"Slice 2: web","body":""}]'
+    echo '[{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"","head_sha":"abc1234"},{"number":13,"url":"https://github.com/o/r/pull/13","head":"feat/x-slice-2-web","base":"feat/x-slice-1-api","state":"merged","draft":false,"title":"Slice 2: web","body":"","head_sha":"abc1234"}]'
     ;;
   "pr edit" | "pr comment")
     ;;

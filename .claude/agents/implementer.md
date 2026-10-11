@@ -14,7 +14,7 @@ written, you are blocked — say so; do not improvise around it.
 
 ## Grounding — first action, one parallel batch
 
-Read together: `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/`), `CONTEXT.md` if
+Read together: `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/` and `.claude/worktrees/`), `CONTEXT.md` if
 present, the spec(s), the plan, and the handover document named in your brief. The handover's
 stack table tells you what sibling slices own: a gap a later slice owns is not yours to fill.
 

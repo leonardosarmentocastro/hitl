@@ -97,6 +97,6 @@ accepted, unresolved blocker, run the handover now: mode `start` only if no `*-s
 of this feature exists locally or on the remote AND no pull request exists for any such
 branch (the agent decides `start` from slice status, and a merged slice whose branch was
 deleted still forbids it), otherwise `resume`; spawn the `handover` agent
-exactly as `/handover` does (same brief, same launch line) and relay its reply. Print the launch line on its own line. The session's
+exactly as `/handover` does (same brief, same launch line — relative `cd` when this session is in a linked worktree) and relay its reply. Print the launch line on its own line, with the `cd` path made absolute as `/handover` step 4 does. The session's
 work is done — say so and stop. Starting the implementation session is the human's approval
 of the plans.
