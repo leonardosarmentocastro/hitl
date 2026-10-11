@@ -4,9 +4,10 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { renderAll, sha256 } from "../../installer/lib.mjs";
+import { pluginVersion, renderAll, sha256 } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
+const CURRENT = pluginVersion(PLUGIN_ROOT);
 const RENDER = join(PLUGIN_ROOT, "installer/render.mjs");
 const ADOPT = join(PLUGIN_ROOT, "installer/adopt.mjs");
 const ANSWERS = { provider: "github", ci: "github-actions", testing: [], gates: [] };
@@ -55,7 +56,7 @@ describe("adopt.mjs", () => {
     expect(r.status).toBe(0);
     expect(r.json.wrote).toEqual([".claude/hitl.json"]);
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
-    expect(manifest.version).toBe("0.1.0");
+    expect(manifest.version).toBe(CURRENT);
     expect(manifest.ci).toBe("github-actions");
     expect(manifest.files[".claude/agents/handover.md"]).toBe(templateHash);
     expect(manifest.files[".claude/agents/handover.md"]).not.toBe(editedHash);
@@ -70,7 +71,7 @@ describe("adopt.mjs", () => {
     run(ADOPT, repo);
     const r = run(ADOPT, repo);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "manifest-present", version: "0.1.0" });
+    expect(r.json).toEqual({ refused: "manifest-present", version: CURRENT });
   });
 
   it("refuses an unknown ci before writing, as render.mjs does", () => {

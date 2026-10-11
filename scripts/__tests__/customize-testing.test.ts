@@ -4,8 +4,10 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { pluginVersion } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
+const CURRENT = pluginVersion(PLUGIN_ROOT);
 const RENDER = join(PLUGIN_ROOT, "installer/render.mjs");
 const SCRIPT = join(PLUGIN_ROOT, "installer/customize-testing.mjs");
 const WORKFLOW = ".github/workflows/wipe-superpowers-docs.yml";
@@ -81,7 +83,7 @@ describe("customize-testing.mjs", () => {
     writeFileSync(join(repo, ".claude/hitl.json"), JSON.stringify({ ...m, version: "0.0.1" }));
     const r = customize(repo, "e2e", "none");
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "behind", recorded: "0.0.1", plugin: "0.1.0" });
+    expect(r.json).toEqual({ refused: "behind", recorded: "0.0.1", plugin: CURRENT });
   });
 
   it("refuses when the manifest is ahead of the plugin (stale plugin cache)", () => {
@@ -90,7 +92,7 @@ describe("customize-testing.mjs", () => {
     writeFileSync(join(repo, ".claude/hitl.json"), JSON.stringify({ ...m, version: "9.9.9" }));
     const r = customize(repo, "e2e", "none");
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "ahead", recorded: "9.9.9", plugin: "0.1.0" });
+    expect(r.json).toEqual({ refused: "ahead", recorded: "9.9.9", plugin: CURRENT });
   });
 
   it("keeps a locally edited workflow instead of deleting it", () => {

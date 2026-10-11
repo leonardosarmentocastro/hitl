@@ -14,11 +14,14 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { sha256 } from "../../installer/lib.mjs";
+import { pluginVersion, sha256 } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 const DIFF = join(ROOT, "installer/diff.mjs");
 const ANSWERS = { provider: "github", ci: "github-actions", testing: [], gates: [] };
+// This repository's own version, and the next minor one that the fixture plugin is bumped to.
+const CURRENT = pluginVersion(ROOT);
+const NEXT = CURRENT.replace(/^(\d+)\.(\d+)\.\d+$/, (_, maj, min) => `${maj}.${Number(min) + 1}.0`);
 
 function git(cwd: string, args: string[]) {
   return execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8" });
@@ -31,8 +34,8 @@ function copyPlugin(dest: string) {
 }
 
 /**
- * A marketplace clone whose only tag, v0.1.0, is this repository's templates and installer;
- * and a plugin root at 0.2.0 whose fixer agent gained one line at the end.
+ * A marketplace clone whose only tag, v<CURRENT>, is this repository's templates and installer;
+ * and a plugin root at NEXT whose fixer agent gained one line at the end.
  */
 function fixtureMarketplace() {
   const mk = mkdtempSync(join(tmpdir(), "hitl-mk-"));
@@ -41,25 +44,25 @@ function fixtureMarketplace() {
   git(mk, ["config", "user.email", "t@example.com"]);
   git(mk, ["config", "user.name", "t"]);
   git(mk, ["add", "-A"]);
-  git(mk, ["commit", "-q", "-m", "0.1.0"]);
-  git(mk, ["tag", "v0.1.0"]);
+  git(mk, ["commit", "-q", "-m", CURRENT]);
+  git(mk, ["tag", `v${CURRENT}`]);
 
   const plugin = mkdtempSync(join(tmpdir(), "hitl-plugin-"));
   copyPlugin(plugin);
   const pj = join(plugin, ".claude-plugin/plugin.json");
   writeFileSync(
     pj,
-    JSON.stringify({ ...JSON.parse(readFileSync(pj, "utf8")), version: "0.2.0" }, null, 2),
+    JSON.stringify({ ...JSON.parse(readFileSync(pj, "utf8")), version: NEXT }, null, 2),
   );
   appendFileSync(
     join(plugin, "templates/claude/agents/fixer.md"),
-    "\nUpstream added this line in 0.2.0.\n",
+    `\nUpstream added this line in ${NEXT}.\n`,
   );
   return { mk, plugin };
 }
 
 /**
- * A marketplace clone whose v0.1.0 also owned `scripts/hitl/gone.sh`, which the 0.2.0 plugin
+ * A marketplace clone whose v<CURRENT> also owned `scripts/hitl/gone.sh`, which the NEXT plugin
  * no longer ships: a real upstream removal, rendered by the tag's own lib.mjs.
  */
 function fixtureMarketplaceWithRemoval() {
@@ -81,12 +84,12 @@ function fixtureMarketplaceWithRemoval() {
   git(mk, ["config", "user.email", "t@example.com"]);
   git(mk, ["config", "user.name", "t"]);
   git(mk, ["add", "-A"]);
-  git(mk, ["commit", "-q", "-m", "0.1.0"]);
-  git(mk, ["tag", "v0.1.0"]);
+  git(mk, ["commit", "-q", "-m", CURRENT]);
+  git(mk, ["tag", `v${CURRENT}`]);
   return mk;
 }
 
-/** A repository installed by the v0.1.0 marketplace's own render.mjs. */
+/** A repository installed by the v<CURRENT> marketplace's own render.mjs. */
 function installedRepo(mk: string, answers: object = ANSWERS) {
   const repo = mkdtempSync(join(tmpdir(), "hitl-repo-"));
   spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
@@ -159,7 +162,7 @@ describe("diff.mjs refusals", () => {
     editManifest(repo, (m) => (m.version = "9.9.9"));
     const r = diff(repo, plugin, mk);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "ahead", recorded: "9.9.9", plugin: "0.2.0" });
+    expect(r.json).toEqual({ refused: "ahead", recorded: "9.9.9", plugin: NEXT });
   });
 
   it("refuses a manifest path outside the repository instead of deleting it", () => {
@@ -196,13 +199,13 @@ describe("diff.mjs refusals", () => {
   });
 });
 
-describe("diff.mjs across versions (recorded 0.1.0 from the tag, latest 0.2.0)", () => {
+describe("diff.mjs across versions (recorded from the tag, latest one minor ahead)", () => {
   it("reports the versions, unchanged files and the upstream change", () => {
     const repo = installedRepo(mk);
     const r = diff(repo, plugin, mk);
     expect(r.status).toBe(0);
-    expect(r.json.recorded).toBe("0.1.0");
-    expect(r.json.latest).toBe("0.2.0");
+    expect(r.json.recorded).toBe(CURRENT);
+    expect(r.json.latest).toBe(NEXT);
     expect(stateOf(r.json, HANDOVER).state).toBe("unchanged");
     expect(stateOf(r.json, "HITL.md").state).toBe("unchanged");
     expect(stateOf(r.json, FIXER).state).toBe("upstream changed");
@@ -259,8 +262,8 @@ describe("diff.mjs at the same version reads the plugin root, not the tag", () =
     const notAClone = mkdtempSync(join(tmpdir(), "hitl-notaclone-"));
     const r = diff(repo, mk, notAClone);
     expect(r.status).toBe(0);
-    expect(r.json.recorded).toBe("0.1.0");
-    expect(r.json.latest).toBe("0.1.0");
+    expect(r.json.recorded).toBe(CURRENT);
+    expect(r.json.latest).toBe(CURRENT);
     expect(r.json.files.every((f: any) => f.state === "unchanged")).toBe(true);
   });
 });
@@ -316,12 +319,14 @@ describe("diff.mjs --apply", () => {
     expect(r.json.written).toEqual([FIXER]);
     expect(r.json.deleted).toEqual(["scripts/hitl/gone.sh"]);
 
-    expect(readFileSync(join(repo, FIXER), "utf8")).toContain("Upstream added this line in 0.2.0.");
+    expect(readFileSync(join(repo, FIXER), "utf8")).toContain(
+      `Upstream added this line in ${NEXT}.`,
+    );
     expect(existsSync(join(repo, "scripts/hitl/gone.sh"))).toBe(false);
     expect(readFileSync(join(repo, HANDOVER), "utf8")).toContain("Ours."); // locally edited: kept
 
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
-    expect(manifest.version).toBe("0.2.0");
+    expect(manifest.version).toBe(NEXT);
     expect(manifest.files).not.toHaveProperty("scripts/hitl/gone.sh");
     expect(manifest.files[FIXER]).toBe(
       sha256(readFileSync(join(plugin, "templates/claude/agents/fixer.md"), "utf8")),
@@ -333,12 +338,12 @@ describe("diff.mjs --apply", () => {
 
     expect(r.json.readmeBumped).toBe(true);
     const readme = readFileSync(join(repo, "README.md"), "utf8");
-    expect(readme).toContain("Installed by hitl 0.2.0");
-    expect(readme).not.toContain("Installed by hitl 0.1.0");
+    expect(readme).toContain(`Installed by hitl ${NEXT}`);
+    expect(readme).not.toContain(`Installed by hitl ${CURRENT}`);
 
     // A second diff now sees only the local edit.
     const again = diff(repo, plugin, mkRemoval).json;
-    expect(again.recorded).toBe("0.2.0");
+    expect(again.recorded).toBe(NEXT);
     expect(stateOf(again, FIXER).state).toBe("unchanged");
     expect(stateOf(again, HANDOVER).state).toBe("locally edited");
   });
@@ -401,7 +406,7 @@ describe("diff.mjs --apply", () => {
       expect(r.json.manifest).toBe("untouched");
       // The manifest is written last, so it still records the old version.
       expect(JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8")).version).toBe(
-        "0.1.0",
+        CURRENT,
       );
     } finally {
       chmodSync(join(repo, "scripts/hitl"), 0o755);
