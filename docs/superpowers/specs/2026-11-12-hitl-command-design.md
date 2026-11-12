@@ -1,7 +1,7 @@
 # `/hitl:brainstorming` — the hitl workflow without installing it in the repository
 
 **Status:** draft, awaiting review
-**Reviewed:** round 1 (2026-11-12).
+**Reviewed:** round 1 (2026-11-12) · round 2 (2026-11-12).
 **Branch:** `feat/hitl-command`
 
 ## Intent
@@ -50,7 +50,8 @@ except the transient feature documents the chain has always committed.
 
 ## Non-goals
 
-- **GitLab.** No-install mode ships GitHub-only. GitLab is issue #19.
+- **GitLab PRs.** The implementation session ships GitHub-only; GitLab is issue #19. The
+  design session runs on any host (see Constraints, Prerequisites).
 - **ADRs.** Distilling decisions into `docs/adr/` is issue #20.
 - **Replacing `/hitl:init`.** The installed mode stays as it is and is the recommended path
   where a team accepts it. Both modes coexist.
@@ -99,6 +100,12 @@ plugin agents (`hitl:spec-reviewer`, `hitl:plan-reviewer`, `hitl:handover`,
 - **Version skew is accepted.** The repository may carry an older hitl than the plugin;
   following the repository's files is correct, and `/hitl:diff` is the upgrade path.
 
+**`/hitl:cleanup` works in both modes.** Today it runs the repository's `scripts/hitl/pr.sh`,
+which a no-install repository does not have. Where `.claude/hitl.json` is absent it uses the
+plugin's PR shim instead, treats `<feature branch>-wipe` as one of the feature's branches,
+clears the active-feature record (D5) when it removes the worktree, and — if the feature's
+documents reached the base branch (D3) — says so in one line with their paths.
+
 ### D2. Project memory lives in `~/.hitl/projects/<key>/`
 
 - **Key:** the normalized git remote — `upstream` if present, else `origin` — as
@@ -128,34 +135,43 @@ takes those three ideas and none of its server, capture hooks, index or decay.
 1. **During the feature** the spec, plans and handover are committed on the feature branch
    under `docs/superpowers/` exactly as today: PRs carry a `Plan:` line, and the umbrella PR
    always has a diff.
-2. **The feature's documents** are the files under `docs/superpowers/` that the feature
-   branch adds relative to its merge-base with the base branch. Nothing else under that
-   path is archived or deleted.
+2. **The feature's documents** are the files under `docs/superpowers/` that exist at a given
+   tip and do not exist at that tip's merge-base with the base branch. The wipe measures
+   them at its parent's tip, so a document added or renamed on a slice branch is covered.
+   Nothing else under that path is archived, deleted or gated.
 3. **Archive.** `/hitl:implement-stack` and `/hitl:umbrella-pr` copy the feature's documents
-   to `~/.hitl/projects/<key>/features/<feature>/` on every run. An edit made after the last
-   run of either is not archived; accepted.
-4. **Wipe branch.** After the last slice and before the umbrella PR,
-   `/hitl:implement-stack` builds `<feature branch>-wipe`: a branch holding exactly one
-   commit that deletes the feature's documents, with a draft PR against its parent.
+   to `~/.hitl/projects/<key>/features/<YYYY-MM-DD>-<topic>/` on every run — the date is the
+   active-feature record's creation date (D5), so a later feature reusing a name gets its
+   own folder. An edit made after the last run of either is not archived; accepted.
+4. **Wipe branch.** `<feature branch>-wipe` is a branch holding exactly one commit that
+   deletes the feature's documents, with a draft PR against its parent.
+   - **Who builds it.** `/hitl:implement-stack`, after the last slice and before the
+     umbrella PR; and `/hitl:umbrella-pr`, which is the command the human re-runs after
+     slices merge on the host, so the wipe never stays stale against its parent.
    - It is **not a stack-table row and has no plan.** The handover agent never writes it;
      the stack table, the `**Owns:**` parser and the `Plan:` parser never see it. Its PR
      body carries, in place of the `Plan:` line, one sentence saying it is generated and
      must merge last.
    - Its parent is the last slice's branch, or the feature branch once every slice has
      merged into it.
-   - It is **rebuilt, never edited**: on every run and every resume the branch is reset in
-     place to its parent's tip plus the one delete commit, force-pushed, and its PR's base
-     re-targeted if the parent changed. The branch is never deleted on the remote (that
-     would close the PR). A reworked stack, a new slice or a changed plan therefore can
-     never be deleted by an earlier branch and re-added by a later one: the delete exists
-     only at the tip.
+   - It is **rebuilt, never edited**: each build resets the branch in place to its parent's
+     tip plus the one delete commit, force-pushes it, and re-targets its PR's base if the
+     parent changed. The branch is never deleted on the remote (that would close the PR). A
+     reworked stack, a new slice or a changed plan therefore can never be deleted by an
+     earlier branch and re-added by a later one: the delete exists only at the tip.
    - It gets no implementer, no review and no fixer.
    - It is a deterministic script with tests, not an agent.
    - Rebuilding force-pushes the wipe branch. This is the one exception to "never
      force-push unasked": the branch holds no human or agent work, only the generated
      delete. Every other branch keeps the existing rule.
-   - The umbrella PR body names the wipe PR as **required before merge**. Merging stays the
-     human's act, as everything else in the stack.
+   - **Once the wipe PR has merged**, both commands leave it alone (nothing to rebuild) and
+     do not archive from the now-empty branch.
+   - **Fix-ups happen before the wipe merges.** The umbrella PR body says so, and names the
+     wipe PR as **required before merge**. A fix-up round wanted after the wipe merged needs
+     the handover restored from the archive by hand; accepted.
+   - **If the umbrella merges without the wipe**, the documents land on the base branch.
+     There is no automated recovery: `/hitl:cleanup` reports it (D1) and the human removes
+     them. Merging stays the human's act, as everything else in the stack.
 
 ### D4. Repository standards come from memory, not from files in the repository
 
@@ -192,6 +208,14 @@ asks the user to confirm or correct, and saves them. "This repository has no gat
 confirmable answer and is saved as such. A run with no confirmed answer does not start the
 design session.
 
+**Precedence.** The memory `gates` fact is the only authority on *which commands are the
+local gates*: the user confirmed it. The repository's `AGENTS.md` / `CLAUDE.md` are read for
+everything else they say (coding standards, conventions). **No fact, no run:** any no-install
+command or agent that needs the gates and finds no `gates` fact — another machine, a changed
+key, a deleted file — stops and runs the same confirm step; it never runs with no gates
+silently. **A remembered gate that is not found** (command or script missing) is a stop and a
+question to the human, never a skip.
+
 ### D5. The Stop hook is shipped by the plugin, and limited
 
 The plugin declares a `Stop` hook. It acts only when **all** of these hold, and exits 0
@@ -200,16 +224,23 @@ otherwise:
 - the session's git root is not an installed-mode repository (no `.claude/hitl.json`) —
   there the repository's own hook already runs;
 - project memory holds an **active-feature record** whose worktree path is the session's
-  git root and whose branch is the current branch, and that worktree path still exists.
+  git root, and that path still exists.
 
-The record is written by `/hitl:brainstorming` at the moment it creates the worktree (so the
-guard is live for the whole design session), as `{ worktree path, branch, feature }`. It is
-keyed by worktree path, so another clone of the same remote on a same-named branch is never
-gated. It is cleared by `/hitl:cleanup` when it removes the worktree; a record whose
-worktree path no longer exists is ignored and may be pruned by any no-install command.
+**The record** is `{ worktree path, topic, base ref, created date }`, keyed by worktree
+path — so another clone of the same remote is never gated, and the guard stays live when
+the implementation session checks out slice branches in the same worktree. It is written
+whenever `/hitl:brainstorming` ends up in the topic's worktree: when it creates it, when the
+session was already in it, and when the human chose to reuse an existing one. It is cleared
+by `/hitl:cleanup` when it removes the worktree; a record whose worktree path no longer
+exists is ignored and may be pruned by any no-install command.
 
-When it acts, it enforces exactly what the installed hook enforces (same `**Reviewed:**`
-header rule, same message, pointing at the `/hitl:` command names).
+**What it checks.** The same `**Reviewed:**` header rule and message as the installed hook
+(pointing at the `/hitl:` command names), with one deliberate difference: it checks only
+**the feature's specs and plans** — files under `docs/superpowers/specs/` and
+`docs/superpowers/plans/` in the working tree, tracked or not, that do not exist at the
+merge-base with the record's base ref. A superpowers user's repository commonly carries
+older, un-marked specs and plans on its base branch; those are not the feature's, the mode
+may not edit them, and they never block.
 
 ### D6. Worktrees and review output never show in `git status`
 
@@ -249,13 +280,26 @@ cd <main checkout>/.claude/worktrees/<topic> && claude --model opus
 - **Prerequisites** are the installed mode's: `node` ≥ 20, `git`, `gh` authenticated, the
   superpowers plugin (its brainstorming and writing-plans skills). `/hitl:brainstorming`
   checks them before creating the worktree and names what is missing.
+- **A repository that is not on GitHub, or has no remote, gets the design session only.**
+  `/hitl:brainstorming` checks the host before creating the worktree (the plugin's existing
+  discovery reports it). Off GitHub it warns once — "design session only here: opening PRs
+  needs issue #19" — does not require `gh`, and then runs the design half in full: worktree,
+  spec, reviews, plans, handover, the guard and project memory (which is why D2 defines a key
+  for every host and for no remote). The handover is written as usual.
+  `/hitl:implement-stack` and `/hitl:umbrella-pr` refuse on their first line there, naming
+  issue #19; the human implements from the handover by hand until it lands.
 - **TDD per `AGENTS.md`:** the memory key and store, the limited Stop hook, the wipe-branch
   builder and the generator are scripts with tests under `scripts/__tests__/`. The prompts
   are validated by a dry run — and because this repository is itself an installed-mode
   repository, each slice's dry run happens in a **scratch git repository with no hitl
   files**. What to observe there: `git status` shows no hitl file, tracked or untracked;
   the Stop hook blocks an unreviewed spec there and nowhere else; gates and reviewer
-  context come from memory and the doctrine and PR shim from the plugin root (D4).
+  context come from memory and the doctrine and PR shim from the plugin root (D4); an
+  un-marked spec already on the base branch does not block; a project-specific statement
+  produces a question before anything is written to memory.
+- **The plugin stops being installer-only.** `AGENTS.md` § What this repo is ("ships no
+  runtime"), the README and the `plugin.json` description are updated to say the plugin
+  also runs the workflow where nothing is installed.
 - **No-install mode never writes a tracked file** in the target repository other than the
   feature's documents under `docs/superpowers/`. Its untracked files are the worktree and
   the review output (D6), hidden through `.git/info/exclude`.
@@ -277,28 +321,45 @@ Review round 1 (2026-11-12):
   plugin's commands (D4).
 - Out of scope — moving the installed `HITL.md` into `.hitl/`: issue #21.
 
+Review round 2 (2026-11-12):
+
+- *Forwarded to the plan gate:* how the TL;DR heading reaches a repository that customised
+  the `pr-body-sections` knob.
+- *Forwarded to the plan gate:* whether `/hitl:cleanup` removes the `.git/info/exclude`
+  entries or leaves them for the next feature.
+- Declined — `/hitl:brainstorming` refusing off GitHub: the author wants the design half on
+  the GitLab project that motivated this feature (Constraints).
+- Declined — an automated recovery when the umbrella merges without the wipe: a second
+  generated PR against the base branch for a mistake the umbrella body already warns about.
+- Declined — restoring the handover from the archive for a fix-up after the wipe merged:
+  the stated rule is that fix-ups come first.
+
 ## Delivery slices (proposed; the plans decide)
 
-1. **Project memory + entry point.** The key and store scripts; `/hitl:brainstorming` checks
-   prerequisites, creates and locks the worktree, writes the active-feature record (D5),
-   excludes the hitl paths, loads or seeds
-   memory (gates confirmed with the user), then runs the superpowers brainstorming skill
-   under the doctrine; in an installed repository it follows the repository's rules instead
-   (D1). Owns: starting a design session from one command in any repository, remembering
-   the project where nothing is installed.
-2. **No-install design loop.** Generator + drift test for the plugin's commands, agents and
-   no-install doctrine; the six commands' installed-repository refusal (D1);
-   `/hitl:review-spec`, `/hitl:review-plan`, `/hitl:handover` and the reviewer and handover
-   agents read standards per D4; the launch line per D8. Owns: a design session from spec to
-   handover with nothing installed.
-3. **Limited Stop hook.** Owns: the review guard in no-install sessions, silent everywhere
-   else.
+1. **Doctrine, project memory and entry point.** The generator, the no-install doctrine and
+   its drift test (the entry point is the doctrine's first consumer); the key and store
+   scripts; `/hitl:brainstorming` — hand-written like `commands/init.md`, since it has no
+   installed-mode counterpart, and taking the worktree procedure from the doctrine rather
+   than restating it. It checks prerequisites, puts the session in the topic's worktree,
+   writes the active-feature record (D5), excludes the hitl paths, loads or seeds memory
+   (gates confirmed with the user), then runs the superpowers brainstorming skill under the
+   doctrine; in an installed repository it follows the repository's rules instead (D1).
+   Owns: starting a design session from one command in any repository, remembering the
+   project where nothing is installed.
+2. **No-install design loop.** The rendered `/hitl:review-spec`, `/hitl:review-plan`,
+   `/hitl:handover` and the reviewer and handover agents, reading standards per D4; their
+   installed-repository refusal (D1); the launch line per D8. Owns: a design session from
+   spec to handover with nothing installed.
+3. **Limited Stop hook.** Owns: the review guard on the feature's own documents in
+   no-install sessions, silent everywhere else.
 4. **No-install implementation session.** `/hitl:implement-stack`, `/hitl:review-slice`,
    `/hitl:umbrella-pr`, implementer and fixer agents, the PR shim from the plugin root, and
    the TL;DR (D7) in both modes' PR bodies. Owns: stacked draft PRs from a handover with
    nothing installed.
-5. **Archive + wipe branch.** Owns: the feature documents leave the branch, and are kept on
-   the machine, with no CI job.
+5. **Archive, wipe branch and cleanup.** The archive and wipe-branch builder, wired into
+   `/hitl:implement-stack` and `/hitl:umbrella-pr`; `/hitl:cleanup` in both modes (D1).
+   Owns: the feature documents leave the branch and are kept on the machine with no CI job,
+   and a finished no-install feature is cleaned up.
 
 ## Calls made by the designer (not yet confirmed by the author)
 
@@ -307,6 +368,11 @@ Review round 1 (2026-11-12):
   the entry-point decision; not objected to).
 - D4: the `.claude/hitl.json` sentence change in the installed doctrine.
 - D3: the wipe is a generated branch outside the stack table, not a slice row.
+- D3: fix-ups come before the wipe merges; an umbrella merged without the wipe is reported
+  by `/hitl:cleanup` and removed by hand.
+- D4: the memory `gates` fact outranks the repository's files on which commands are gates.
+- D5: the guard checks only the feature's own specs and plans.
+- D1: `/hitl:cleanup` works in both modes.
 - D6: `.git/info/exclude` instead of `.gitignore`.
 - D7: TL;DR applies to the installed mode too (a template change).
 - D3: the wipe-branch force-push exception.
