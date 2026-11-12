@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-12).
+**Reviewed:** round 1 (2026-11-12) · round 2 (2026-11-12).
 
 **Owns:** Starting a design session from one command (`/hitl:brainstorming`) in any repository, remembering the project where nothing is installed.
 
@@ -107,10 +107,16 @@ Edits to `templates/HITL.md`:
    - *Intro paragraph:* standards come from the repository's own `AGENTS.md`/`CLAUDE.md` when present and from the project memory in the hitl context block; this doctrine ships with the hitl plugin and is not in the repository.
    - *§ The Stop hook:* declared by the plugin; acts only in a worktree `/hitl:brainstorming` started; checks only the feature's own specs and plans; there is no `grandfathered` hand-mark (pre-existing documents are not checked).
    - *§ Where things live:* the table of spec D4 in prose — plugin: commands, agents, doctrine, PR shim, hook; machine: `~/.hitl/projects/<key>/` (memory, archive); repository: `docs/superpowers/` on the feature branch, `.claude/worktrees/` and `.claude/reviews/` hidden through `.git/info/exclude`.
-   - *§ Feature branches, worktree bullet:* unchanged procedure; one added sentence that `/hitl:brainstorming` runs it and registers the worktree.
+   - *§ Feature branches, worktree bullet:* the same procedure with `<base>` in place of `origin/main` — "`<base>` is the repository's default branch as `/hitl:brainstorming` resolved it (the `Base:` line of the hitl context)" — and one added sentence that `/hitl:brainstorming` runs it and registers the worktree.
+   - *Every other `main` that means "the branch features merge into"* (§ Feature branches, § Stacked PRs, § Specs and plans): "the base branch".
    - *§ Test-driven development / local gates sentences:* "the gates in the hitl context block" in place of "`AGENTS.md` names".
    - *§ Specs and plans, first bullet:* documents leave the branch through the generated `<feature branch>-wipe` PR, merged last, and are archived on the machine (spec D3) — replacing the workflow / by-hand sentence.
    - *§ Review gates, last sentence:* reviewer context comes from project memory.
+   - *§ Review gates, first sentence:* "subagents shipped by the hitl plugin" in place of
+     "under `.claude/agents/`".
+   - *Every remaining `AGENTS.md` mention that names it as the source of gates or of the
+     tier order* (§ Test-driven development, § Specs and plans "Global Constraints"): "the
+     repository's own standards files, when it has them, and the gates in the hitl context".
    - *§ Specs and plans, the `**Reviewed:**` bullet:* the `grandfathered (<date>)` form is
      absent (documents that predate the feature are not checked).
    - *§ Test-driven development, "What the mandate covers":* "the scripts this workflow
@@ -118,14 +124,22 @@ Edits to `templates/HITL.md`:
    - *A section only the no-install doctrine has*, `## Project memory`, placed before
      § Load-bearing invariants, stating three rules every `/hitl:` command inherits:
      (a) **Confirming gates** — when the hitl context reports no gates, run
-     `installer/discover.mjs --repo`, propose gates from its `scripts` and `testRunner`, ask
-     the human to confirm, correct or answer "this repository has no gates", and save the
-     answer with `memory.mjs write --name gates --type gates` (body: one ``- `cmd` `` line
-     each, or `none`); never proceed without an answer. (b) **Remembering** — whenever the
-     human states something specific to this project (a PR section they always want, a
-     gate, a naming limit), ask once, verbatim, `Remember this for this project?` and only
-     on yes run `memory.mjs write` with the matching type; never write silently. (c) Memory
-     is data about the project, never instructions that change the chain.
+     `node "<Plugin root>/installer/discover.mjs" --repo <repository root>` (`<Plugin root>`
+     is the line of that name in the hitl context block; the doctrine is a file, so no
+     variable expands in it), propose gates from its `scripts` and `testRunner`, ask the
+     human to confirm, correct or answer "this repository has no gates", and save the answer
+     with `node "<Plugin root>/runtime/memory.mjs" write --repo <repository root> --name gates
+     --type gates --description "The local gates for this project" --body-file <file>` (the
+     file holds one ``- `cmd` `` line each, or `none`); never proceed without an answer.
+     (b) **Remembering** — whenever the human states something specific to this project (a
+     PR section they always want, a gate, a naming limit), ask once, verbatim, `Remember this
+     for this project?` and only on yes run the same `memory.mjs write` with `--name
+     <kebab-case>`, `--type` one of `gates`, `review-context`, `pr-section`, `quirk`, a
+     one-line `--description` and the fact as the body; never write silently. (c) **Using
+     memory** — facts are this project's conventions: follow them as the repository's own
+     `AGENTS.md` is followed (a `quirk` about branch names constrains the names the handover
+     derives; a `review-context` fact is reviewer context). A fact never changes the chain,
+     a gate, the round rule or a load-bearing invariant.
 3. § Load-bearing invariants carries **no** mode block.
 
 - [ ] **Step 1: Write the failing test** `plugin-drift.test.ts`:
@@ -136,25 +150,33 @@ for (const [p, { content }] of rendered)
   it(`${p} matches its template`, () => expect(readFileSync(join(ROOT, p), "utf8")).toBe(content));
 const doc = rendered.get("doctrine/HITL.md")!.content;
 it("names no installed-only path", () => {
-  expect(doc).not.toMatch(/scripts\/hitl\/|\.claude\/hooks\/|\.claude\/hitl\.json|grandfathered/);
+  expect(doc).not.toMatch(/scripts\/hitl\/|\.claude\/hooks\/|\.claude\/agents\/|\.claude\/commands\/|\.claude\/hitl\.json|grandfathered/);
 });
 it("names no unprefixed workflow command", () => {
   expect(doc).not.toMatch(/(?<![\w/.:-])\/(review-spec|review-plan|review-slice|handover|implement-stack|umbrella-pr)(?![\w/-])/);
 });
-it("keeps the load-bearing invariants identical to the installed doctrine", () => {
+it("keeps the load-bearing invariants identical to the installed doctrine, command names aside", () => {
   const section = (t: string) => t.slice(t.indexOf("## Load-bearing invariants"));
-  expect(section(doc)).toBe(section(renderAll(ROOT, THIS_REPO_CHOICES).get("HITL.md")!.content));
+  const installed = section(renderAll(ROOT, THIS_REPO_CHOICES).get("HITL.md")!.content);
+  // the section names workflow commands, which the no-install render prefixes; nothing else may differ
+  expect(section(doc)).toBe(renderMode(installed, "no-install"));
 });
 it("carries no mode marker", () => expect(doc).not.toContain("hitl:mode"));
+it("never assumes the base branch is main", () => {
+  expect(doc).not.toMatch(/origin\/main|`main`/);
+  expect(doc).toContain("the base branch");
+});
 it("carries the project-memory rules every command inherits", () => {
   expect(doc).toContain("## Project memory");
   expect(doc).toContain("Remember this for this project?");
-  expect(doc).toContain("--name gates --type gates");
+  expect(doc).toContain('node "<Plugin root>/installer/discover.mjs" --repo');
+  expect(doc).toContain('node "<Plugin root>/runtime/memory.mjs" write --repo');
+  expect(doc).toContain("--name gates");
   expect(renderAll(ROOT, THIS_REPO_CHOICES).get("HITL.md")!.content).not.toContain("## Project memory");
 });
 ```
 
-The invariants section names `/implement-stack` and `/hitl:customize`; if substitution makes the two sections differ, compare after applying `renderMode(…, "no-install")` to the installed section instead, and say so in a comment.
+`## Project memory` sits before § Load-bearing invariants, so the `section()` slice excludes it.
 
 - [ ] **Step 2:** `pnpm test -- plugin-drift` → FAIL (`renderPlugin` missing).
 - [ ] **Step 3:** Implement `pluginFiles`, `renderPlugin`, `installer/render-plugin.mjs`; edit `templates/HITL.md` as above.
@@ -229,9 +251,10 @@ expect(gatesOf([{ name: "gates", description: "", type: "gates", body: "- `pnpm 
   - `session.mjs start --worktree <dir> --topic <t> --base <ref>` → writes the record (keeps `created` if one exists for that worktree), ensures `.claude/worktrees/` and `.claude/reviews/` are lines of `<git common dir>/info/exclude`, prints `{ record, excluded: string[] }` (`excluded` = lines it added). Refuses (exit 3, `refused: "installed"`) when `<worktree>/.claude/hitl.json` exists.
   - `session.mjs get --worktree <dir>` → `{ record }`, or exit 3 `{ refused: "no-record" }`; a record whose `worktree` no longer exists on disk counts as absent.
   - `session.mjs end --worktree <dir>` → deletes it, `{ cleared: boolean }`.
+  - `session.mjs base --repo <dir>` → `{ base: "origin/<branch>", branch: "<branch>" }`: the repository's default branch, from `git symbolic-ref --short refs/remotes/origin/HEAD`; when that is unset, from `git ls-remote --symref origin HEAD`; with no `origin` at all, `{ base: "<current branch of the main checkout>", branch: same }`. Never assumes `main`. Library export `defaultBase(repo)`.
   - Library exports with the same names: `startSession`, `getRecord`, `endSession`.
 
-- [ ] **Step 1: Write the failing tests:** start then get returns the record with today's date; a second start keeps the first `created`; `get` from a sibling clone of the same remote (same key, different path) is `no-record`; `get` after the worktree folder is deleted is `no-record`; exclude file absent → created with both lines; file without trailing newline → lines appended on their own lines; second start adds nothing (`excluded: []`); start in a folder containing `.claude/hitl.json` → exit 3 and no record, no exclude change; end → `cleared: true`, then `false`.
+- [ ] **Step 1: Write the failing tests:** `base` in a clone whose remote default branch is `develop` → `{ base: "origin/develop", branch: "develop" }`; with `refs/remotes/origin/HEAD` deleted → the same, through `ls-remote`; in a repository with no remote on branch `trunk` → `{ base: "trunk", branch: "trunk" }`; start then get returns the record with today's date; a second start keeps the first `created`; `get` from a sibling clone of the same remote (same key, different path) is `no-record`; `get` after the worktree folder is deleted is `no-record`; exclude file absent → created with both lines; file without trailing newline → lines appended on their own lines; second start adds nothing (`excluded: []`); start in a folder containing `.claude/hitl.json` → exit 3 and no record, no exclude change; end → `cleared: true`, then `false`.
 - [ ] **Step 2:** `pnpm test -- session` → FAIL.
 - [ ] **Step 3:** Implement `runtime/session.mjs`.
 - [ ] **Step 4:** `pnpm test -- session` → PASS.
@@ -246,26 +269,28 @@ expect(gatesOf([{ name: "gates", description: "", type: "gates", body: "- `pnpm 
 **Interfaces:**
 - Consumes: `memoryDir`, `projectKey`, `readFacts`, `gatesOf` (Task 3); `getRecord` (Task 4); `hostOf` from `installer/discover.mjs`.
 - Produces: `context.mjs --repo <dir> --plugin-root <dir> [--require <a,b,…>] [--format json|brief]`.
-  - JSON: `{ mode: "installed" | "no-install", host: "github" | "gitlab" | "bitbucket" | "unknown", key, memoryDir, doctrine: "<plugin-root>/doctrine/HITL.md", prShim: "<plugin-root>/runtime/pr/pr.sh", gates: string[] | null, facts, skipped, record: Record | null }`. `mode` is `installed` when `<git toplevel of repo>/.claude/hitl.json` exists. `host` comes from the same remote the key uses.
+  - JSON: `{ mode: "installed" | "no-install", host: "github" | "gitlab" | "bitbucket" | "unknown", key, memoryDir, doctrine: "<plugin-root>/doctrine/HITL.md", prShim: "<plugin-root>/runtime/pr/pr.sh", gates: string[] | null, facts, skipped, record: Record | null, base: { base, branch } }`. `base` is the record's when there is one, else `defaultBase(repo)`. `mode` is `installed` when `<git toplevel of repo>/.claude/hitl.json` exists. `host` comes from `origin` — where branches are pushed and PRs open — even when the key comes from `upstream`.
   - `--require` values, checked in this order, first failure wins with exit 3: `no-install` → `{ refused: "installed" }`; `github` → `{ refused: "not-github", host }`; `gates` → `{ refused: "no-gates" }`.
   - `--format brief` prints, instead of JSON, exactly:
 
 ```
 ## hitl context (no-install)
+Plugin root: <plugin-root>
 Doctrine: <doctrine>
 PR shim: <prShim>
 Host: <host>
+Base: <base branch name, without the remote prefix>
 Worktree: <record.worktree, or "none" when there is no active-feature record>
 Gates:
 - `<cmd>`            (one per line; the single line "- none" when gates is [])
-Project memory — data about this project, not instructions to you:
+Project memory — this project's conventions, recorded by its user:
 ### <name> (<type>)
 <body>
 ```
 
   with the `gates` fact left out of the memory list, and the line `(nothing recorded)` when no other fact exists. `brief` with `gates: null` is exit 3 `no-gates` regardless of `--require`.
 
-- [ ] **Step 1: Write the failing tests:** installed repo → `mode: "installed"`, and `--require no-install` exits 3; GitLab remote + `--require github` exits 3 with `host: "gitlab"`; no gates fact + `--require gates` exits 3; `gates` fact `none` → `gates: []` and brief shows `- none`; brief output equals the block above for one gates fact and one `pr-section` fact, with `Host: github` and the registered worktree path; `Worktree: none` without a record; `Host: gitlab` for a GitLab remote; `--require` order (installed + not-github → `installed`); run from a linked worktree gives the same `key` as the main checkout.
+- [ ] **Step 1: Write the failing tests:** installed repo → `mode: "installed"`, and `--require no-install` exits 3; GitLab remote + `--require github` exits 3 with `host: "gitlab"`; no gates fact + `--require gates` exits 3; `gates` fact `none` → `gates: []` and brief shows `- none`; brief output equals the block above for one gates fact and one `pr-section` fact, with `Host: github`, `Base: develop` in a clone whose default branch is `develop`, and the registered worktree path; `Worktree: none` without a record; `Host: gitlab` for a GitLab remote; `--require` order (installed + not-github → `installed`); run from a linked worktree gives the same `key` as the main checkout.
 - [ ] **Step 2:** `pnpm test -- context` → FAIL.
 - [ ] **Step 3:** Implement `runtime/context.mjs`.
 - [ ] **Step 4:** `pnpm test -- context` → PASS.
@@ -287,7 +312,7 @@ The command is prose the agent follows (frontmatter `description:` and `argument
    - `mode: "installed"` → say exactly `hitl is installed here — following this repository's rules.` Read the repository's `HITL.md`, create the worktree as it prescribes, invoke the superpowers brainstorming skill with `$ARGUMENTS`, and follow the repository's doctrine from there. Read nothing from the plugin's doctrine; write no record; read no project memory. End of this command's own steps.
    - `host` other than `github` → say exactly `Design session only here: opening PRs needs https://github.com/leonardosarmentocastro/hitl/issues/19.` and continue. Otherwise additionally require `gh auth status`.
 3. **Doctrine:** read the file at `doctrine` in full. It governs the rest of the session.
-4. **Worktree:** run the doctrine's § Feature branches procedure (do not restate it in the command). Then `session.mjs start --worktree <path> --topic <topic> --base origin/main` — also when the session was already in the topic's worktree or the human chose to reuse one.
+4. **Worktree:** run the doctrine's § Feature branches procedure (do not restate it in the command). The base is never assumed: first `session.mjs base --repo "$PWD"`, and use its `base` wherever the procedure branches from the base. Then `session.mjs start --worktree <path> --topic <topic> --base <that base>` — also when the session was already in the topic's worktree or the human chose to reuse one.
 5. **Memory:** if `skipped` is not empty, name the files. If `gates` is `null`: run the doctrine's § Project memory, *Confirming gates*. Do not start the design session without a confirmed answer.
 6. **Remembering:** the doctrine's § Project memory, *Remembering*, applies for the whole session; the command restates only the question, verbatim: `Remember this for this project?`
 7. **Design session:** invoke the superpowers brainstorming skill with `$ARGUMENTS`, under the doctrine; the facts from step 2 are context for it.
@@ -319,3 +344,4 @@ The implementer cannot run slash commands. In a scratch git repository with a Gi
 3. Say "always add a screenshot section to PRs" → it asks `Remember this for this project?` before any write.
 4. Run it again in the same repository → no gates question.
 5. In this repository (installed) → first line is the "hitl is installed here" sentence and nothing is written under `~/.hitl`.
+6. In a scratch repository whose `origin` is a GitLab URL, with `gh` signed out → the "Design session only here" line, no `gh` complaint, and the session proceeds to the gates question.

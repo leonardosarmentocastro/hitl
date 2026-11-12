@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-12).
+**Reviewed:** round 1 (2026-11-12) · round 2 (2026-11-12).
 
 **Owns:** The review guard on the feature's own specs and plans in no-install sessions, silent everywhere else.
 
@@ -124,3 +124,8 @@ And the shared rule: one table of header fixtures (line in header; line after fi
 2. Same repository, main checkout, a plain session with an un-marked spec lying there → not blocked.
 3. Any unrelated repository on the machine, `/superpowers:brainstorming` with an un-marked spec → not blocked.
 4. This repository (installed) → only the repository's own hook speaks.
+5. Scratch repository whose `main` already carries an un-marked spec from an earlier, plain superpowers session: after `/hitl:brainstorming`, before any new spec exists, the turn ends normally.
+
+## Review decisions
+
+- Plan review round 2 — *forwarded to the code gate:* with an empty merge-base, `git cat-file -e ":$f"` would resolve against the index and skip tracked files; when the merge-base is empty the skip must not run at all (the `origin/nope` table row, which uses a committed file, catches it).

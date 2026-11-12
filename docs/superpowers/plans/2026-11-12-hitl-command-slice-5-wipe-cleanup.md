@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-12).
+**Reviewed:** round 1 (2026-11-12) · round 2 (2026-11-12).
 
 **Owns:** The feature's documents leave the branch through a generated wipe PR and are kept on the machine with no CI job, and a finished no-install feature is cleaned up by `/hitl:cleanup`.
 
@@ -72,9 +72,9 @@
   - CLI `wipe.mjs build --repo <worktree> --feature-branch <b> --parent <branch> --shim <path> [--no-push]` → one JSON document:
     - `--no-push` is the dry run: after the refusals and the `merged` / `nothing-to-wipe` checks it prints `{ status: "would-build", branch, parent, files }` and does nothing else — no archive, no `update-ref`, no push, no `create` or `retarget` call (it may call the shim's `list`).
     - no record for `<worktree>` → exit 3 `{ refused: "no-record" }`.
-    - `<b>` is the default branch (`main`/`master`), or `<parent>` is neither `<b>` nor a branch starting `<b>-` → exit 3 `{ refused: "bad-branch" }`.
-    - a PR whose head is `<b>-wipe` is `merged` → `{ status: "merged", pr }`; nothing archived, built or pushed.
-    - `featureDocs` at the parent's tip is empty → `{ status: "nothing-to-wipe" }`.
+    - `<b>` is the record's base branch (`record.base` without its remote prefix), or `<parent>` is neither `<b>` nor a branch starting `<b>-` → exit 3 `{ refused: "bad-branch" }`.
+    - `featureDocs` at the parent's tip is empty → `{ status: "merged", pr }` when a merged PR with head `<b>-wipe` exists, else `{ status: "nothing-to-wipe" }`; nothing archived, built or pushed either way.
+    - `featureDocs` is not empty → build, **whatever merged PRs exist**: a merged `<b>-wipe` PR while documents are still on the branch belongs to an earlier feature that used the same name, and is ignored (only an *open* PR for that head is reused).
     - otherwise: archive to `<memoryDir>/features/<record.created>-<record.topic>/`; `git update-ref refs/heads/<b>-wipe <wipeCommit>`; `git push --force origin <b>-wipe`; PR: none open for that head → `create --draft --base <parent> --head <b>-wipe --title "Wipe transient docs: <b>"` with the body below; one open whose `base` differs → `retarget`; → `{ status: "built", branch, pr, archive, files }`.
     - The parent's tip is `origin/<parent>` when that ref exists, else the local branch. The base for `featureDocs` is `record.base`.
     - Any git or shim failure → exit 2 `{ error }`. A local `<b>-wipe` ref may be left behind by a failed push; that is harmless, because the next run resets it.
@@ -96,7 +96,8 @@ umbrella PR. Fix-up rounds happen before it merges.
   - `build`: first run → `status: "built"`, `origin/feat/x-wipe` has one commit over the parent, the old spec still exists in its tree, the fake `gh` saw `pr create --draft … --base feat/x-slice-1-a`, the archive folder is `features/<today>-x/` with the four files.
   - second `build` with `--parent feat/x` after the PR exists on base `feat/x-slice-1-a` → fake `gh` saw `pr edit <n> --base feat/x`; `origin/feat/x-wipe`'s parent is `feat/x`'s tip; **no second `pr create`**.
   - rebuild after a new commit on the parent → the wipe branch is again exactly one commit over the new tip (the push was forced).
-  - fake `gh` lists the wipe PR as merged → `status: "merged"`, no push (`origin/feat/x-wipe` unchanged), archive untouched.
+  - parent with no feature documents left and fake `gh` listing a merged wipe PR → `status: "merged"`, no push (`origin/feat/x-wipe` unchanged), archive untouched.
+  - parent still carrying the feature documents and fake `gh` listing a **merged** wipe PR (an earlier feature of the same name) and no open one → `status: "built"` and the fake `gh` saw a new `pr create`.
   - parent with no feature documents → `nothing-to-wipe`.
   - `build --no-push` → `status: "would-build"` with the files; `origin` has no `feat/x-wipe`, no local `feat/x-wipe` ref exists, the archive folder does not exist, and the fake `gh` log holds no `pr create` or `pr edit`.
   - `archive` on a slice branch → the folder holds the four files and no ref or `gh` call was made; `archive` without a record → exit 3.
@@ -157,8 +158,9 @@ expect(installed.get(".claude/commands/umbrella-pr.md")!.content).not.toContain(
 - Consumes: `getRecord`, `endSession`, `memoryDir` (slice 1).
 - Produces: `cleanup.mjs --repo <dir> [--plugin-root <dir>] [--remove …]`.
   - Shim: `<main>/scripts/hitl/pr.sh` when `<main>/.claude/hitl.json` exists; otherwise `<plugin-root>/runtime/pr/pr.sh`; neither available → exit 2 `{ error: "no PR shim: pass --plugin-root" }`.
+  - Base: today `BASE` is the constant `origin/main`. In a no-install repository each entry is compared against its own record's `base` (`getRecord(<worktree path>)`); an entry without a record, and every entry of an installed repository, keeps `origin/main`. The "does not exist after the fetch" check applies per base in use.
   - `branches` of an entry also includes `<branch>-wipe` when it exists locally; it is subject to the same `isSaved` proof as a slice branch and is deleted with the others on removal.
-  - New per-entry field `docsOnBase: string[]`: for a `merged` entry in a no-install repository with a record, the files of the feature's archive folder (`<memoryDir>/features/<created>-<topic>/`, mapped back under `docs/superpowers/`) that exist at `origin/main`. `[]` otherwise.
+  - New per-entry field `docsOnBase: string[]`: for a `merged` entry in a no-install repository with a record, the files of the feature's archive folder (`<memoryDir>/features/<created>-<topic>/`, mapped back under `docs/superpowers/`) that exist at the entry's base. `[]` otherwise.
   - On a successful removal in a no-install repository: `endSession(<worktree path>)`; the `removed` entry gains `recordCleared: boolean`.
 - `commands/cleanup.md` passes `--plugin-root "${CLAUDE_PLUGIN_ROOT}"` on both invocations and, for an entry with a non-empty `docsOnBase`, prints: `These transient documents reached main because the wipe PR did not merge first — remove them by hand:` followed by the paths.
 
@@ -168,6 +170,7 @@ expect(installed.get(".claude/commands/umbrella-pr.md")!.content).not.toContain(
   - merged feature with a pushed `feat/x-wipe` → `branches` includes it; removal deletes it.
   - `feat/x-wipe` with a local commit on no remote → `has unsaved work`.
   - merged, archive lists a spec that exists at `origin/main` → `docsOnBase` holds that path; when the wipe merged first (file absent on main) → `[]`.
+  - no-install repository whose default branch is `develop`, record base `origin/develop`, no `origin/main` at all → classified (not exit 2), and an untouched feature branch is `abandoned` against `origin/develop`.
   - removal in a no-install repository with a record → `recordCleared: true`, and `session.mjs get` then exits 3; in an installed repository → no record touched.
   - after that removal, `<git common dir>/info/exclude` is byte-identical to before (the two hitl lines stay).
 - [ ] **Step 2:** `pnpm test -- cleanup` → FAIL.

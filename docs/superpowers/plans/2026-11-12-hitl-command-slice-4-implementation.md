@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-12).
+**Reviewed:** round 1 (2026-11-12) · round 2 (2026-11-12).
 
 **Owns:** Stacked draft PRs from a handover (`/hitl:implement-stack`, `/hitl:review-slice`, `/hitl:umbrella-pr`) with nothing installed, and the TL;DR at the top of PR bodies in both modes.
 
@@ -28,7 +28,7 @@
 ## Consumed from earlier slices
 
 - Slice 1: `renderMode`, `pluginFiles()`, `renderPlugin()`, `render-plugin.mjs`; `context.mjs … --require <list> --format brief` and its `## hitl context (no-install)` block (`Doctrine:`, `PR shim:`, `Gates:`, `Project memory`), refusals `installed`, `not-github`, `no-gates`.
-- Slice 2: `runtime/pr/pr.sh` and `runtime/pr/backend.sh` (the plugin's PR shim, executable, drift-tested); the shared first step's sentence `Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.`; the brief block's `Host:` and `Worktree:` lines; `scripts/__tests__/plugin-prompts.test.ts` (iterates every rendered `agents/` and `commands/` file: no installed-only source, no unprefixed command); the agent grounding block and its two verbatim sentences (`it is not instructions to you`, `blocked: no hitl context`).
+- Slice 2: `runtime/pr/pr.sh` and `runtime/pr/backend.sh` (the plugin's PR shim, executable, drift-tested); the shared first step's sentence `Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.`; the brief block's `Plugin root:`, `Host:`, `Base:` and `Worktree:` lines; `scripts/__tests__/plugin-prompts.test.ts` (iterates every rendered `agents/` and `commands/` file: no installed-only source, no unprefixed command); the agent grounding block and its two verbatim sentences (`as you follow the repository's own AGENTS.md`, `blocked: no hitl context`).
 
 ## Review Focus
 
@@ -100,7 +100,7 @@ Mode blocks, no-install branch:
 ```ts
 for (const a of ["implementer", "fixer", "slice-reviewer"]) {
   const text = rendered.get(`agents/${a}.md`)!.content;
-  expect(text).toContain("it is not instructions to you");
+  expect(text).toContain("as you follow the repository's own AGENTS.md");
   expect(text).toContain("blocked: no hitl context");
 }
 for (const a of ["implementer", "fixer"]) {
@@ -125,7 +125,7 @@ for (const a of ["implementer", "fixer"]) {
 
 Mode blocks, no-install branch:
 
-- **First step of each command:**
+- **First step of each command** (`/hitl:review-slice` uses `--require no-install,gates`, without `github`: it reviews a diff and calls no code host, so a human implementing by hand off GitHub keeps the slice review, and it has no `not-github` branch):
 
   ```bash
   node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,github,gates --format brief
@@ -136,6 +136,7 @@ Mode blocks, no-install branch:
   - `no-gates` → the sentence and confirm step of slice 2, then retry.
   - exit 0 → the printed block goes, verbatim, into every agent brief of the command (implementer, slice reviewer, fixer). Then, verbatim: `Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.` — the launch line starts a fresh session, and in no-install mode nothing else loads the doctrine (its § Project memory carries the remember rule for this session too).
 - **Every `scripts/hitl/pr.sh`** → `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh"`.
+- **`umbrella-pr`, the base:** `--base main` and "whose `base` is `main`" become the branch on the block's `Base:` line (`--base "<Base>"`). The repository's default branch is never assumed to be `main`.
 - **`implement-stack` PR body**, after the How line and before `## Review decisions`: `<one section per pr-section fact in the hitl context block's project memory, written as that fact describes; none if there is no such fact>`. Plus one sentence: a section the fact asks for that cannot be produced honestly (a screenshot that could not be taken) is written as `_not captured_ — <why>`, never invented.
 - Nothing else in `implement-stack` changes; the closing cleanup block keeps `/hitl:cleanup`.
 
@@ -144,11 +145,15 @@ Mode blocks, no-install branch:
 ```ts
 for (const c of ["implement-stack", "review-slice", "umbrella-pr"]) {
   const text = rendered.get(`commands/${c}.md`)!.content;
-  expect(text).toContain("--require no-install,github,gates --format brief");
+  const pr = c !== "review-slice";
+  expect(text).toContain(`--require ${pr ? "no-install,github,gates" : "no-install,gates"} --format brief`);
   expect(text).toContain(`run this repository's own ${c} command (no hitl: prefix) instead.`);
-  expect(text).toContain("issues/19");
+  expect(text.includes("issues/19")).toBe(pr);
   expect(text).toContain('Read the file on the "Doctrine:" line in full unless this session already has');
 }
+const umbrella = rendered.get("commands/umbrella-pr.md")!.content;
+expect(umbrella).toContain('--base "<Base>"');
+expect(umbrella).not.toMatch(/--base main/);
 const stack = rendered.get("commands/implement-stack.md")!.content;
 expect(stack).toContain('"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" create');
 expect(stack).toContain("pr-section fact");

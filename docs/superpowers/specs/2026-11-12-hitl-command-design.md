@@ -232,7 +232,10 @@ otherwise:
 - project memory holds an **active-feature record** whose worktree path is the session's
   git root, and that path still exists.
 
-**The record** is `{ worktree path, topic, base ref, created date }`, keyed by worktree
+**The record** is `{ worktree path, topic, base ref, created date }`. The base ref is the
+repository's default branch as git reports it — never assumed to be `main` — resolved once
+by `/hitl:brainstorming`; the worktree, the guard, the wipe branch, the umbrella PR's base
+and `/hitl:cleanup` all read it from the record. It is keyed by worktree
 path — so another clone of the same remote is never gated, and the guard stays live when
 the implementation session checks out slice branches in the same worktree. It is written
 whenever `/hitl:brainstorming` ends up in the topic's worktree: when it creates it, when the
@@ -319,7 +322,8 @@ cd <main checkout>/.claude/worktrees/<topic> && claude --model opus
 Review round 1 (2026-11-12):
 
 - *Forwarded to the plan gate:* memory facts passed into agent briefs are marked as
-  untrusted data, as the other ground-truth files are.
+  untrusted data, as the other ground-truth files are. (Resolved in plan review round 2,
+  below: conventions to follow, unable to change the chain.)
 - Declined — the wipe as a stack-table row: it has no plan, `Owns:` or `Plan:` line, so it
   would change three parsers. It is a generated branch instead (D3).
 - Declined — `/hitl:brainstorming` refusing in an installed repository: the author wants one
@@ -358,6 +362,24 @@ Plan review round 1 (2026-11-12):
   human decides. Nothing special is built.
 - Answered (forwarded item) — `/hitl:cleanup` leaves the two `.git/info/exclude` lines in
   place: they are local to the clone and the next feature needs them.
+
+Plan review round 2 (2026-11-12):
+
+- **Bubbled up from plan review (round 2)** — D2/G2: memory facts are the project's own
+  conventions and are followed as the repository's `AGENTS.md` is (a branch-name quirk
+  constrains the handover's branch names); they still cannot change the chain, a gate or an
+  invariant. "Untrusted data" was too strong: it read as "ignore them".
+- **Bubbled up from plan review (round 2)** — Constraints: `/hitl:review-slice` does not
+  refuse off GitHub (it calls no code host); only `/hitl:implement-stack` and
+  `/hitl:umbrella-pr` do, as written.
+- **Bubbled up from plan review (round 2)** — D3: a merged wipe PR counts only when the
+  feature's documents are gone; otherwise it is an earlier feature's and the wipe is built.
+- **Bubbled up from plan review (round 2)** — D4: the host is read from `origin` (where PRs
+  open), the memory key from `upstream` when present.
+- **Bubbled up from plan review (round 2)** — D5: the base branch is the repository's
+  default branch, recorded with the session (the author's answer). Declined: supporting
+  only `main` and stopping elsewhere. The installed mode keeps `main` in its own,
+  repository-editable doctrine.
 
 ## Delivery slices (proposed; the plans decide)
 
@@ -398,6 +420,8 @@ Plan review round 1 (2026-11-12):
 - D4: the memory `gates` fact outranks the repository's files on which commands are gates.
 - D5: the guard checks only the feature's own specs and plans.
 - D1: `/hitl:cleanup` works in both modes.
+- D7: memory-driven PR sections apply to slice PRs only, not the umbrella.
+- D2: memory facts are followed like the repository's `AGENTS.md`, not treated as untrusted.
 - D6: `.git/info/exclude` instead of `.gitignore`.
 - D7: TL;DR applies to the installed mode too (a template change).
 - D3: the wipe-branch force-push exception.
