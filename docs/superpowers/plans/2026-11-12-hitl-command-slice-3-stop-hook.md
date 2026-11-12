@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-12).
+
 **Owns:** The review guard on the feature's own specs and plans in no-install sessions, silent everywhere else.
 
 **Goal:** A turn cannot end in a `/hitl:brainstorming` worktree while a spec or plan the feature added lacks its `**Reviewed:**` header line — and the hook does nothing in any other repository, branch or worktree on the machine.
@@ -30,7 +32,7 @@
 - A repository whose base branch already carries un-marked superpowers specs must not block (the common case for a superpowers user) — Task 2.
 - A session in the main checkout, or in another worktree of the same repository, must not be gated by a sibling's record — Task 2.
 - The implementation session on a slice branch in the same worktree stays gated — Task 2.
-- The base ref missing locally (never fetched) must not silently disable the guard — Task 2.
+- The base ref missing locally (never fetched) must not silently disable the guard — Task 2. This is the one case where a document that predates the feature can block; the spec records it (D5).
 - A machine with no `~/.hitl` at all pays no node start-up per turn — Task 2.
 
 ---
@@ -102,7 +104,7 @@ failed, the command records a '**Reviewed:** round N failed' line.
 | repository has `.claude/hitl.json` and a record | exit 0 |
 | un-marked spec, **no** record for this path | exit 0 |
 | record for worktree A; hook run with `cwd` in the main checkout holding an un-marked spec | exit 0 |
-| registered worktree checked out on `feat/x-slice-1-a` | exit 2 |
+| registered worktree checked out on `feat/x-slice-1-a`, carrying an un-marked feature plan | exit 2 |
 | record whose `base` is `origin/nope` (no such ref), old un-marked spec on main | exit 2, stderr contains `was not found locally` |
 | `cwd` not a git folder | exit 0 |
 | stdin not JSON, `CLAUDE_PROJECT_DIR` = registered worktree with un-marked spec | exit 2 |

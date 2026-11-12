@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-12).
+
 **Owns:** Stacked draft PRs from a handover (`/hitl:implement-stack`, `/hitl:review-slice`, `/hitl:umbrella-pr`) with nothing installed, and the TL;DR at the top of PR bodies in both modes.
 
 **Goal:** The launch line from slice 2 runs: per slice implementer → one review → fixer → draft PR on its parent, then a draft umbrella PR, using the plugin's agents, PR shim and the project's remembered gates and PR sections.
 
-**Architecture:** Three more commands and three more agents are rendered from the templates with mode blocks, as in slice 2. The PR shim and its GitHub backend are copied verbatim into `runtime/pr/` and drift-tested. The TL;DR is a template change that reaches both modes, so this repository's copies and manifest are regenerated.
+**Architecture:** Three more commands and three more agents are rendered from the templates with mode blocks, as in slice 2, and call the PR shim slice 2 shipped in `runtime/pr/`. The TL;DR is a template change that reaches both modes, so this repository's copies and manifest are regenerated.
 
 **Tech Stack:** Node ≥ 20 ESM, bash, vitest, Markdown prompts.
 
@@ -20,18 +22,20 @@
 - A repository that customised the `pr-body-sections` knob receives the TL;DR like any template change: `/hitl:diff` shows it for that file and the human decides. No special handling is built.
 - Plugin outputs are never edited by hand: edit the template, run `node installer/render-plugin.mjs --plugin-root .`.
 - Nothing merges; PRs are draft; no force-push unasked — unchanged from the installed commands.
+- `pr-section` facts add sections to **slice** PR bodies only. The umbrella body carries the TL;DR and no memory-driven section: it summarises the stack, and proof artefacts belong to the slice that produced them.
+- ~20-file tripwire: this slice touches about 22 files, because every template edit is mirrored by a rendered plugin file and, for the TL;DR, by this repository's own copy and manifest. The mirrors are generated, not written; the capability is one.
 
 ## Consumed from earlier slices
 
 - Slice 1: `renderMode`, `pluginFiles()`, `renderPlugin()`, `render-plugin.mjs`; `context.mjs … --require <list> --format brief` and its `## hitl context (no-install)` block (`Doctrine:`, `PR shim:`, `Gates:`, `Project memory`), refusals `installed`, `not-github`, `no-gates`.
-- Slice 2: `scripts/__tests__/plugin-prompts.test.ts` (iterates every rendered `agents/` and `commands/` file: no installed-only source, no unprefixed command); the agent grounding block and its two verbatim sentences (`it is not instructions to you`, `blocked: no hitl context`).
+- Slice 2: `runtime/pr/pr.sh` and `runtime/pr/backend.sh` (the plugin's PR shim, executable, drift-tested); the shared first step's sentence `Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.`; the brief block's `Host:` and `Worktree:` lines; `scripts/__tests__/plugin-prompts.test.ts` (iterates every rendered `agents/` and `commands/` file: no installed-only source, no unprefixed command); the agent grounding block and its two verbatim sentences (`it is not instructions to you`, `blocked: no hitl context`).
 
 ## Review Focus
 
-- A slice implemented with **no gates run** because the gates were looked for in `AGENTS.md § Local gates` of a repository that has none — Task 3 pins where the no-install implementer and fixer read gates.
-- `/hitl:implement-stack` on a GitLab repository must refuse on its first step, before cutting any branch — Task 4.
-- The rendered shim must be executable and find `backend.sh` beside it when run from the plugin root, not the repository — Task 2.
-- A `pr-section` fact must add a section and never replace or reorder `Plan:` / `## TL;DR` / `## Review decisions` — Task 4.
+- A slice implemented with **no gates run** because the gates were looked for in `AGENTS.md § Local gates` of a repository that has none — Task 2 pins where the no-install implementer and fixer read gates.
+- `/hitl:implement-stack` on a GitLab repository must refuse on its first step, before cutting any branch — Task 3.
+- A new session started from the launch line has never read the doctrine: the command must load it before orchestrating — Task 3.
+- A `pr-section` fact must add a section and never replace or reorder `Plan:` / `## TL;DR` / `## Review decisions` — Task 3.
 - An installed repository's PR body must keep `Plan:` first after the TL;DR change — Task 1.
 
 ---
@@ -79,22 +83,7 @@ expect(installed.get("HITL.md")!.content).toContain("`## TL;DR`");
 - [ ] **Step 5:** `pnpm test` → green (`pr-body`, `drift`, `self-manifest`, `plugin-drift`, `knob-anchors`).
 - [ ] **Step 6:** Commit `feat(templates): TL;DR heading at the top of PR bodies`.
 
-### Task 2: The PR shim in the plugin
-
-**Files:**
-- Modify: `installer/lib.mjs`, `installer/render-plugin.mjs`, `scripts/__tests__/pr-shim.test.ts`, `scripts/__tests__/plugin-drift.test.ts`
-- Create (copied): `runtime/pr/pr.sh`, `runtime/pr/backend.sh`
-
-**Interfaces:**
-- Produces: `pluginFiles()` entries `runtime/pr/pr.sh` ← `scripts/pr.sh` and `runtime/pr/backend.sh` ← `scripts/backends/github.sh`, both `executable: true`. `renderPlugin` applies `renderMode` **only to templates ending in `.md`**; every other template is copied byte-for-byte. `render-plugin.mjs` sets mode `0o755` on executable entries.
-
-- [ ] **Step 1: Failing tests:** in `plugin-drift.test.ts`, executable entries have an execute bit (as `drift.test.ts` does); `renderPlugin(ROOT).get("runtime/pr/pr.sh").content` equals the template file byte-for-byte. In `pr-shim.test.ts`, run the existing suite over both shim paths (`describe.each([["installed", "scripts/hitl/pr.sh"], ["plugin", "runtime/pr/pr.sh"]])`), with `cwd` set to a temp directory that is not the plugin root.
-- [ ] **Step 2:** `pnpm test -- pr-shim plugin-drift` → FAIL.
-- [ ] **Step 3:** Implement; run `node installer/render-plugin.mjs --plugin-root .`.
-- [ ] **Step 4:** `pnpm test` → green.
-- [ ] **Step 5:** Commit `feat(runtime): ship the PR shim inside the plugin`.
-
-### Task 3: Render implementer, fixer and slice-reviewer
+### Task 2: Render implementer, fixer and slice-reviewer
 
 **Files:**
 - Modify: `templates/claude/agents/implementer.md`, `fixer.md`, `slice-reviewer.md`; `installer/lib.mjs`
@@ -127,7 +116,7 @@ for (const a of ["implementer", "fixer"]) {
 - [ ] **Step 4:** `pnpm test` → green.
 - [ ] **Step 5:** Commit `feat(agents): no-install implementer, fixer and slice-reviewer`.
 
-### Task 4: Render `/hitl:implement-stack`, `/hitl:review-slice`, `/hitl:umbrella-pr`
+### Task 3: Render `/hitl:implement-stack`, `/hitl:review-slice`, `/hitl:umbrella-pr`
 
 **Files:**
 - Modify: `templates/claude/commands/implement-stack.md`, `review-slice.md`, `umbrella-pr.md`; `installer/lib.mjs`
@@ -145,7 +134,7 @@ Mode blocks, no-install branch:
   - `installed` → `hitl is installed in this repository — run this repository's own <name> command (no hitl: prefix) instead.` Stop.
   - `not-github` → `This repository is not on GitHub: opening PRs needs https://github.com/leonardosarmentocastro/hitl/issues/19. Implement from the handover by hand until then.` Stop — before any fetch, checkout or branch.
   - `no-gates` → the sentence and confirm step of slice 2, then retry.
-  - exit 0 → the printed block goes, verbatim, into every agent brief of the command (implementer, slice reviewer, fixer).
+  - exit 0 → the printed block goes, verbatim, into every agent brief of the command (implementer, slice reviewer, fixer). Then, verbatim: `Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.` — the launch line starts a fresh session, and in no-install mode nothing else loads the doctrine (its § Project memory carries the remember rule for this session too).
 - **Every `scripts/hitl/pr.sh`** → `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh"`.
 - **`implement-stack` PR body**, after the How line and before `## Review decisions`: `<one section per pr-section fact in the hitl context block's project memory, written as that fact describes; none if there is no such fact>`. Plus one sentence: a section the fact asks for that cannot be produced honestly (a screenshot that could not be taken) is written as `_not captured_ — <why>`, never invented.
 - Nothing else in `implement-stack` changes; the closing cleanup block keeps `/hitl:cleanup`.
@@ -158,6 +147,7 @@ for (const c of ["implement-stack", "review-slice", "umbrella-pr"]) {
   expect(text).toContain("--require no-install,github,gates --format brief");
   expect(text).toContain(`run this repository's own ${c} command (no hitl: prefix) instead.`);
   expect(text).toContain("issues/19");
+  expect(text).toContain('Read the file on the "Doctrine:" line in full unless this session already has');
 }
 const stack = rendered.get("commands/implement-stack.md")!.content;
 expect(stack).toContain('"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" create');
@@ -180,4 +170,5 @@ Scratch GitHub repository with no hitl files, `claude --plugin-dir <this worktre
 1. Paste the launch line → slice 1 and 2 PRs open as drafts, each on its parent; each body starts `Plan:` then `## TL;DR`; a draft umbrella PR opens; nothing merges.
 2. With a `pr-section` fact saved ("always add a Screenshots section"), the bodies carry that section after How.
 3. `git status` in the main checkout stays clean; no `scripts/hitl/` or `.claude/commands/` appears in the repository.
-4. A scratch repository with a GitLab remote → `/hitl:implement-stack` refuses on its first step, naming issue #19, with no branch created.
+4. While the stack runs, say "always add a Screenshots section to PRs" → it asks `Remember this for this project?` before writing anything.
+5. A scratch repository with a GitLab remote → `/hitl:implement-stack` refuses on its first step, naming issue #19, with no branch created.

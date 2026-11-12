@@ -200,7 +200,13 @@ that read it, and it is not user-editable — project-specific rules belong in m
 Two edits reach the installed doctrine and so every consuming repository through
 `/hitl:diff`: the TL;DR (D7), and the sentence that `.claude/hitl.json` is "read by nothing
 at run time", which becomes: its presence tells the plugin's commands and Stop hook that the
-repository is installed.
+repository is installed. One edit reaches the installed PR shim the same way: a `retarget`
+verb (change a PR's base), which the wipe branch needs (D3).
+
+The no-install doctrine also carries a section the installed one does not, § Project memory:
+how gates are confirmed and the ask-before-remembering rule. Every `/hitl:` workflow command
+reads the doctrine at its first step, so a session started from the launch line or resumed
+later follows the same rules as the one `/hitl:brainstorming` started.
 
 On the first `/hitl:brainstorming` in a repository with no memory, the command finds the
 likely local gates (the plugin's existing discovery, `installer/discover.mjs`), proposes them,
@@ -240,7 +246,9 @@ exists is ignored and may be pruned by any no-install command.
 `docs/superpowers/plans/` in the working tree, tracked or not, that do not exist at the
 merge-base with the record's base ref. A superpowers user's repository commonly carries
 older, un-marked specs and plans on its base branch; those are not the feature's, the mode
-may not edit them, and they never block.
+may not edit them, and they never block — with one exception: when the base ref cannot be
+resolved locally, the feature's documents cannot be told apart, so every spec and plan is
+checked and the message says so (a silent guard would be worse than a loud one).
 
 ### D6. Worktrees and review output never show in `git status`
 
@@ -251,10 +259,12 @@ instead of `.gitignore`.
 
 ### D7. The TL;DR in PR bodies (both modes)
 
-Slice and umbrella PR bodies begin with a `## TL;DR` section holding the existing What / Why
-/ How lines, in the newcomer register the doctrine already requires. Project memory may add
-sections after it (the author's frontend project adds before/after screenshots and a
-measured table); hitl ships none of those. This is an installed-mode template change too:
+Slice and umbrella PR bodies open with a `## TL;DR` section holding the existing What / Why
+/ How lines, in the newcomer register the doctrine already requires. In a slice PR the
+`Plan:` line stays the first line (it is load-bearing) and the TL;DR follows it. Project
+memory may add sections after the TL;DR of a **slice** PR (the author's frontend project
+adds before/after screenshots and a measured table); hitl ships none of those, and the
+umbrella body carries no memory-driven section. This is an installed-mode template change too:
 this repository's manifest is regenerated with it (`AGENTS.md`), and consuming repositories
 receive it through `/hitl:diff`.
 
@@ -333,6 +343,21 @@ Review round 2 (2026-11-12):
   generated PR against the base branch for a mistake the umbrella body already warns about.
 - Declined — restoring the handover from the archive for a fix-up after the wipe merged:
   the stated rule is that fix-ups come first.
+
+Plan review round 1 (2026-11-12):
+
+- **Bubbled up from plan review (round 1)** — D7: `Plan:` stays the first line of a slice PR
+  body and the TL;DR follows it; memory-driven sections apply to slice PRs only.
+- **Bubbled up from plan review (round 1)** — D4: the shim's `retarget` verb is a third
+  installed-mode change; the no-install doctrine gains § Project memory and every workflow
+  command loads the doctrine, because a fresh implementation session has read nothing.
+- **Bubbled up from plan review (round 1)** — D5: an unresolvable base ref makes the hook
+  check every document, loudly.
+- Answered (forwarded item) — the TL;DR reaches a repository that customised the
+  `pr-body-sections` knob as any template change does: `/hitl:diff` merges per file and the
+  human decides. Nothing special is built.
+- Answered (forwarded item) — `/hitl:cleanup` leaves the two `.git/info/exclude` lines in
+  place: they are local to the clone and the next feature needs them.
 
 ## Delivery slices (proposed; the plans decide)
 

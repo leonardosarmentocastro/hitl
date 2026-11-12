@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-12).
+
 **Owns:** The feature's documents leave the branch through a generated wipe PR and are kept on the machine with no CI job, and a finished no-install feature is cleaned up by `/hitl:cleanup`.
 
 **Goal:** Every `/hitl:implement-stack` and `/hitl:umbrella-pr` run archives the feature's documents to `~/.hitl` and rebuilds a one-commit `<feature branch>-wipe` draft PR at the tip of the stack; `/hitl:cleanup` works where nothing is installed and switches the guard off.
@@ -21,11 +23,13 @@
 - The `retarget` verb is a template change to the shim, so it reaches the installed mode: this repository's `scripts/hitl/` copies and manifest are regenerated (Task 1).
 - `.git/info/exclude` entries are **left in place** by `/hitl:cleanup`: they are two ignore lines local to the clone, and the next feature needs them.
 - Tests set `HITL_HOME`; never the real `~/.hitl`; never `docs/superpowers/` of this repository.
+- ~20-file tripwire: about 22 files, because the `retarget` verb is mirrored into this repository's `scripts/hitl/`, the plugin's `runtime/pr/` and the manifest. The mirrors are generated.
 
 ## Consumed from earlier slices
 
 - Slice 1: `memoryDir(repo)`, `getRecord(worktree)` → `{ worktree, topic, base, created }`, `endSession(worktree)`; `context.mjs`.
-- Slice 4: `runtime/pr/pr.sh` (verbs `create`, `list`, `view`, `edit`, `comment`; records `{ number, url, head, base, state, draft, title, body, head_sha }`); the rendered `commands/implement-stack.md` and `commands/umbrella-pr.md` and their first-step context check; `scripts/__tests__/plugin-prompts.test.ts`.
+- Slice 2: `runtime/pr/pr.sh` (verbs `create`, `list`, `view`, `edit`, `comment`; records `{ number, url, head, base, state, draft, title, body, head_sha }`).
+- Slice 4: the rendered `commands/implement-stack.md` and `commands/umbrella-pr.md` and their first-step context check; `scripts/__tests__/plugin-prompts.test.ts`.
 
 ## Review Focus
 
@@ -64,7 +68,9 @@
   - `featureDocs(repo: string, tip: string, base: string): string[]` — paths under `docs/superpowers/` that exist at `tip` and not at `git merge-base <tip> <base>`; sorted.
   - `archiveDocs(repo: string, tip: string, files: string[], dest: string): void` — `dest` ends up holding exactly those files (content from `git show <tip>:<path>`, path relative to `docs/superpowers/`); anything else previously in `dest` is removed.
   - `wipeCommit(repo: string, parentTip: string, files: string[]): string` — the sha of a commit whose parent is `parentTip` and whose tree is the parent's minus `files`, built with a temporary `GIT_INDEX_FILE`; message exactly `chore(docs): wipe transient superpowers artifacts [skip ci]`.
+  - CLI `wipe.mjs archive --repo <worktree>` → archives `featureDocs(repo, "HEAD", record.base)` to the feature's archive folder and prints `{ status: "archived", archive, files }`; `{ status: "nothing-to-archive" }` when there are none (the folder is left as it is); exit 3 `no-record` without a record. No branch, push or PR.
   - CLI `wipe.mjs build --repo <worktree> --feature-branch <b> --parent <branch> --shim <path> [--no-push]` → one JSON document:
+    - `--no-push` is the dry run: after the refusals and the `merged` / `nothing-to-wipe` checks it prints `{ status: "would-build", branch, parent, files }` and does nothing else — no archive, no `update-ref`, no push, no `create` or `retarget` call (it may call the shim's `list`).
     - no record for `<worktree>` → exit 3 `{ refused: "no-record" }`.
     - `<b>` is the default branch (`main`/`master`), or `<parent>` is neither `<b>` nor a branch starting `<b>-` → exit 3 `{ refused: "bad-branch" }`.
     - a PR whose head is `<b>-wipe` is `merged` → `{ status: "merged", pr }`; nothing archived, built or pushed.
@@ -92,6 +98,8 @@ umbrella PR. Fix-up rounds happen before it merges.
   - rebuild after a new commit on the parent → the wipe branch is again exactly one commit over the new tip (the push was forced).
   - fake `gh` lists the wipe PR as merged → `status: "merged"`, no push (`origin/feat/x-wipe` unchanged), archive untouched.
   - parent with no feature documents → `nothing-to-wipe`.
+  - `build --no-push` → `status: "would-build"` with the files; `origin` has no `feat/x-wipe`, no local `feat/x-wipe` ref exists, the archive folder does not exist, and the fake `gh` log holds no `pr create` or `pr edit`.
+  - `archive` on a slice branch → the folder holds the four files and no ref or `gh` call was made; `archive` without a record → exit 3.
   - `--feature-branch main` → exit 3 `bad-branch`; `--parent other/branch` → exit 3 `bad-branch`; no record → exit 3 `no-record`.
 - [ ] **Step 2:** `pnpm test -- wipe` → FAIL.
 - [ ] **Step 3:** Implement `runtime/wipe.mjs`.
@@ -106,14 +114,16 @@ umbrella PR. Fix-up rounds happen before it merges.
 
 No-install mode blocks only (the installed render does not change):
 
-- **`umbrella-pr`, a new step before the body is built:**
+- **`umbrella-pr`, a new step before the body is built.** It fetches first, because this is the command re-run after slices merged on the host and the parent's tip must be current:
 
   ```bash
+  git fetch -q --prune origin
   node "${CLAUDE_PLUGIN_ROOT}/runtime/wipe.mjs" build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --shim "${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh"
   ```
 
-  `<parent>` is the branch of the last stack-table row whose PR is not merged, or the feature branch when every slice has merged. `refused` or `error` → stop and report it verbatim. This is the command the human re-runs after merging slices on the host.
+  `<parent>` is the branch of the last stack-table row whose PR is not merged, or the feature branch when every slice has merged. `refused` or `error` → stop and report it verbatim. This is the command the human re-runs after merging slices on the host. **Under `--dry-run` the same call carries `--no-push`**: nothing is archived, pushed or opened, and the printed body shows the line for `would-build` as `Required before merge: the wipe PR (not built in a dry run).`
 - **`umbrella-pr`, the stack block:** inside the `<!-- stack -->` markers, after the table, one line by status — `built`: `Required before merge: #<pr> removes the transient docs — merge it last. Fix-ups happen before it merges.`; `merged`: `Transient docs removed by #<pr>.`; `nothing-to-wipe`: no line.
+- **`implement-stack` § 0**, after its `git fetch`: `node "${CLAUDE_PLUGIN_ROOT}/runtime/wipe.mjs" archive --repo "$PWD"` — every run archives, including one that later stops on a blocked slice (spec D3.3). A `refused` or `error` here is reported and the run continues: the archive is a convenience, never a gate.
 - **`implement-stack` § 2:** unchanged in substance — it runs `/hitl:umbrella-pr`, which now builds the wipe. One added sentence in the final report: `The wipe PR #<pr> is generated; merge it last.` And in § Never, after "Force-push unasked": `(the generated wipe branch is the one exception, and only wipe.mjs pushes it)`.
 
 - [ ] **Step 1: Extend the test:**
@@ -123,6 +133,11 @@ const u = rendered.get("commands/umbrella-pr.md")!.content;
 expect(u).toContain('runtime/wipe.mjs" build --repo "$PWD" --feature-branch');
 expect(u).toContain("Required before merge: #<pr>");
 expect(u.indexOf("runtime/wipe.mjs")).toBeGreaterThan(u.indexOf("--require no-install,github,gates"));
+expect(u.indexOf("git fetch -q --prune origin")).toBeLessThan(u.indexOf("runtime/wipe.mjs"));
+expect(u.indexOf("git fetch -q --prune origin")).toBeGreaterThan(-1);
+expect(u).toContain("--no-push");
+expect(u).toContain("not built in a dry run");
+expect(rendered.get("commands/implement-stack.md")!.content).toContain('runtime/wipe.mjs" archive --repo "$PWD"');
 expect(rendered.get("commands/implement-stack.md")!.content).toContain("only wipe.mjs pushes it");
 const installed = renderAll(ROOT, THIS_REPO_CHOICES);
 expect(installed.get(".claude/commands/umbrella-pr.md")!.content).not.toContain("wipe.mjs");
@@ -154,6 +169,7 @@ expect(installed.get(".claude/commands/umbrella-pr.md")!.content).not.toContain(
   - `feat/x-wipe` with a local commit on no remote → `has unsaved work`.
   - merged, archive lists a spec that exists at `origin/main` → `docsOnBase` holds that path; when the wipe merged first (file absent on main) → `[]`.
   - removal in a no-install repository with a record → `recordCleared: true`, and `session.mjs get` then exits 3; in an installed repository → no record touched.
+  - after that removal, `<git common dir>/info/exclude` is byte-identical to before (the two hitl lines stay).
 - [ ] **Step 2:** `pnpm test -- cleanup` → FAIL.
 - [ ] **Step 3:** Implement in `installer/cleanup.mjs`; update `commands/cleanup.md`.
 - [ ] **Step 4:** `pnpm test` → green.
