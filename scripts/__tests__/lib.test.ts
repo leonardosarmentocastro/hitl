@@ -2,7 +2,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { ownedFiles, pluginVersion, sha256 } from "../../installer/lib.mjs";
+import { ownedFiles, pluginVersion, renderMode, sha256 } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 
@@ -149,8 +149,6 @@ describe("agentsBlock", () => {
     );
   });
 });
-
-import { renderMode } from "../../installer/lib.mjs";
 
 describe("renderMode", () => {
   const T =
