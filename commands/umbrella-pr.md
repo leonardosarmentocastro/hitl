@@ -38,8 +38,8 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
    git fetch -q --prune origin
    node "${CLAUDE_PLUGIN_ROOT}/runtime/wipe.mjs" build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --shim "${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh"
    ```
-   `<parent>` is the branch of the last stack-table row whose PR is not merged (read the
-   states from the step 2 list, run now), or the feature branch when every slice has merged. If `$ARGUMENTS` contains
+   `<parent>` is the branch of the last stack-table row that has a PR not yet merged — a row
+   with no PR (a `todo` slice) never counts (read the states from the step 2 list, run now), or the feature branch when no row has one. If `$ARGUMENTS` contains
    `--dry-run`, add `--no-push` to the same call: nothing is archived, pushed or opened. A
    `refused` or `error` in the output → stop and report it verbatim. Keep its `status` and
    `pr` for the stack block in step 2. The wipe branch is never a stack-table row.
