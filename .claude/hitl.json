@@ -8,7 +8,7 @@
     ".claude/agents/handover.md": "4a7c37da6b003fe7d4e7c2fbdb9893330ac0486745c4f8244a0b712e2f6f0ac7",
     ".claude/agents/implementer.md": "b462bf683bc61b51987538435c22cb3c2b4b056c6a78428341242246a1a4f948",
     ".claude/agents/plan-reviewer.md": "e95bdae390d1b316ff0512c1bafa98c16d6ba37e8c0759abfc1a562e8ca61ed2",
-    ".claude/agents/slice-reviewer.md": "d3516670840e9fdfcd1550f6aa44ef2cdb021c99c5158c0642f35d7f7a521ce7",
+    ".claude/agents/slice-reviewer.md": "f496d7a6997d8d6a643229fd0a70d44501905dbf12d6cee237eb3d9c167f6c22",
     ".claude/agents/spec-reviewer.md": "d2f77b9c5d1c39b8dcfbf64dce1b60af359cc381d13a313047df87867e51a28e",
     ".claude/commands/handover.md": "00bc02245ee543fd9470a0e421b6cfe27f3f85f12c04935b817ddb13a9e90571",
     ".claude/commands/implement-stack.md": "cddffb5834bf2ba678e1dcacbca97b0ab9d1ac63b10a552a12e7e918d8601555",

@@ -49,7 +49,7 @@ The project memory section holds this project's own conventions, recorded by its
 
 At most five lines:
 1. `done` or `blocked: <task> — <command> — <error, verbatim, first lines>`
-2. gates run and results (e.g. `pnpm test ✔ · pnpm lint ✔`, or `no gate named yet`)
+2. gates run and results (e.g. `pnpm test ✔ · pnpm lint ✔`, or `no gates — "- none" in the hitl context block`)
 3. files changed (count and the notable ones)
 4. plan edits made, or `none`
 5. anything the reviewer should know (one line) or `—`

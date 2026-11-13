@@ -31,7 +31,8 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
   *Confirming gates*, then run this step again.
 - Exit 2 → print its `error` and stop.
 - Exit 0 → keep the printed `## hitl context (no-install)` block: it is appended, verbatim,
-  to every agent brief in this command (implementer, slice reviewer, fixer). Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.
+  to every agent brief this command writes (implementer, fixer); `/hitl:review-slice` runs
+  this step itself and appends its own block to the slice reviewer's brief. Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.
 
 ## 0. Read the handover
 

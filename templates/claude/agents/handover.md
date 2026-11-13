@@ -149,6 +149,10 @@ the `rebase --onto` upstream, and it is gone once the parent moves.
 
 Write the What/Why/How from the spec's Goal and Design, in the register of explaining to a
 newcomer. Never paste plan text.
+<!-- hitl:mode no-install -->
+Project-memory `pr-section` facts shape slice PR bodies only; never add a section to the
+umbrella PR body for one.
+<!-- hitl:mode end -->
 
 ## Commit and reply
 
