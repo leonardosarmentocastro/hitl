@@ -152,14 +152,61 @@ export function composeHitl(pluginRoot, testing) {
   return `${core.trimEnd()}\n\n<!-- hitl:knob testing-rules -->\n## Testing and gates\n\n${fragments.join("\n\n")}\n`;
 }
 
+export const MODES = ["installed", "no-install"];
+const MODE_MARKER = /^<!-- hitl:mode (installed|no-install|end) -->$/;
+const PREFIXED_COMMAND =
+  /(?<![\w/.:-])\/(review-spec|review-plan|review-slice|handover|implement-stack|umbrella-pr)(?![\w/-])/g;
+const PREFIXED_AGENT = /`(spec-reviewer|plan-reviewer|slice-reviewer|implementer|fixer|handover)`/g;
+
+/**
+ * Resolve `<!-- hitl:mode installed|no-install|end -->` blocks for one mode. Each marker sits
+ * alone on its line and is removed with its newline; either branch may be absent; blocks do
+ * not nest. An unclosed, nested or stray marker throws. In no-install mode the workflow command
+ * and agent names are then prefixed with `hitl:`.
+ */
+export function renderMode(text, mode) {
+  if (!MODES.includes(mode)) throw new Error(`hitl:mode: unknown mode ${mode}`);
+  const out = [];
+  let branch = null; // null outside a block; otherwise the branch being read
+  let seen = [];
+  let line = 0;
+  for (const l of text.split("\n")) {
+    line += 1;
+    const m = l.match(MODE_MARKER);
+    if (!m) {
+      if (branch === null || branch === mode) out.push(l);
+      continue;
+    }
+    const kind = m[1];
+    if (kind === "end") {
+      if (branch === null) throw new Error(`hitl:mode: end without a block at line ${line}`);
+      branch = null;
+      seen = [];
+      continue;
+    }
+    if (seen.includes(kind))
+      throw new Error(`hitl:mode: nested or repeated ${kind} block at line ${line}`);
+    branch = kind;
+    seen.push(kind);
+  }
+  if (branch !== null) throw new Error(`hitl:mode: unclosed ${branch} block`);
+  let result = out.join("\n");
+  if (mode === "no-install") {
+    result = result.replace(PREFIXED_COMMAND, "/hitl:$1").replace(PREFIXED_AGENT, "`hitl:$1`");
+  }
+  return result;
+}
+
 /** Every owned file rendered for the choices: repoPath -> { content, executable }. */
 export function renderAll(pluginRoot, choices) {
   const out = new Map();
   for (const f of ownedFiles(choices)) {
-    const content =
+    const content = renderMode(
       f.template === null
         ? composeHitl(pluginRoot, choices.testing)
-        : readFileSync(join(pluginRoot, "templates", f.template), "utf8");
+        : readFileSync(join(pluginRoot, "templates", f.template), "utf8"),
+      "installed",
+    );
     out.set(f.repoPath, { content, executable: f.executable });
   }
   return out;

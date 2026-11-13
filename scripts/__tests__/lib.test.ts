@@ -149,3 +149,45 @@ describe("agentsBlock", () => {
     );
   });
 });
+
+import { renderMode } from "../../installer/lib.mjs";
+
+describe("renderMode", () => {
+  const T =
+    "a\n<!-- hitl:mode installed -->\nI\n<!-- hitl:mode no-install -->\nN\n<!-- hitl:mode end -->\nz\n";
+
+  it("keeps the branch for the mode and drops the markers", () => {
+    expect(renderMode(T, "installed")).toBe("a\nI\nz\n");
+    expect(renderMode(T, "no-install")).toBe("a\nN\nz\n");
+  });
+
+  it("allows either branch to be absent", () => {
+    expect(
+      renderMode("x\n<!-- hitl:mode no-install -->\nN\n<!-- hitl:mode end -->\n", "installed"),
+    ).toBe("x\n");
+  });
+
+  it("fails loudly on an unclosed or nested block", () => {
+    expect(() => renderMode("<!-- hitl:mode installed -->\nI\n", "installed")).toThrow(/hitl:mode/);
+    expect(() =>
+      renderMode(
+        "<!-- hitl:mode installed -->\n<!-- hitl:mode installed -->\n<!-- hitl:mode end -->\n",
+        "installed",
+      ),
+    ).toThrow(/hitl:mode/);
+  });
+
+  it("prefixes workflow command and agent names in no-install mode only", () => {
+    expect(renderMode("run `/review-spec` now", "no-install")).toBe("run `/hitl:review-spec` now");
+    expect(renderMode("docs/superpowers/handover/x.md", "no-install")).toBe(
+      "docs/superpowers/handover/x.md",
+    );
+    expect(renderMode("`/hitl:review-spec` and /hitl:init", "no-install")).toBe(
+      "`/hitl:review-spec` and /hitl:init",
+    );
+    expect(renderMode("Spawn `implementer`", "no-install")).toBe("Spawn `hitl:implementer`");
+    expect(renderMode("run `/review-spec`, spawn `fixer`", "installed")).toBe(
+      "run `/review-spec`, spawn `fixer`",
+    );
+  });
+});
