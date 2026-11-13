@@ -47,16 +47,29 @@ function recordName(worktree) {
   return `${createHash("sha256").update(worktree).digest("hex").slice(0, 16)}.json`;
 }
 
-/** Where the record of `worktree` lives; when the folder is gone, found by searching. */
+/**
+ * Where the record of `worktree` lives; when the folder is gone, found by searching the
+ * `active/` folder of every project key (keys nest: `<host>/<owner>/<repo>`, `local/<name>`).
+ * A project's own `active/` and `features/` folders are never descended into.
+ */
 function recordPath(worktree) {
   const name = recordName(worktree);
   if (isDirectory(worktree)) return join(memoryDir(worktree), "active", name);
+  const search = (dir) => {
+    const active = join(dir, "active");
+    const isProject = isDirectory(active);
+    const hit = join(active, name);
+    if (isProject && existsSync(hit)) return hit;
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (!e.isDirectory() || (isProject && (e.name === "active" || e.name === "features")))
+        continue;
+      const found = search(join(dir, e.name));
+      if (found) return found;
+    }
+    return null;
+  };
   const projects = join(hitlHome(), "projects");
-  if (!existsSync(projects)) return null;
-  const hit = readdirSync(projects, { recursive: true, encoding: "utf8" }).find(
-    (p) => p.endsWith(`active/${name}`) || p.endsWith(`active\\${name}`),
-  );
-  return hit ? join(projects, hit) : null;
+  return isDirectory(projects) ? search(projects) : null;
 }
 
 function today() {

@@ -70,6 +70,15 @@ function today(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+/** The one project folder under HITL_HOME (keys nest, e.g. `local/<name>`). */
+function projectDir(): string {
+  const projects = join(home, "projects");
+  const hit = readdirSync(projects, { recursive: true, encoding: "utf8" }).find(
+    (p) => p.split("/").pop() === "active",
+  );
+  return join(projects, hit!, "..");
+}
+
 function exclude(repo: string): string {
   return join(repo, ".git/info/exclude");
 }
@@ -148,6 +157,33 @@ describe("session.mjs start / get / end", () => {
     expect(cli("get", "--worktree", wt).status).toBe(0);
     rmSync(wt, { recursive: true, force: true });
     expect(cli("get", "--worktree", wt)).toEqual({ status: 3, out: { refused: "no-record" } });
+  });
+
+  it("searches only each project's active/ folder once the worktree folder is gone", () => {
+    const { clones } = world();
+    const wt = join(clones[0], ".claude/worktrees/thing");
+    git(clones[0], "worktree", "add", "-q", wt, "-b", "feat/thing");
+    cli("start", "--worktree", wt, "--topic", "thing", "--base", "origin/develop");
+    const project = projectDir();
+    const [name] = readdirSync(join(project, "active"));
+    const decoy = join(project, "features", "2026-01-01-thing", "active", name);
+    mkdirSync(join(decoy, ".."), { recursive: true });
+    writeFileSync(decoy, readFileSync(join(project, "active", name)));
+    rmSync(join(project, "active", name));
+    rmSync(wt, { recursive: true, force: true });
+    expect(cli("end", "--worktree", wt)).toEqual({ status: 0, out: { cleared: false } });
+    expect(existsSync(decoy)).toBe(true);
+  });
+
+  it("clears the record of a removed worktree from its project's active/ folder", () => {
+    const { clones } = world();
+    const wt = join(clones[0], ".claude/worktrees/thing");
+    git(clones[0], "worktree", "add", "-q", wt, "-b", "feat/thing");
+    cli("start", "--worktree", wt, "--topic", "thing", "--base", "origin/develop");
+    const project = projectDir();
+    rmSync(wt, { recursive: true, force: true });
+    expect(cli("end", "--worktree", wt)).toEqual({ status: 0, out: { cleared: true } });
+    expect(readdirSync(join(project, "active"))).toEqual([]);
   });
 
   it("creates the exclude file with both lines when it is absent", () => {
