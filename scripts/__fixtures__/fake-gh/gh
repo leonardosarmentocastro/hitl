@@ -4,7 +4,9 @@
 # call fails with a message on stderr and exit 1) · raw (pr list serves gh-shaped records, at
 # most --limit of them, and applies the real --jq expression with jq; the host has
 # $FAKE_GH_LIST_TOTAL records in all, default 3). `pr edit <n> --base <b>` is remembered next to
-# the log, and later `pr view` records carry that base.
+# the log, and later `pr view` records carry that base. · store (a small host: gh-shaped records
+# in the JSON array file $FAKE_GH_STORE, which `pr create`, `pr edit`, `pr list` and `pr view`
+# read and write, applying the real --jq expression with jq).
 set -u
 # One line per call: newlines inside an argument (a multi-line --jq) are logged as spaces.
 argv="$*"
@@ -14,6 +16,69 @@ sub="${1:-} ${2:-}"
 
 if [ "$mode" = fail ]; then
   echo "gh: fake failure for '$sub'" >&2
+  exit 1
+fi
+
+# store mode: one JSON array of gh-shaped records in $FAKE_GH_STORE.
+if [ "$mode" = store ]; then
+  db=${FAKE_GH_STORE:?FAKE_GH_STORE must be set}
+  [ -f "$db" ] || echo '[]' > "$db"
+  shift 2
+  state=all jqexpr=. base= head= title= bodyfile= draft=false target=
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --state) state=$2; shift ;;
+      --jq) jqexpr=$2; shift ;;
+      --base) base=$2; shift ;;
+      --head) head=$2; shift ;;
+      --title) title=$2; shift ;;
+      --body-file) bodyfile=$2; shift ;;
+      --draft) draft=true ;;
+      --json | --limit | --search) shift ;;
+      *) target=$1 ;;
+    esac
+    shift
+  done
+  # A record by number, else the newest record whose head is $target.
+  pick='(if ($t | test("^[0-9]+$")) then [.[] | select(.number == ($t | tonumber))]
+         else [.[] | select(.headRefName == $t)] end) | last'
+  case "$sub" in
+    "pr list")
+      jq -c --arg s "$state" \
+        "[.[] | select(\$s == \"all\" or (.state | ascii_downcase) == \$s)] | $jqexpr" "$db"
+      exit $?
+      ;;
+    "pr view")
+      out=$(jq -c --arg t "$target" "$pick" "$db")
+      [ "$out" != null ] || { echo "no pull requests found for $target" >&2; exit 1; }
+      printf '%s' "$out" | jq -c "$jqexpr"
+      exit $?
+      ;;
+    "pr create")
+      if jq -e --arg h "$head" 'any(.[]; .headRefName == $h and .state == "OPEN")' "$db" >/dev/null; then
+        echo "a pull request for branch \"$head\" into branch \"$base\" already exists:" >&2
+        exit 1
+      fi
+      n=$(jq '([.[].number] | max // 40) + 1' "$db")
+      jq --argjson n "$n" --arg b "$base" --arg h "$head" --arg t "$title" \
+        --rawfile body "$bodyfile" --argjson d "$draft" \
+        '. + [{number: $n, url: "https://github.com/o/r/pull/\($n)", headRefName: $h,
+               baseRefName: $b, state: "OPEN", isDraft: $d, title: $t, body: $body,
+               headRefOid: "", reviews: [], comments: []}]' "$db" > "$db.tmp" && mv "$db.tmp" "$db"
+      echo "https://github.com/o/r/pull/$n"
+      exit 0
+      ;;
+    "pr edit")
+      upd=.
+      [ -n "$base" ] && upd="$upd | .baseRefName = \$b"
+      [ -n "$bodyfile" ] && upd="$upd | .body = (\$body)"
+      jq --arg t "$target" --arg b "$base" --rawfile body "${bodyfile:-/dev/null}" \
+        "map(if .number == (\$t | tonumber) then $upd else . end)" "$db" > "$db.tmp" \
+        && mv "$db.tmp" "$db"
+      exit 0
+      ;;
+  esac
+  echo "fake gh: unhandled '$sub' in store mode" >&2
   exit 1
 fi
 
