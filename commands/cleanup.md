@@ -3,7 +3,7 @@ description: Offer to remove the worktrees hitl design sessions left behind, onc
 ---
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/installer/cleanup.mjs" --repo "$PWD"
+node "${CLAUDE_PLUGIN_ROOT}/installer/cleanup.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}"
 ```
 
 - Exit 2 → "Nothing can be offered: <error>." Stop. Exit 1 → print the error. Stop.
@@ -27,14 +27,21 @@ Then, not offered, one line each: `has unsaved work` entries with their `unsaved
 `in progress` entries ("<path> — <branch>, in progress"); an entry with `here: true` gets
 "run /hitl:cleanup from the main checkout to remove it".
 
+For each entry with a non-empty `docsOnBase`, whether offered or not:
+
+```
+These transient documents reached main because the wipe PR did not merge first — remove them by hand:
+  <each path in docsOnBase>
+```
+
 No `offered: true` entry → say so after that list. Stop.
 
 Otherwise ask once: **"Remove all N? (yes / pick some / no)"**. "pick some" → ask which, by
 path. "no" → stop. Then:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/installer/cleanup.mjs" --repo "$PWD" --remove "<abs path>,<abs path>"
+node "${CLAUDE_PLUGIN_ROOT}/installer/cleanup.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --remove "<abs path>,<abs path>"
 ```
 
-Report each `removed` entry (path, branches deleted) and each `refused` entry with its `why`
-in plain words. End with the remote-branches sentence.
+Report each `removed` entry (path, branches deleted, and "its hitl session record was cleared"
+when `recordCleared` is true) and each `refused` entry with its `why` in plain words. End with the remote-branches sentence.

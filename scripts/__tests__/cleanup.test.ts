@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -17,6 +18,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = process.cwd();
 const CLEANUP = join(ROOT, "installer/cleanup.mjs");
 const STUB = join(ROOT, "scripts/__fixtures__/stub-pr-shim/pr.sh");
+const SESSION = join(ROOT, "runtime/session.mjs");
 const ENV = {
   ...process.env,
   GIT_AUTHOR_NAME: "t",
@@ -31,9 +33,22 @@ function git(cwd: string, ...args: string[]): string {
 
 type Pr = { number: number; head: string; state: "open" | "merged" | "closed"; head_sha?: string };
 
-/** A bare remote, a clone of it with one pushed commit on main, and the stub shim installed. */
-function world(defaultBranch = "main") {
+/** A shim at `path` that fails like a host error. */
+function failingShim(path: string) {
+  mkdirSync(join(path, ".."), { recursive: true });
+  writeFileSync(path, '#!/usr/bin/env bash\necho "plugin shim: must not run" >&2\nexit 2\n');
+  chmodSync(path, 0o755);
+}
+
+/**
+ * A bare remote and a clone of it with one pushed commit on the default branch. Installed (the
+ * default): the clone carries a manifest and the stub shim under scripts/hitl/. No-install:
+ * neither; the stub shim sits in a plugin root at runtime/pr/pr.sh instead.
+ */
+function world(defaultBranch = "main", installed = true) {
   const base = realpathSync(mkdtempSync(join(tmpdir(), "hitl-cleanup-")));
+  const home = join(base, "hitl-home");
+  const pluginRoot = join(base, "plugin");
   const remote = join(base, "remote.git");
   git(base, "init", "-q", "--bare", "-b", defaultBranch, remote);
   const main = join(base, "main");
@@ -43,9 +58,14 @@ function world(defaultBranch = "main") {
   git(main, "commit", "-q", "-m", "init");
   git(main, "push", "-q", "origin", `HEAD:${defaultBranch}`);
   git(main, "fetch", "-q", "origin");
-  mkdirSync(join(main, "scripts/hitl"), { recursive: true });
-  copyFileSync(STUB, join(main, "scripts/hitl/pr.sh"));
-  chmodSync(join(main, "scripts/hitl/pr.sh"), 0o755);
+  const shim = installed ? join(main, "scripts/hitl/pr.sh") : join(pluginRoot, "runtime/pr/pr.sh");
+  mkdirSync(join(shim, ".."), { recursive: true });
+  copyFileSync(STUB, shim);
+  chmodSync(shim, 0o755);
+  if (installed) {
+    mkdirSync(join(main, ".claude"), { recursive: true });
+    writeFileSync(join(main, ".claude/hitl.json"), "{}\n");
+  }
   const prsFile = join(base, "prs.json");
   const setPrs = (prs: Pr[]) =>
     writeFileSync(
@@ -63,7 +83,7 @@ function world(defaultBranch = "main") {
       ),
     );
   setPrs([]);
-  return { base, main, prsFile, setPrs };
+  return { base, main, prsFile, setPrs, home, pluginRoot, installed };
 }
 type World = ReturnType<typeof world>;
 
@@ -85,7 +105,7 @@ function commit(cwd: string, file: string): string {
 function cleanup(w: World, args: string[] = [], env: Record<string, string> = {}, repo = w.main) {
   const r = spawnSync(process.execPath, [CLEANUP, "--repo", repo, ...args], {
     encoding: "utf8",
-    env: { ...ENV, FAKE_PRS: w.prsFile, ...env },
+    env: { ...ENV, FAKE_PRS: w.prsFile, HITL_HOME: w.home, ...env },
   });
   return { status: r.status, json: JSON.parse(r.stdout), stderr: r.stderr };
 }
@@ -381,5 +401,161 @@ describe("cleanup.mjs --remove", () => {
     const r = cleanup(w, ["--remove", join(w.base, "elsewhere")]);
     expect(r.status).toBe(0);
     expect(r.json.refused[0].why).toBe("not a hitl design-session worktree");
+  });
+});
+
+/** A no-install world: register the worktree as the active feature, as /hitl:brainstorming does. */
+function startSession(w: World, path: string, topic: string, base = "origin/main") {
+  const r = spawnSync(
+    process.execPath,
+    [SESSION, "start", "--worktree", path, "--topic", topic, "--base", base],
+    { encoding: "utf8", env: { ...ENV, HITL_HOME: w.home } },
+  );
+  expect(r.status, r.stderr).toBe(0);
+  return JSON.parse(r.stdout).record as { created: string; topic: string };
+}
+
+function memoryDirOf(w: World): string {
+  const r = spawnSync(
+    process.execPath,
+    [join(ROOT, "runtime/memory.mjs"), "key", "--repo", w.main],
+    {
+      encoding: "utf8",
+      env: { ...ENV, HITL_HOME: w.home },
+    },
+  );
+  return JSON.parse(r.stdout).dir;
+}
+
+/** A merged no-install feature: a pushed spec on the feature branch and its merged umbrella. */
+function mergedFeature(w: World, topic = "x") {
+  const { path, branch } = designWorktree(w, topic);
+  const record = startSession(w, path, topic);
+  mkdirSync(join(path, "docs/superpowers/specs"), { recursive: true });
+  const tip = commit(path, "docs/superpowers/specs/2026-11-12-x-design.md");
+  git(path, "push", "-q", "origin", branch);
+  w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
+  return { path, branch, record, tip };
+}
+
+const plugin = (w: World) => ["--plugin-root", w.pluginRoot];
+
+describe("cleanup.mjs — which PR shim", () => {
+  it("exits 2 in a repository without an install and without --plugin-root", () => {
+    const w = world("main", false);
+    designWorktree(w, "a");
+    const r = cleanup(w);
+    expect(r.status).toBe(2);
+    expect(r.json).toEqual({ error: "no PR shim: pass --plugin-root" });
+  });
+
+  it("uses the plugin's shim where nothing is installed", () => {
+    const w = world("main", false);
+    const { path } = designWorktree(w, "a");
+    const r = cleanup(w, plugin(w));
+    expect(r.status, r.stderr).toBe(0);
+    expect(at(r.json, path)).toMatchObject({ class: "abandoned", offered: true });
+  });
+
+  it("keeps using the repository's own shim in an installed repository", () => {
+    const w = world();
+    const { path } = designWorktree(w, "a");
+    const other = join(w.base, "other-plugin");
+    failingShim(join(other, "runtime/pr/pr.sh"));
+    const r = cleanup(w, ["--plugin-root", other]);
+    expect(r.status, r.stderr).toBe(0);
+    expect(at(r.json, path).class).toBe("abandoned");
+  });
+});
+
+describe("cleanup.mjs — the wipe branch", () => {
+  it("is one of a merged feature's branches and is removed with them", () => {
+    const w = world("main", false);
+    const { path, branch } = mergedFeature(w);
+    git(w.main, "branch", `${branch}-wipe`, branch);
+    git(w.main, "push", "-q", "origin", `${branch}-wipe`);
+    const e = at(cleanup(w, plugin(w)).json, path);
+    expect(e.class).toBe("merged");
+    expect(e.branches.sort()).toEqual([branch, `${branch}-wipe`].sort());
+    const r = cleanup(w, [...plugin(w), "--remove", path]);
+    expect(r.json.removed[0].branches.sort()).toEqual([branch, `${branch}-wipe`].sort());
+    expect(git(w.main, "branch", "--list", `${branch}-wipe`)).toBe("");
+  });
+
+  it("with a local commit on no remote is unsaved work", () => {
+    const w = world("main", false);
+    const { path, branch } = mergedFeature(w);
+    git(path, "checkout", "-q", "-b", `${branch}-wipe`);
+    commit(path, "wipe.md");
+    git(path, "checkout", "-q", branch);
+    const e = at(cleanup(w, plugin(w)).json, path);
+    expect(e.class).toBe("has unsaved work");
+    expect(e.unsaved.join(" ")).toContain(`${branch}-wipe`);
+  });
+});
+
+describe("cleanup.mjs — documents that reached the base branch", () => {
+  function archive(w: World, record: { created: string; topic: string }) {
+    const dir = join(memoryDirOf(w), "features", `${record.created}-${record.topic}`, "specs");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "2026-11-12-x-design.md"), "spec\n");
+  }
+
+  it("lists an archived document that exists on the base branch", () => {
+    const w = world("main", false);
+    const { path, record, tip } = mergedFeature(w);
+    archive(w, record);
+    git(w.main, "push", "-q", "origin", `${tip}:refs/heads/main`);
+    const e = at(cleanup(w, plugin(w)).json, path);
+    expect(e.class).toBe("merged");
+    expect(e.docsOnBase).toEqual(["docs/superpowers/specs/2026-11-12-x-design.md"]);
+  });
+
+  it("is empty when the wipe merged first", () => {
+    const w = world("main", false);
+    const { path, record } = mergedFeature(w);
+    archive(w, record);
+    expect(at(cleanup(w, plugin(w)).json, path).docsOnBase).toEqual([]);
+  });
+});
+
+describe("cleanup.mjs — the recorded base", () => {
+  it("compares a no-install feature against its record's base, without origin/main", () => {
+    const w = world("develop", false);
+    const { path } = designWorktree(w, "d", "feat", "origin/develop");
+    startSession(w, path, "d", "origin/develop");
+    const r = cleanup(w, plugin(w));
+    expect(r.status, JSON.stringify(r.json)).toBe(0);
+    expect(at(r.json, path).class).toBe("abandoned");
+  });
+});
+
+describe("cleanup.mjs --remove — the active-feature record", () => {
+  it("clears the record of a removed no-install worktree and leaves the excludes", () => {
+    const w = world("main", false);
+    const { path } = mergedFeature(w);
+    const exclude = join(w.main, ".git/info/exclude");
+    const before = readFileSync(exclude);
+    const r = cleanup(w, [...plugin(w), "--remove", path]);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.json.removed[0].recordCleared).toBe(true);
+    mkdirSync(path, { recursive: true });
+    const get = spawnSync(process.execPath, [SESSION, "get", "--worktree", path], {
+      encoding: "utf8",
+      env: { ...ENV, HITL_HOME: w.home },
+    });
+    expect(get.status).toBe(3);
+    expect(readFileSync(exclude)).toEqual(before);
+  });
+
+  it("touches no record in an installed repository", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "m");
+    const tip = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
+    const r = cleanup(w, ["--remove", path]);
+    expect(r.json.removed).toEqual([{ path, branches: [branch] }]);
+    expect(existsSync(join(w.home, "projects"))).toBe(false);
   });
 });
