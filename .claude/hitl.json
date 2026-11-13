@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "provider": "github",
   "ci": "github-actions",
   "testing": [],
@@ -22,7 +22,7 @@
     ".claude/hooks/unreviewed-artifact.sh": "9f754e246f4e4bab44f84b36011cd2dc92627fda1ce4553a25f2e04d65ed454e",
     ".claude/review-context.md": "1e5675474b8cdadc6db01d3c595da602d7949a2d44a479402658f7949be29399",
     ".github/workflows/wipe-superpowers-docs.yml": "2eb4199ec7d3fb1e4e40b1da5a3e6418b5db0bf77a231e8c311ab5c718ddbe60",
-    "HITL.md": "6c35e3905b1c605554a25011b277f2375cac938c0541cd7f1fb23788aa3d486e",
+    "HITL.md": "5810f07a4239b8ece447ceb291463022a625c7d8030d4667401edf65522d57ae",
     "scripts/hitl/backend.sh": "9c03df74f450dce2cc798163c8aaf48dfc10cc3c8e87700e6081fd8f9c6307ce",
     "scripts/hitl/pr.sh": "d1529627d892ca6117209f24b6410fd487a1edc242538ef82d4a0990056b9cf1",
     "scripts/hitl/wipe-superpowers-docs.sh": "569715740427fae9eb133cf7bd9c13bce1b5c3df4a0f4db864168c72bed8b638"

@@ -1,7 +1,7 @@
 {
   "name": "hitl",
   "description": "A human-in-the-loop delivery workflow for Claude Code (spec, plan and slice reviews, stacked slice PRs, a Stop hook): install it into a repository with /hitl:init, or run it anywhere with /hitl:brainstorming.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": { "name": "Leonardo Sarmento de Castro" },
   "repository": "https://github.com/leonardosarmentocastro/hitl",
   "license": "MIT",
