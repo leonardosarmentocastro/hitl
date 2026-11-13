@@ -150,10 +150,12 @@ documents.
 <!-- hitl:mode no-install -->
   bugfix, in the branch and the lock reason alike). Another session in the same checkout can
   switch its branch at any time; a worktree is the only checkout nobody else moves.
-  `<base>` is the repository's default branch as `/hitl:brainstorming` resolved it (the
-  `Base:` line of the hitl context). `/hitl:brainstorming` runs this procedure and registers
-  the worktree as the active feature, also when the session was already in it or the human
-  chose to reuse it.
+  `<base>` is the ref to branch from, as `/hitl:brainstorming` resolved it: the fetched
+  remote branch `origin/<Base>`, where `<Base>` is the `Base:` line of the hitl context — never
+  the bare local branch, which may be missing or stale. In a repository with no remote, skip
+  the `git fetch origin` and `git ls-remote` lines; `<base>` is then the local default branch
+  itself. `/hitl:brainstorming` runs this procedure and registers the worktree as the active
+  feature, also when the session was already in it or the human chose to reuse it.
 <!-- hitl:mode end -->
   - *Already in this topic's worktree* — the session's git root is a linked worktree (`git
     rev-parse --git-dir` differs from `--git-common-dir`) on this topic's branch: stay, create
@@ -250,9 +252,15 @@ documents.
   which merges last, before the feature lands on the base branch; a copy is archived on
   this machine under `~/.hitl/projects/<key>/features/`.
 <!-- hitl:mode end -->
+<!-- hitl:mode installed -->
 - Nothing durable may reference them. A rule that must outlive the feature belongs
   in `CONTEXT.md` (domain), `AGENTS.md` (repo standards) or this file (workflow) — not in a
   spec.
+<!-- hitl:mode no-install -->
+- Nothing durable may reference them. A rule that must outlive the feature belongs in the
+  project memory (see § Project memory) — or in the repository's own `CONTEXT.md` (domain),
+  when it has one — not in a spec.
+<!-- hitl:mode end -->
 <!-- hitl:mode installed -->
 - Follow the plan task-by-task; keep Global Constraints in the plan aligned with
   this file and `AGENTS.md`.
