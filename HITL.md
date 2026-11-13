@@ -92,6 +92,10 @@ the hitl plugin's commands and Stop hook that this repository is installed) ·
   git fetch origin
   git ls-remote --exit-code --heads origin feat/<topic> >/dev/null && { echo "collision: origin/feat/<topic> exists — ask the human"; exit 1; }
   git worktree add "$MAIN/.claude/worktrees/<topic>" -b feat/<topic> origin/main
+  ( cd "$MAIN" && inc=(-x .env -x '.env.*') && { [ ! -f .worktreeinclude ] || inc=(-X .worktreeinclude); } \
+    && git ls-files -z -oi --exclude-standard --directory | grep -zv '/$' \
+    | xargs -0r git --literal-pathspecs ls-files -z -oi "${inc[@]}" -- \
+    | while IFS= read -rd '' f; do t="$MAIN/.claude/worktrees/<topic>/$f"; [ -e "$t" ] || { mkdir -p "${t%/*}" && cp -p "$f" "$t"; }; done )
   git branch --unset-upstream feat/<topic>
   git worktree lock --reason "hitl design session: <topic> on feat/<topic>" "$MAIN/.claude/worktrees/<topic>"
   ```
@@ -107,6 +111,13 @@ the hitl plugin's commands and Stop hook that this repository is installed) ·
   - *Collision* — after the fetch, if the path, the local branch or `origin/<branch>` already
     exists, ask the human whether to reuse it or pick another name. Never overwrite or delete.
     `git worktree add` refuses the first two itself; the `ls-remote` line stops on the third.
+  - *Ignored setup files* — a new worktree has none of the git-ignored files the main checkout
+    has, such as the `.env` a devcontainer setup script wrote, so builds and type checks fail
+    in it. The `( cd "$MAIN" … )` line copies them over: the ones the repository's
+    `.worktreeinclude` lists (gitignore syntax, the file Claude Code reads for its own
+    worktrees), else every `.env` and `.env.*`. Only git-ignored files are copied, never one
+    inside an ignored folder such as `node_modules/`, and never over a file the worktree
+    already has. Run it also when staying in, or reusing, an existing worktree.
   - The implementation session runs in the same worktree (the launch line `cd`s into it), and
     the worktree stays until the umbrella PR merges.
 - Name it by intent, e.g. `feat/expense-details`, `fix/port-in-use`.
