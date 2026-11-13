@@ -509,6 +509,7 @@ describe("cleanup.mjs — documents that reached the base branch", () => {
     const e = at(cleanup(w, plugin(w)).json, path);
     expect(e.class).toBe("merged");
     expect(e.docsOnBase).toEqual(["docs/superpowers/specs/2026-11-12-x-design.md"]);
+    expect(e.base).toBe("origin/main");
   });
 
   it("is empty when the wipe merged first", () => {

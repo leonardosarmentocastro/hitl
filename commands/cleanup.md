@@ -27,10 +27,11 @@ Then, not offered, one line each: `has unsaved work` entries with their `unsaved
 `in progress` entries ("<path> — <branch>, in progress"); an entry with `here: true` gets
 "run /hitl:cleanup from the main checkout to remove it".
 
-For each entry with a non-empty `docsOnBase`, whether offered or not:
+For each entry with a non-empty `docsOnBase`, whether offered or not (`<base branch>` is the
+entry's `base` without its `origin/` prefix):
 
 ```
-These transient documents reached main because the wipe PR did not merge first — remove them by hand:
+These transient documents reached <base branch> because the wipe PR did not merge first — remove them by hand:
   <each path in docsOnBase>
 ```
 

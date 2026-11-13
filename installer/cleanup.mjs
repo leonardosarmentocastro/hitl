@@ -152,7 +152,7 @@ function classify(ctx, here, wt) {
           join(memoryDir(main), "features", `${wt.record.created}-${wt.record.topic}`),
         ).filter((f) => git(main, "cat-file", "-e", `${base}:${f}`).ok)
       : [];
-  const { record: _record, base: _base, ...entry } = wt;
+  const { record: _record, ...entry } = wt;
   return {
     ...entry,
     class: cls,
