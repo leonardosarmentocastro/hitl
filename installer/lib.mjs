@@ -214,7 +214,7 @@ export function renderAll(pluginRoot, choices) {
 
 /** The agents and commands the plugin renders for no-install mode, as their slices land. */
 const PLUGIN_AGENTS = ["spec-reviewer", "plan-reviewer", "handover"];
-const PLUGIN_COMMANDS = ["review-spec", "review-plan"];
+const PLUGIN_COMMANDS = ["review-spec", "review-plan", "handover"];
 
 /**
  * The files the plugin ships for no-install mode, rendered from templates/ into the plugin tree.

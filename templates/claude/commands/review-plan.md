@@ -132,7 +132,21 @@ Report rounds, counts, bubbled-up items and forwarded items. If the loop converg
 accepted, unresolved blocker, run the handover now: mode `start` only if no `*-slice-*` branch
 of this feature exists locally or on the remote AND no pull request exists for any such
 branch (the agent decides `start` from slice status, and a merged slice whose branch was
+<!-- hitl:mode installed -->
 deleted still forbids it), otherwise `resume`; spawn the `handover` agent
 exactly as `/handover` does (same brief, same launch line — relative `cd` when this session is in a linked worktree) and relay its reply. Print the launch line on its own line, with the `cd` path made absolute as `/handover` step 4 does. The session's
 work is done — say so and stop. Starting the implementation session is the human's approval
 of the plans.
+<!-- hitl:mode no-install -->
+deleted still forbids it), otherwise `resume`. If the hitl context block says
+`Worktree: none`, print exactly `No hitl session is registered for this worktree — start with /hitl:brainstorming.` and stop.
+Otherwise spawn the `handover` agent exactly as `/handover` does: the same brief with the
+hitl context block appended, and the launch line — exactly, with `<topic>` the worktree's
+folder name:
+``Launch: `cd .claude/worktrees/<topic> && claude --model opus` then `/implement-stack docs/superpowers/handover/<feature>.md` ``.
+Relay its reply. Print the launch line on its own line, with the `cd` path made absolute as
+`/handover` step 4 does. When the block's `Host:` is not `github`, print after it, exactly:
+`This repository is not on GitHub: /implement-stack will refuse until issue #19 lands. Implement from the handover by hand.`
+The session's work is done — say so and stop. Starting the implementation session is the
+human's approval of the plans.
+<!-- hitl:mode end -->

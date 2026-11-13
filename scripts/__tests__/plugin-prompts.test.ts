@@ -65,4 +65,27 @@ describe("the plugin's no-install prompts", () => {
       );
       expect(text).toContain("**Reviewed:** round");
     });
+
+  it("commands/handover.md hands over with the no-install launch line", () => {
+    const h = rendered.get("commands/handover.md")?.content ?? "";
+    expect(h).toContain("/hitl:implement-stack docs/superpowers/handover/<feature>.md");
+    expect(h).toContain("No hitl session is registered for this worktree");
+    expect(h).toContain("issue #19");
+    expect(h).toContain("`hitl:handover`");
+    expect(h).toContain("Worktree: none");
+    expect(h).toContain(
+      'Read the file on the "Doctrine:" line in full unless this session already has',
+    );
+  });
+
+  it("commands/review-plan.md hands over on convergence by the same rules", () => {
+    const rp = rendered.get("commands/review-plan.md")!.content;
+    for (const s of [
+      "Worktree: none",
+      "No hitl session is registered for this worktree",
+      "issue #19",
+      "/hitl:implement-stack docs/superpowers/handover/<feature>.md",
+    ])
+      expect(rp).toContain(s);
+  });
 });
