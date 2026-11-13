@@ -151,6 +151,19 @@ describe("the plugin's no-install prompts", () => {
     expect(installed.get(".claude/commands/umbrella-pr.md")!.content).not.toContain("wipe.mjs");
   });
 
+  it("a fix-up round always rebuilds the wipe through /hitl:umbrella-pr", () => {
+    const stack = rendered.get("commands/implement-stack.md")!.content;
+    const fixup = stack.slice(stack.indexOf("## Fix-up"), stack.indexOf("## Never"));
+    expect(fixup).toContain("always run `/hitl:umbrella-pr`");
+    const installed = renderAll(ROOT, THIS_REPO_CHOICES).get(".claude/commands/implement-stack.md")!
+      .content;
+    const installedFixup = installed.slice(
+      installed.indexOf("## Fix-up"),
+      installed.indexOf("## Never"),
+    );
+    expect(installedFixup).not.toContain("always run");
+  });
+
   it("commands/review-plan.md hands over on convergence by the same rules", () => {
     const rp = rendered.get("commands/review-plan.md")!.content;
     for (const s of [

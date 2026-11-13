@@ -205,7 +205,10 @@ Then follow `### Restack order`: for each `<B> onto <A> (old parent tip: <sha>)`
 `git checkout <B> && git rebase --onto <A> <sha>` — the sha is recorded in the handover's
 Fix-up section by the handover agent, never recomputed here. Before ANY force-push, stop
 and ask the human, naming the branch and what will be overwritten.
-Report as in § 2, without the umbrella step unless it does not exist yet.
+Then always run `/hitl:umbrella-pr` (no `--dry-run`), even when the umbrella exists: it rebuilds
+the wipe branch on the new slice tips — otherwise the wipe PR still sits on the commits from
+before the fix-up, and merging it last would bring them back — and refreshes the umbrella.
+Report as in § 2.
 
 ## Never
 
