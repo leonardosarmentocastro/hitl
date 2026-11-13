@@ -37,6 +37,21 @@ describe("the plugin's no-install prompts", () => {
       expect(text).toContain("blocked: no hitl context");
     });
 
+  for (const a of ["implementer", "fixer", "slice-reviewer"])
+    it(`${a} grounds in the hitl context and blocks without it`, () => {
+      const text = rendered.get(`agents/${a}.md`)!.content;
+      expect(text).toContain("as you follow the repository's own AGENTS.md");
+      expect(text).toContain("blocked: no hitl context");
+    });
+
+  for (const a of ["implementer", "fixer"])
+    it(`${a} runs the gates from the hitl context block, never AGENTS.md § Local gates`, () => {
+      const text = rendered.get(`agents/${a}.md`)!.content;
+      expect(text).toContain('listed under "Gates:" in the hitl context block');
+      expect(text).toContain("blocked: gate not found");
+      expect(text).not.toContain("## Local gates");
+    });
+
   it("the handover agent runs the shim only on GitHub and honours branch-name facts", () => {
     const h = rendered.get("agents/handover.md")!.content;
     expect(h).toContain('"Host:" is not github, do not run the PR shim');
