@@ -212,6 +212,24 @@ export function renderAll(pluginRoot, choices) {
   return out;
 }
 
+/**
+ * The files the plugin ships for no-install mode, rendered from templates/ into the plugin tree.
+ * `template` is relative to templates/; "HITL.md" is the core doctrine (no testing fragments).
+ */
+export function pluginFiles() {
+  return [{ pluginPath: "doctrine/HITL.md", template: "HITL.md", executable: false }];
+}
+
+/** Every plugin file rendered in no-install mode: pluginPath -> { content, executable }. */
+export function renderPlugin(pluginRoot) {
+  const out = new Map();
+  for (const f of pluginFiles()) {
+    const text = readFileSync(join(pluginRoot, "templates", f.template), "utf8");
+    out.set(f.pluginPath, { content: renderMode(text, "no-install"), executable: f.executable });
+  }
+  return out;
+}
+
 export const BLOCK_START = "<!-- hitl:start -->";
 export const BLOCK_END = "<!-- hitl:end -->";
 

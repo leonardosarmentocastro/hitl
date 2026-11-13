@@ -22,7 +22,7 @@
     ".claude/hooks/unreviewed-artifact.sh": "9f754e246f4e4bab44f84b36011cd2dc92627fda1ce4553a25f2e04d65ed454e",
     ".claude/review-context.md": "1e5675474b8cdadc6db01d3c595da602d7949a2d44a479402658f7949be29399",
     ".github/workflows/wipe-superpowers-docs.yml": "2eb4199ec7d3fb1e4e40b1da5a3e6418b5db0bf77a231e8c311ab5c718ddbe60",
-    "HITL.md": "c5daa5edd74173734d7147c3492caa4190b47163a452b5050df6bb75858d1a43",
+    "HITL.md": "d934e0d44b3072f061ff5e91b829d8376053cebf070b488b1f1025626d706970",
     "scripts/hitl/backend.sh": "7cb5bf930de17b65e02164c0fae4ad4395ddef8f8eb8c8a1f440ed829e871025",
     "scripts/hitl/pr.sh": "348039e33072ed4f6514236f5cb1347b414e584ff76be52d4a3f685c07a53852",
     "scripts/hitl/wipe-superpowers-docs.sh": "569715740427fae9eb133cf7bd9c13bce1b5c3df4a0f4db864168c72bed8b638"

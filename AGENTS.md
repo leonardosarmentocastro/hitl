@@ -5,9 +5,12 @@ a Claude Code plugin that installs that workflow into other repositories.
 
 ## What this repo is
 
-- An **installer-only plugin** (shadcn model): it ships no runtime. `/hitl:init` writes the
-  agents, commands, hook, doctrine and scripts *into* a target repository, which then owns
-  them. This repository's own `.claude/` is the first consumer of its templates.
+- A plugin that installs (shadcn model): `/hitl:init` writes the agents, commands, hook,
+  doctrine and scripts *into* a target repository, which then owns them. This repository's
+  own `.claude/` is the first consumer of its templates.
+- It also runs the workflow where nothing is installed: the plugin ships its own commands,
+  agents, a hook, the scripts under `runtime/` and a no-install doctrine (`doctrine/HITL.md`),
+  rendered from the same templates.
 - Bootstrapped on 2026-09-15 as an ejected copy of `treasury-2`'s `.claude/` tooling.
 
 <!-- hitl:start -->
@@ -36,9 +39,17 @@ node installer/adopt.mjs --repo . --plugin-root . --answers /tmp/hitl-answers.js
 
 Commit the regenerated manifest with the template change.
 
+**Refreshing the plugin's no-install files.** The same template change also changes what the
+plugin ships for no-install mode (`doctrine/HITL.md` and the other entries of `pluginFiles()`),
+so the plugin-drift test fails until they are rendered again; from the repository root:
+
+```bash
+node installer/render-plugin.mjs --plugin-root .
+```
+
 ## Test-driven development, here
 
-- Everything under `scripts/`, `installer/` and `.claude/hooks/` has behaviour of its own
+- Everything under `scripts/`, `installer/`, `runtime/` and `.claude/hooks/` has behaviour of its own
   and is tested under `scripts/__tests__/`. `templates/` is tested by the drift test: this
   repository's own `.claude/`, `HITL.md`, `scripts/hitl/` and wipe workflow must equal what
   `installer/` renders from `templates/` with this repository's choices, except
