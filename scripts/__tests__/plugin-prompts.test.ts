@@ -3,7 +3,7 @@
 // point at the plugin's doctrine and the project's memory, never at a file only an installed
 // repository has, and name every workflow command and agent with its `hitl:` prefix.
 import { describe, expect, it } from "vitest";
-import { renderPlugin } from "../../installer/lib.mjs";
+import { renderAll, renderPlugin, THIS_REPO_CHOICES } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 
@@ -128,6 +128,27 @@ describe("the plugin's no-install prompts", () => {
     expect(stack.indexOf("--require no-install,github,gates")).toBeLessThan(
       stack.indexOf("git fetch"),
     );
+  });
+
+  it("the umbrella and stack commands archive the documents and build the wipe PR", () => {
+    const u = rendered.get("commands/umbrella-pr.md")!.content;
+    expect(u).toContain('runtime/wipe.mjs" build --repo "$PWD" --feature-branch');
+    expect(u).toContain("Required before merge: #<pr>");
+    expect(u.indexOf("runtime/wipe.mjs")).toBeGreaterThan(
+      u.indexOf("--require no-install,github,gates"),
+    );
+    expect(u.indexOf("git fetch -q --prune origin")).toBeLessThan(u.indexOf("runtime/wipe.mjs"));
+    expect(u.indexOf("git fetch -q --prune origin")).toBeGreaterThan(-1);
+    expect(u).toContain("--no-push");
+    expect(u).toContain("not built in a dry run");
+    expect(rendered.get("commands/implement-stack.md")!.content).toContain(
+      'runtime/wipe.mjs" archive --repo "$PWD"',
+    );
+    expect(rendered.get("commands/implement-stack.md")!.content).toContain(
+      "only wipe.mjs pushes it",
+    );
+    const installed = renderAll(ROOT, THIS_REPO_CHOICES);
+    expect(installed.get(".claude/commands/umbrella-pr.md")!.content).not.toContain("wipe.mjs");
   });
 
   it("commands/review-plan.md hands over on convergence by the same rules", () => {

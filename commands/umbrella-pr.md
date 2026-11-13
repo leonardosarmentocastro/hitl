@@ -30,10 +30,28 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
   to every agent brief in this command. Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.
 
 1. Feature branch and handover document as in `/hitl:handover` (step 1). Read the document.
+1b. The wipe PR — archive the feature's documents and rebuild `<feature-branch>-wipe`, the one
+   generated commit that deletes them, before the body is built. Fetch first: this is the
+   command the human re-runs after slices merged on the host, and the parent's tip must be
+   current.
+   ```bash
+   git fetch -q --prune origin
+   node "${CLAUDE_PLUGIN_ROOT}/runtime/wipe.mjs" build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --shim "${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh"
+   ```
+   `<parent>` is the branch of the last stack-table row whose PR is not merged (read the
+   states from the step 2 list, run now), or the feature branch when every slice has merged. If `$ARGUMENTS` contains
+   `--dry-run`, add `--no-push` to the same call: nothing is archived, pushed or opened. A
+   `refused` or `error` in the output → stop and report it verbatim. Keep its `status` and
+   `pr` for the stack block in step 2. The wipe branch is never a stack-table row.
 2. Build the body: everything from `Plan:` under `## Umbrella PR body` through the `## Notes`
    section, with the `<!-- stack -->` table's PR column refreshed from
    `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" list --head-prefix "<feature-branch>-slice-"` (every state; read
    `number`, `head` and `state` from each record).
+   Inside the `<!-- stack -->` markers, after the table, one line by the wipe's `status`:
+   - `built`: `Required before merge: #<pr> removes the transient docs — merge it last. Fix-ups happen before it merges.`
+   - `merged`: `Transient docs removed by #<pr>.`
+   - `would-build` (a dry run): `Required before merge: the wipe PR (not built in a dry run).`
+   - `nothing-to-wipe`: no line.
 3. If `$ARGUMENTS` contains `--dry-run`: print the body in a fenced block and stop.
 4. Otherwise:
    ```bash
@@ -47,7 +65,7 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
      `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" create --draft --base "<Base>" --head <feature-branch> --title "<feature title from the spec's H1>" --body-file <tmp>`.
      Report `created: #N (draft)` with `N` from the returned record.
    - PR exists: fetch its body (`"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" view N`, the `body` field). Replace ONLY
-     the text between `<!-- stack -->` and `<!-- /stack -->` with the refreshed table; leave
+     the text between `<!-- stack -->` and `<!-- /stack -->` with the refreshed table and its wipe line; leave
      every other byte untouched. If the markers are absent, report
      `refused: #N has a hand-written body without stack markers` and stop. Otherwise
      `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" edit N --body-file <tmp>` and report `updated: #N`.

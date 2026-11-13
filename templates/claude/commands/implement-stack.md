@@ -46,6 +46,18 @@ launch line; if it does not, say so once and continue.
 git fetch -q --prune origin
 ```
 
+<!-- hitl:mode no-install -->
+Then archive the feature's documents to project memory — every run, including one that later
+stops on a blocked slice:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/runtime/wipe.mjs" archive --repo "$PWD"
+```
+
+A `refused` or `error` here is reported in one line and the run continues: the archive is a
+convenience, never a gate.
+
+<!-- hitl:mode end -->
 ## 1. For each slice in table order whose status is `todo` or `branched`
 
 **a. Branch.** Parent and branch name come from the row, never from a rule of your own.
@@ -182,6 +194,10 @@ Run `/umbrella-pr` (no `--dry-run`). Report `created: #N (draft)` or `updated: #
 **STOP** with the final report: one line per slice (`slice N — <branch> — PR #K`), the
 umbrella PR, and the sentence "Nothing is merged. The stack is yours to review." Do not mark
 anything ready for review. Do not merge.
+<!-- hitl:mode no-install -->
+`/umbrella-pr` also builds the wipe PR; when it reports one, add to the final report: `The
+wipe PR #<pr> is generated; merge it last.`
+<!-- hitl:mode end -->
 
 End the report with this block, in plain words, `<abs path>` being `git rev-parse
 --show-toplevel` and the branches being the feature branch and its local slice branches:
@@ -220,6 +236,11 @@ Report as in § 2, without the umbrella step unless it does not exist yet.
 
 ## Never
 
+<!-- hitl:mode installed -->
 Merge. Mark ready for review. Force-push unasked. Start a slice after a STOP. Review twice.
+<!-- hitl:mode no-install -->
+Merge. Mark ready for review. Force-push unasked (the generated wipe branch is the one
+exception, and only wipe.mjs pushes it). Start a slice after a STOP. Review twice.
+<!-- hitl:mode end -->
 Open a PR for a slice whose review produced nothing. Ask the human a code-level question —
 decide, record, move on.
