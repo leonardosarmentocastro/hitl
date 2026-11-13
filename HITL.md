@@ -229,6 +229,9 @@ in `.claude/review-context.md`.
   - **Why** — why it is needed.
   - **How** — the approach taken, and why this one over an alternative *if* a real
     choice was made.
+
+  These answers sit under a `## TL;DR` heading at the top of the body, after the `Plan:`
+  line.
 <!-- hitl:knob pr-body-sections -->
 - A PR opened by `/implement-stack` also carries `## Review decisions`: every declined or
   deferred review finding in plain words — the concern as a user or the data would

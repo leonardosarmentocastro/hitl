@@ -107,6 +107,8 @@ Spec(s): <one path per line>
 
 Plan: <umbrella spec path>
 
+## TL;DR
+
 **What** — <2–3 sentences: the deliverable, in plain words a newcomer follows.>
 
 **Why** — <2–3 sentences: the problem it solves.>

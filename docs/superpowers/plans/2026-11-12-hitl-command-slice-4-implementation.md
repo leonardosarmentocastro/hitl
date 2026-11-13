@@ -177,3 +177,11 @@ Scratch GitHub repository with no hitl files, `claude --plugin-dir <this worktre
 3. `git status` in the main checkout stays clean; no `scripts/hitl/` or `.claude/commands/` appears in the repository.
 4. While the stack runs, say "always add a Screenshots section to PRs" → it asks `Remember this for this project?` before writing anything.
 5. A scratch repository with a GitLab remote → `/hitl:implement-stack` refuses on its first step, naming issue #19, with no branch created.
+
+## Review decisions
+
+- Task 1, Step 1 (implementer, clarification): the test searches for the body's markers from
+  the `Body (write it` line onward, because the command's prose names `## Review decisions`
+  in step 1c before the body block, so a whole-file `indexOf` finds that mention first. The
+  criterion — `Plan:`, then `## TL;DR`, What / Why / How, then `## Review decisions` in the
+  body — is unchanged.

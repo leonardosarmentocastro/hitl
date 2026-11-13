@@ -103,6 +103,8 @@ outside the `Plan:` line):
 ```
 Plan: <plan path>
 
+## TL;DR
+
 What — <2–3 sentences>
 Why — <2–3 sentences>
 How — <2–5 sentences; the approach and any real choice made>
