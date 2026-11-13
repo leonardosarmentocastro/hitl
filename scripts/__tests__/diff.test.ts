@@ -14,7 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { pluginVersion, sha256 } from "../../installer/lib.mjs";
+import { pluginVersion, renderMode, sha256 } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 const DIFF = join(ROOT, "installer/diff.mjs");
@@ -220,7 +220,13 @@ describe("diff.mjs across versions (recorded from the tag, latest one minor ahea
 
   it("reports a hand-applied upstream change as already applied", () => {
     const repo = installedRepo(mk);
-    cpSync(join(plugin, "templates/claude/agents/fixer.md"), join(repo, FIXER));
+    writeFileSync(
+      join(repo, FIXER),
+      renderMode(
+        readFileSync(join(plugin, "templates/claude/agents/fixer.md"), "utf8"),
+        "installed",
+      ),
+    );
     expect(stateOf(diff(repo, plugin, mk).json, FIXER).state).toBe("already applied");
   });
 
@@ -329,11 +335,21 @@ describe("diff.mjs --apply", () => {
     expect(manifest.version).toBe(NEXT);
     expect(manifest.files).not.toHaveProperty("scripts/hitl/gone.sh");
     expect(manifest.files[FIXER]).toBe(
-      sha256(readFileSync(join(plugin, "templates/claude/agents/fixer.md"), "utf8")),
+      sha256(
+        renderMode(
+          readFileSync(join(plugin, "templates/claude/agents/fixer.md"), "utf8"),
+          "installed",
+        ),
+      ),
     );
-    // The manifest records the template, never the local edit.
+    // The manifest records the template's installed render, never the local edit.
     expect(manifest.files[HANDOVER]).toBe(
-      sha256(readFileSync(join(plugin, "templates/claude/agents/handover.md"), "utf8")),
+      sha256(
+        renderMode(
+          readFileSync(join(plugin, "templates/claude/agents/handover.md"), "utf8"),
+          "installed",
+        ),
+      ),
     );
 
     expect(r.json.readmeBumped).toBe(true);

@@ -147,7 +147,7 @@ Run it in a fresh session, go do something else, and come back to a stack of dra
 
 ## What lands in your repository
 
-hitl is **installer-only**. Nothing runs from the plugin: after `/hitl:init` your
+With `/hitl:init`, hitl is **installer-only**. Nothing runs from the plugin: your
 repository owns every file, and you change them by pull request like any other code. You can
 uninstall the plugin and the workflow keeps working.
 
@@ -164,6 +164,32 @@ uninstall the plugin and the workflow keeps working.
 
 Specs and plans live under `docs/superpowers/` only while a feature is in progress. The
 umbrella PR description is the record that lasts.
+
+## Use it without installing
+
+Some repositories cannot take the install: no permission to commit tooling, a team that has
+not agreed to it, a client project. There, type `/hitl:brainstorming` instead of starting a
+feature by hand. It checks the prerequisites, puts the session in its own worktree on a
+feature branch, confirms the project's local gates with you, and runs the same chain from
+the plugin: reviewed spec, reviewed plans, a handover, then `/hitl:implement-stack` in a new
+session for the stacked draft PRs and the umbrella PR. Nothing hitl-owned is committed; only
+the feature's own documents under `docs/superpowers/`, as always.
+
+- **Memory lives on your machine**, in `~/.hitl/projects/<host>/<owner>/<repo>/`: the
+  local gates, what reviewers should know, extra PR sections. hitl asks before it remembers
+  anything, and every worktree and clone of the project reads the same memory.
+- **GitHub opens the PRs.** Elsewhere, or with no remote, you get the design session only
+  (worktree, spec, plans, handover); opening PRs off GitHub is
+  [issue #19](https://github.com/leonardosarmentocastro/hitl/issues/19).
+- **The wipe PR merges last.** With no CI job to remove the feature's documents, hitl
+  copies them to `~/.hitl/projects/<…>/features/` and opens a generated draft PR,
+  `<feature branch>-wipe`, that deletes them from the branch. It is rebuilt on every
+  `/hitl:umbrella-pr` run. Merge it after every slice and before the umbrella PR.
+- **`/hitl:cleanup`** removes a finished feature's worktree and branches, and tells you if
+  the documents reached your main branch because the wipe PR did not merge first.
+
+In a repository that did run `/hitl:init`, `/hitl:brainstorming` follows that repository's
+own rules instead.
 
 ## Make it yours, keep it current
 

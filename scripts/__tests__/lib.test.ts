@@ -2,7 +2,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { ownedFiles, pluginVersion, sha256 } from "../../installer/lib.mjs";
+import { ownedFiles, pluginVersion, renderMode, sha256 } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 
@@ -146,6 +146,46 @@ describe("agentsBlock", () => {
     expect(agentsBlock(["pnpm test"], ["e2e"])).not.toContain("## Effective-date pilots");
     expect(agentsBlock(["pnpm test"], ["effective-date"])).toBe(
       "<!-- hitl:knob local-gates -->\n## Local gates\n\n- `pnpm test`\n\n<!-- hitl:knob effective-date-pilots -->\n## Effective-date pilots\n\n- (none yet — name the area a new rule applies to first, one per line)",
+    );
+  });
+});
+
+describe("renderMode", () => {
+  const T =
+    "a\n<!-- hitl:mode installed -->\nI\n<!-- hitl:mode no-install -->\nN\n<!-- hitl:mode end -->\nz\n";
+
+  it("keeps the branch for the mode and drops the markers", () => {
+    expect(renderMode(T, "installed")).toBe("a\nI\nz\n");
+    expect(renderMode(T, "no-install")).toBe("a\nN\nz\n");
+  });
+
+  it("allows either branch to be absent", () => {
+    expect(
+      renderMode("x\n<!-- hitl:mode no-install -->\nN\n<!-- hitl:mode end -->\n", "installed"),
+    ).toBe("x\n");
+  });
+
+  it("fails loudly on an unclosed or nested block", () => {
+    expect(() => renderMode("<!-- hitl:mode installed -->\nI\n", "installed")).toThrow(/hitl:mode/);
+    expect(() =>
+      renderMode(
+        "<!-- hitl:mode installed -->\n<!-- hitl:mode installed -->\n<!-- hitl:mode end -->\n",
+        "installed",
+      ),
+    ).toThrow(/hitl:mode/);
+  });
+
+  it("prefixes workflow command and agent names in no-install mode only", () => {
+    expect(renderMode("run `/review-spec` now", "no-install")).toBe("run `/hitl:review-spec` now");
+    expect(renderMode("docs/superpowers/handover/x.md", "no-install")).toBe(
+      "docs/superpowers/handover/x.md",
+    );
+    expect(renderMode("`/hitl:review-spec` and /hitl:init", "no-install")).toBe(
+      "`/hitl:review-spec` and /hitl:init",
+    );
+    expect(renderMode("Spawn `implementer`", "no-install")).toBe("Spawn `hitl:implementer`");
+    expect(renderMode("run `/review-spec`, spawn `fixer`", "installed")).toBe(
+      "run `/review-spec`, spawn `fixer`",
     );
   });
 });

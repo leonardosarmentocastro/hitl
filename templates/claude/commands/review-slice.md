@@ -3,6 +3,27 @@ description: Review the current slice branch's diff against its parent, plan and
 argument-hint: [docs/superpowers/handover/<feature>.md] [--parent <ref>]
 ---
 
+<!-- hitl:mode no-install -->
+## Before anything: the hitl context
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,gates --format brief
+```
+
+- Exit 3 with `refused: "installed"` → print exactly the line below and stop:
+
+  ```
+  hitl is installed in this repository — run this repository's own review-slice command (no hitl: prefix) instead.
+  ```
+
+- Exit 3 with `refused: "no-gates"` → print `This project has no confirmed gates on this machine — confirm them now.`,
+  read the doctrine (`${CLAUDE_PLUGIN_ROOT}/doctrine/HITL.md`), run its § Project memory,
+  *Confirming gates*, then run this step again.
+- Exit 2 → print its `error` and stop.
+- Exit 0 → keep the printed `## hitl context (no-install)` block: it is appended, verbatim,
+  to every agent brief in this command. Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.
+
+<!-- hitl:mode end -->
 ## 0. Resolve
 
 - Handover document: the first path in `$ARGUMENTS` if given, else the single file under
@@ -47,6 +68,10 @@ Spawn `slice-reviewer` with this brief:
 >
 > STACK TABLE (this slice is <N>):
 > <the `## Stack` table copied verbatim from the handover document>
+<!-- hitl:mode no-install -->
+
+followed by the hitl context block, verbatim.
+<!-- hitl:mode end -->
 
 ## 2. Triage — no YOUR CALL at code level
 

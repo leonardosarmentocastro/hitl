@@ -75,8 +75,9 @@ You cannot end your turn while a spec or plan in the working tree lacks a
 `.claude/hooks/` and `.claude/settings.json` (the Stop hook above, declared for everyone who
 clones the repo) · `.claude/review-context.md` (repo-specific reviewer context) ·
 `.claude/reviews/` (gitignored review output) · `.claude/worktrees/` (gitignored design-session worktrees) · `scripts/hitl/` (the PR shim and the wipe
-script) · `.claude/hitl.json` (install metadata written by `/hitl:init`, read by nothing at
-run time) · `docs/superpowers/` (transient specs, plans, handover).
+script) · `.claude/hitl.json` (install metadata written by `/hitl:init`; its presence tells
+the hitl plugin's commands and Stop hook that this repository is installed) ·
+`docs/superpowers/` (transient specs, plans, handover).
 
 ## Feature branches
 
@@ -228,6 +229,9 @@ in `.claude/review-context.md`.
   - **Why** — why it is needed.
   - **How** — the approach taken, and why this one over an alternative *if* a real
     choice was made.
+
+  These answers sit under a `## TL;DR` heading at the top of the body, after the `Plan:`
+  line.
 <!-- hitl:knob pr-body-sections -->
 - A PR opened by `/implement-stack` also carries `## Review decisions`: every declined or
   deferred review finding in plain words — the concern as a user or the data would

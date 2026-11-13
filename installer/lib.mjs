@@ -152,15 +152,120 @@ export function composeHitl(pluginRoot, testing) {
   return `${core.trimEnd()}\n\n<!-- hitl:knob testing-rules -->\n## Testing and gates\n\n${fragments.join("\n\n")}\n`;
 }
 
+export const MODES = ["installed", "no-install"];
+const MODE_MARKER = /^<!-- hitl:mode (installed|no-install|end) -->$/;
+const PREFIXED_COMMAND =
+  /(?<![\w/.:-])\/(review-spec|review-plan|review-slice|handover|implement-stack|umbrella-pr)(?![\w/-])/g;
+const PREFIXED_AGENT = /`(spec-reviewer|plan-reviewer|slice-reviewer|implementer|fixer|handover)`/g;
+
+/**
+ * Resolve `<!-- hitl:mode installed|no-install|end -->` blocks for one mode. Each marker sits
+ * alone on its line and is removed with its newline; either branch may be absent; blocks do
+ * not nest. An unclosed, nested or stray marker throws. In no-install mode the workflow command
+ * and agent names are then prefixed with `hitl:`.
+ */
+export function renderMode(text, mode) {
+  if (!MODES.includes(mode)) throw new Error(`hitl:mode: unknown mode ${mode}`);
+  const out = [];
+  let branch = null; // null outside a block; otherwise the branch being read
+  let seen = [];
+  let line = 0;
+  for (const l of text.split("\n")) {
+    line += 1;
+    const m = l.match(MODE_MARKER);
+    if (!m) {
+      if (branch === null || branch === mode) out.push(l);
+      continue;
+    }
+    const kind = m[1];
+    if (kind === "end") {
+      if (branch === null) throw new Error(`hitl:mode: end without a block at line ${line}`);
+      branch = null;
+      seen = [];
+      continue;
+    }
+    if (seen.includes(kind))
+      throw new Error(`hitl:mode: nested or repeated ${kind} block at line ${line}`);
+    branch = kind;
+    seen.push(kind);
+  }
+  if (branch !== null) throw new Error(`hitl:mode: unclosed ${branch} block`);
+  let result = out.join("\n");
+  if (mode === "no-install") {
+    result = result.replace(PREFIXED_COMMAND, "/hitl:$1").replace(PREFIXED_AGENT, "`hitl:$1`");
+  }
+  return result;
+}
+
 /** Every owned file rendered for the choices: repoPath -> { content, executable }. */
 export function renderAll(pluginRoot, choices) {
   const out = new Map();
   for (const f of ownedFiles(choices)) {
-    const content =
+    const content = renderMode(
       f.template === null
         ? composeHitl(pluginRoot, choices.testing)
-        : readFileSync(join(pluginRoot, "templates", f.template), "utf8");
+        : readFileSync(join(pluginRoot, "templates", f.template), "utf8"),
+      "installed",
+    );
     out.set(f.repoPath, { content, executable: f.executable });
+  }
+  return out;
+}
+
+/** The agents and commands the plugin renders for no-install mode, as their slices land. */
+const PLUGIN_AGENTS = [
+  "spec-reviewer",
+  "plan-reviewer",
+  "handover",
+  "implementer",
+  "fixer",
+  "slice-reviewer",
+];
+const PLUGIN_COMMANDS = [
+  "review-spec",
+  "review-plan",
+  "handover",
+  "implement-stack",
+  "review-slice",
+  "umbrella-pr",
+];
+
+/**
+ * The files the plugin ships for no-install mode, rendered from templates/ into the plugin tree.
+ * `template` is relative to templates/; "HITL.md" is the core doctrine (no testing fragments).
+ */
+export function pluginFiles() {
+  return [
+    { pluginPath: "doctrine/HITL.md", template: "HITL.md", executable: false },
+    ...PLUGIN_AGENTS.map((a) => ({
+      pluginPath: `agents/${a}.md`,
+      template: `claude/agents/${a}.md`,
+      executable: false,
+    })),
+    ...PLUGIN_COMMANDS.map((c) => ({
+      pluginPath: `commands/${c}.md`,
+      template: `claude/commands/${c}.md`,
+      executable: false,
+    })),
+    { pluginPath: "runtime/pr/pr.sh", template: "scripts/pr.sh", executable: true },
+    {
+      pluginPath: "runtime/pr/backend.sh",
+      template: "scripts/backends/github.sh",
+      executable: true,
+    },
+  ];
+}
+
+/**
+ * Every plugin file rendered in no-install mode: pluginPath -> { content, executable }. Only
+ * Markdown templates are mode-rendered; every other template is copied byte for byte.
+ */
+export function renderPlugin(pluginRoot) {
+  const out = new Map();
+  for (const f of pluginFiles()) {
+    const text = readFileSync(join(pluginRoot, "templates", f.template), "utf8");
+    const content = f.template.endsWith(".md") ? renderMode(text, "no-install") : text;
+    out.set(f.pluginPath, { content, executable: f.executable });
   }
   return out;
 }

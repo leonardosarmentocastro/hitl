@@ -18,6 +18,7 @@ import {
   pluginVersion,
   readManifest,
   renderAll,
+  renderMode,
   sha256,
 } from "./lib.mjs";
 
@@ -50,7 +51,7 @@ export function run(args) {
 
   const hitlPath = join(repo, "HITL.md");
   const current = existsSync(hitlPath) ? readFileSync(hitlPath, "utf8") : null;
-  if (current !== composeHitl(pluginRoot, manifest.testing))
+  if (current !== renderMode(composeHitl(pluginRoot, manifest.testing), "installed"))
     return { code: 3, out: { refused: "hitl-locally-edited" } };
 
   const choices = {

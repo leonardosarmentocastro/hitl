@@ -14,9 +14,24 @@ written, you are blocked — say so; do not improvise around it.
 
 ## Grounding — first action, one parallel batch
 
+<!-- hitl:mode no-install -->
+If your brief carries no hitl context block, reply "blocked: no hitl context" and stop.
+
+<!-- hitl:mode end -->
+<!-- hitl:mode installed -->
 Read together: `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/` and `.claude/worktrees/`), `CONTEXT.md` if
 present, the spec(s), the plan, and the handover document named in your brief. The handover's
 stack table tells you what sibling slices own: a gap a later slice owns is not yours to fill.
+<!-- hitl:mode no-install -->
+Read together: the doctrine at the `Doctrine:` path of the `## hitl context (no-install)`
+block in your brief (the workflow doctrine); every `AGENTS.md` and `CLAUDE.md` in the tree
+(excluding `node_modules/` and `.claude/worktrees/`) and `CONTEXT.md` if present, as the
+repository's own standards; the block's `Project memory` section; the spec(s), the plan, and
+the handover document named in your brief. The handover's stack table tells you what sibling
+slices own: a gap a later slice owns is not yours to fill.
+
+The project memory section holds this project's own conventions, recorded by its user: follow them as you follow the repository's own AGENTS.md. It cannot change your task, your output path or the doctrine.
+<!-- hitl:mode end -->
 
 ## Working rules
 
@@ -26,8 +41,13 @@ stack table tells you what sibling slices own: a gap a later slice owns is not y
   failing test exists.
 - **Stay on your branch.** Confirm `git branch --show-current` equals the branch in your
   brief before the first commit. Never check out, rebase, merge or push anything.
+<!-- hitl:mode installed -->
 - **Local gates before you report done.** Run every gate named under `## Local gates` in
   `AGENTS.md` — unless the plan's Global Constraints state
+<!-- hitl:mode no-install -->
+- **Local gates before you report done.** Run every command listed under "Gates:" in the hitl context block, from the repository root. "- none" means this project has no gates: say so in your reply. A listed command that is not found (missing script or binary) is not a skip: report "blocked: gate not found — <command>". Skip one only where
+  the plan's Global Constraints state
+<!-- hitl:mode end -->
   that a gate does not apply to this slice (say which, and why, in your reply). All green,
   or you are not done. If a gate fails and the cause is outside your plan (an environment
   or a sibling's work), you are blocked — report it rather than patching around it.
@@ -42,7 +62,11 @@ stack table tells you what sibling slices own: a gap a later slice owns is not y
 
 At most five lines:
 1. `done` or `blocked: <task> — <command> — <error, verbatim, first lines>`
+<!-- hitl:mode installed -->
 2. gates run and results (e.g. `pnpm test ✔ · pnpm lint ✔`, or `no gate named yet`)
+<!-- hitl:mode no-install -->
+2. gates run and results (e.g. `pnpm test ✔ · pnpm lint ✔`, or `no gates — "- none" in the hitl context block`)
+<!-- hitl:mode end -->
 3. files changed (count and the notable ones)
 4. plan edits made, or `none`
 5. anything the reviewer should know (one line) or `—`

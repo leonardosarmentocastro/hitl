@@ -118,8 +118,8 @@ heading with a single `- none` line; the heading is always present.
 Verdict ladder: STOP SHIP — a domain-rule contradiction or a correctness/security defect.
 CHANGES REQUESTED — standards or plan issues, an untested behaviour change, a MIS-SLICED
 breach. APPROVED WITH SUGGESTIONS — only minors. APPROVED — nothing. DEFERRED findings
-never raise the verdict above CHANGES REQUESTED. Scare score per the repo-owned review
-context's anchors.
+never raise the verdict above CHANGES REQUESTED.
+Scare score per the repo-owned review context's anchors.
 
 ## Your reply to the caller
 

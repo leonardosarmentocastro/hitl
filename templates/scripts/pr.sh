@@ -6,21 +6,23 @@
 #   pr.sh view    <number>
 #   pr.sh edit    <number> --body-file <path>
 #   pr.sh comment <number> --body-file <path>
+#   pr.sh retarget <number> --base <branch>
 #
 # stdout is exactly one JSON document: `list` prints an array, every other verb a record:
 #   { number, url, head, base, state: open|merged|closed, draft, title, body, head_sha }
 # head_sha is the PR's head commit (what the host merged, for a merged PR); /hitl:cleanup uses
 # it to prove a squash-merged branch saved after the host deleted it. A backend must supply it.
 # `view` adds reviews: [{ author, state: approved|changes_requested|commented, body }] and
-# comments: [{ author, body, created_at }]. `edit` and `comment` return the record they touched.
+# comments: [{ author, body, created_at }]. `edit`, `comment` and `retarget` return the record
+# they touched; `retarget` changes the PR's base branch.
 #
 # Exit codes: 0 ok · 1 usage (message on stderr) · 2 backend error (the host tool's stderr is
 # passed through) · 3 on `create` only: a PR for that head already exists, and its record is
 # on stdout so the caller can fall through to `edit`.
 #
 # The backend is `backend.sh` in this directory, installed by /hitl:init for the host the
-# repository uses; it defines backend_create, backend_list, backend_view, backend_edit and
-# backend_comment. The word is "PR" throughout; it is a merge request on GitLab.
+# repository uses; it defines backend_create, backend_list, backend_view, backend_edit,
+# backend_comment and backend_retarget. The word is "PR" throughout; it is a merge request on GitLab.
 #
 # Best-effort per host, documented here so a backend author knows what may not map 1:1:
 #   - draft PRs: GitHub and GitLab have them; Bitbucket has none (create ignores --draft).
@@ -40,6 +42,7 @@ usage() {
   echo "usage: pr.sh create --base <b> --head <h> --title <t> --body-file <f> [--draft]" >&2
   echo "       pr.sh list --head-prefix <p> [--state open|merged|closed|all]" >&2
   echo "       pr.sh view <number> | edit <number> --body-file <f> | comment <number> --body-file <f>" >&2
+  echo "       pr.sh retarget <number> --base <b>" >&2
   exit 1
 }
 
@@ -105,6 +108,20 @@ case "$verb" in
     [ -n "$body" ] || usage "$verb needs --body-file"
     [ -f "$body" ] || usage "body file not found: $body"
     "backend_$verb" "$number" "$body"
+    ;;
+  retarget)
+    need_number "${1:-}" retarget
+    number=$1
+    shift
+    base=
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --base) need_value "$@"; base=$2; shift 2 ;;
+        *) usage "unknown flag for retarget: $1" ;;
+      esac
+    done
+    [ -n "$base" ] || usage "retarget needs --base"
+    backend_retarget "$number" "$base"
     ;;
   *)
     usage "unknown verb: $verb"

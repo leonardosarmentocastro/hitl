@@ -1,0 +1,127 @@
+---
+description: Review ALL slice plans of the current feature as one batch with a cold plan-reviewer subagent, then triage with the human. Bubble-up spec gaps to the spec.
+---
+
+Run the plan review loop for the current feature's slice plans.
+
+## Before anything: the hitl context
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,gates --format brief
+```
+
+- Exit 3 with `refused: "installed"` → print exactly the line below and stop:
+
+  ```
+  hitl is installed in this repository — run this repository's own review-plan command (no hitl: prefix) instead.
+  ```
+
+- Exit 3 with `refused: "no-gates"` → print `This project has no confirmed gates on this machine — confirm them now.`,
+  read the doctrine (`${CLAUDE_PLUGIN_ROOT}/doctrine/HITL.md`), run its § Project memory,
+  *Confirming gates*, then run this step again.
+- Exit 2 → print its `error` and stop.
+- Exit 0 → keep the printed `## hitl context (no-install)` block: it is appended, verbatim,
+  to every agent brief in this command. Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.
+
+## 0. Resolve the set
+
+The feature key is the `<feature>` segment of the plan filenames
+`docs/superpowers/plans/<YYYY-MM-DD>-<feature>-slice-<N>-<label>.md` on this branch. If two
+keys are present, ask which. If the human named an explicit set (a spec path and a plan
+glob), use that set instead. Then:
+
+```bash
+FEATURE=<feature>
+# order by <N>: hyphenated feature keys make field-based sort unreliable
+PLANS=$(ls docs/superpowers/plans/*-"$FEATURE"-slice-*.md | sed -E 's/.*-slice-([0-9]+)-.*/\1 &/' | sort -n | cut -d' ' -f2)
+SPECS=$(ls docs/superpowers/specs/*-design.md)   # every spec on the branch is the umbrella set: a resume round adds its own
+```
+
+<!-- hitl:knob review-rounds -->
+Count `**Reviewed:** round N` entries in the FIRST plan's header, ignoring any marked
+`failed` — a failed attempt does not consume a round, so a rerun carries the same round
+number. The next round is N+1. If N is 2, stop: "two rounds have run; no third round" →
+step 5.
+
+Collect forwarded items: lines in the spec's `## Decisions and declined alternatives`
+beginning `- **Forwarded to the plan gate**` or containing `forwarded to the plan gate`.
+
+## 1. Run the reviewer (cold)
+
+```bash
+mkdir -p .claude/reviews
+OUT=.claude/reviews/$(date +%Y-%m-%d-%H%M%S)-$FEATURE-plan.md
+```
+
+Spawn `hitl:plan-reviewer` with this brief, the hitl context block, and nothing else:
+
+> Review the plans of feature `<FEATURE>`: <one plan path per line>. Umbrella spec(s):
+> <paths>. Write your review to `<OUT>`. Forwarded from the spec gate: <the items, or
+> "none">. Reply with at most three lines.
+
+followed by the hitl context block, verbatim.
+
+## 2. Record the round in every plan — before triage
+
+If `<OUT>` has a `| Verdict |` row, add `**Reviewed:** round <N+1> (<date>).` to the header
+block of EVERY plan in the set — the lines between the `#` title and the first `##` heading,
+which is the only place the Stop hook reads — appending ` · round 2 (<date>)` on the second
+round. If the
+reviewer failed, write `**Reviewed:** round <N+1> failed (<date>) — <reason>.` in each,
+tell the human, and stop.
+
+## 3. Triage
+
+Same six verdicts as `/hitl:review-spec` (YOUR CALL · APPLY · DECLINE: wrong / out of scope /
+wrong gate / not worth it), one table first, YOUR CALL items one at a time.
+
+**Bubble-up.** A finding whose block starts "SPEC GAP:", or that you judge to be a spec gap,
+is fixed in the SPEC, not only in the plan: apply the edit to the spec, add a line to the
+spec's Decisions section — `- **Bubbled up from plan review (round <N+1>)** — <what changed
+and why>` — and do NOT reopen `/hitl:review-spec`. If it is a design decision it is YOUR CALL and
+the human answers it here.
+
+**Wrong gate** items are recorded in the plan's `## Review decisions` section (create at the
+end of the plan) as *forwarded to the code gate: <item>*.
+
+**A plan created during triage** (a YOUR CALL answered "add a slice") gets
+`**Reviewed:** round <N+1> (<date>).` in its header the moment it is written, so the Stop hook
+does not refuse the next turn-end; round 2 reviews it with the rest.
+
+## 4. Fold in and record
+
+Apply every APPLY and answered YOUR CALL. Record declines in each affected plan's
+`## Review decisions`. Commit:
+
+```bash
+git add docs/superpowers && git commit -m "docs(plan): fold in plan review round <N+1>"
+```
+
+## 5. Round rule
+
+<!-- hitl:knob review-rounds -->
+One is too few, two is good, three is too many:
+- Round 1 AND at least one PLAN file changed in step 4 → step 1 for round 2. A round that
+  changed only the spec (bubble-up) does not count as a plan change.
+- Round 1 and no plan changed → stop.
+- Round 2 → stop. Never a third round.
+- Round 2 ended with an accepted, unresolved blocker → stop and say so; nothing downstream
+  runs until the human resolves it.
+
+## 6. Hand back
+
+Report rounds, counts, bubbled-up items and forwarded items. If the loop converged with no
+accepted, unresolved blocker, run the handover now: mode `start` only if no `*-slice-*` branch
+of this feature exists locally or on the remote AND no pull request exists for any such
+branch (the agent decides `start` from slice status, and a merged slice whose branch was
+deleted still forbids it), otherwise `resume`. If the hitl context block says
+`Worktree: none`, print exactly `No hitl session is registered for this worktree — start with /hitl:brainstorming.` and stop.
+Otherwise spawn the `hitl:handover` agent exactly as `/hitl:handover` does: the same brief with the
+hitl context block appended, and the launch line — exactly, with `<topic>` the worktree's
+folder name:
+``Launch: `cd .claude/worktrees/<topic> && claude --model opus` then `/hitl:implement-stack docs/superpowers/handover/<feature>.md` ``.
+Relay its reply. Print the launch line on its own line, with the `cd` path made absolute as
+`/hitl:handover` step 4 does. When the block's `Host:` is not `github`, print after it, exactly:
+`This repository is not on GitHub: /hitl:implement-stack will refuse until issue #19 lands. Implement from the handover by hand.`
+The session's work is done — say so and stop. Starting the implementation session is the
+human's approval of the plans.

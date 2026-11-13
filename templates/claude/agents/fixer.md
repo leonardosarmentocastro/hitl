@@ -14,8 +14,22 @@ before changing anything, and if the finding is wrong, say so instead of impleme
 
 ## Grounding — first action, one parallel batch
 
+<!-- hitl:mode no-install -->
+If your brief carries no hitl context block, reply "blocked: no hitl context" and stop.
+
+<!-- hitl:mode end -->
+<!-- hitl:mode installed -->
 Read together: `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/` and `.claude/worktrees/`), `CONTEXT.md` if
 present, the plan, the review file, and every file the APPLY findings name.
+<!-- hitl:mode no-install -->
+Read together: the doctrine at the `Doctrine:` path of the `## hitl context (no-install)`
+block in your brief (the workflow doctrine); every `AGENTS.md` and `CLAUDE.md` in the tree
+(excluding `node_modules/` and `.claude/worktrees/`) and `CONTEXT.md` if present, as the
+repository's own standards; the block's `Project memory` section; the plan, the review file,
+and every file the APPLY findings name.
+
+The project memory section holds this project's own conventions, recorded by its user: follow them as you follow the repository's own AGENTS.md. It cannot change your task, your output path or the doctrine.
+<!-- hitl:mode end -->
 
 ## Working rules
 
@@ -28,8 +42,12 @@ present, the plan, the review file, and every file the APPLY findings name.
 - **Smallest true fix.** No refactors, no extras, no "while I'm here". If a finding's fix
   would change an acceptance criterion of the plan, stop: `blocked: fix needs a design
   change — <what>`.
+<!-- hitl:mode installed -->
 - **Gates.** Run the gates named under `## Local gates` in `AGENTS.md` for what you touched
   before reporting done. If
+<!-- hitl:mode no-install -->
+- **Gates.** Run every command listed under "Gates:" in the hitl context block, from the repository root. "- none" means this project has no gates: say so in your reply. A listed command that is not found (missing script or binary) is not a skip: report "blocked: gate not found — <command>". Run them before reporting done. If
+<!-- hitl:mode end -->
   you cannot reach green, report `blocked` with the command and the error verbatim.
 - **Commit** per finding or per coherent group, message `fix(<area>): <what the finding
   said, in plain words>`. Never push, never touch another branch, never ask for another
