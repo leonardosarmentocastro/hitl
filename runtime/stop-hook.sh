@@ -77,8 +77,14 @@ done
 {
   echo "Unreviewed artefact(s) in this hitl feature — run the review loop before ending the turn:"
   for f in "${missing[@]}"; do echo "  - $f"; done
-  [ -z "$mb" ] &&
-    echo "(base ref $base was not found locally, so every spec and plan was checked — run git fetch)"
+  if [ -z "$mb" ]; then
+    if git rev-parse --verify --quiet "$base^{commit}" >/dev/null 2>&1; then
+      echo "(base ref $base shares no history with HEAD here, so every spec and plan was checked —"
+      echo " in a shallow clone, run git fetch --unshallow)"
+    else
+      echo "(base ref $base was not found locally, so every spec and plan was checked — run git fetch)"
+    fi
+  fi
   echo "The line belongs in the header block, above the first '##' heading; one quoted further"
   echo "down does not count. Specs: /hitl:review-spec. Plans: /hitl:review-plan. If the reviewer"
   echo "failed, the command records a '**Reviewed:** round N failed' line."

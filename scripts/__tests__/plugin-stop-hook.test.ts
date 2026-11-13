@@ -211,6 +211,18 @@ describe("plugin Stop hook", () => {
     expect(r.stderr).toContain("was not found locally");
   });
 
+  it("says the base shares no history, not that it is missing, when there is no merge-base", () => {
+    const { main, wt } = featureWorktree({ [OLD_SPEC]: UNREVIEWED }, "other");
+    git(main, "checkout", "-q", "--orphan", "other");
+    commitAll(main, "unrelated");
+    const r = plugin(wt);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(OLD_SPEC);
+    expect(r.stderr).not.toContain("was not found locally");
+    expect(r.stderr).toContain("shares no history");
+    expect(r.stderr).toContain("git fetch --unshallow");
+  });
+
   it("exits 0 when the cwd is not a git folder", () => {
     featureWorktree();
     const loose = tmp("plugin-loose-");
