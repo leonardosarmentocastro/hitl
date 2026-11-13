@@ -3,9 +3,16 @@
 // repository without hitl installed, only on the specs and plans the feature added, and is
 // silent everywhere else. Its header rule is the installed hook's (the shared table below).
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
@@ -77,12 +84,13 @@ function featureWorktree(
 
 function runHook(
   hook: string,
-  opts: { stdin: string; cwd?: string; projectDir?: string; hitlHome?: string },
+  opts: { stdin: string; cwd?: string; projectDir?: string; hitlHome?: string; path?: string },
 ) {
   const env: Record<string, string | undefined> = {
     ...process.env,
     HITL_HOME: opts.hitlHome ?? home,
   };
+  if (opts.path !== undefined) env.PATH = opts.path;
   if (opts.projectDir === undefined) delete env.CLAUDE_PROJECT_DIR;
   else env.CLAUDE_PROJECT_DIR = opts.projectDir;
   return spawnSync("bash", [hook], {
@@ -104,11 +112,21 @@ const UNREVIEWED = "# A spec\n\n**Status:** draft.\n\n## Goal\n";
 const BELOW = "# A spec\n\n## Goal\n\n**Reviewed:** round 1 (2026-01-01).\n";
 
 describe("plugin Stop hook", () => {
-  it("exits 0 when HITL_HOME has no projects directory", () => {
+  it("exits 0 without starting node when HITL_HOME has no projects directory", () => {
     const { wt } = featureWorktree();
     write(wt, { [SPEC]: UNREVIEWED });
-    const r = runHook(HOOK, { stdin: payload(wt), cwd: wt, hitlHome: tmp("hitl-empty-") });
+    // A fake `node` first on PATH leaves a marker if the hook starts it at all.
+    const bin = tmp("fake-node-");
+    const marker = join(bin, "node-ran");
+    writeFileSync(join(bin, "node"), `#!/bin/sh\ntouch '${marker}'\nexit 1\n`, { mode: 0o755 });
+    const r = runHook(HOOK, {
+      stdin: payload(wt),
+      cwd: wt,
+      hitlHome: tmp("hitl-empty-"),
+      path: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+    });
     expect(r.status).toBe(0);
+    expect(existsSync(marker)).toBe(false);
   });
 
   it("refuses a feature spec without the line, naming it and /hitl:review-spec", () => {
