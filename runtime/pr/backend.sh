@@ -75,3 +75,8 @@ backend_comment() {
   gh_or_2 pr comment "$1" --body-file "$2" >/dev/null
   gh_or_2 pr view "$1" --json "$RECORD_FIELDS" --jq "$RECORD_JQ"
 }
+
+backend_retarget() {
+  gh_or_2 pr edit "$1" --base "$2" >/dev/null
+  gh_or_2 pr view "$1" --json "$RECORD_FIELDS" --jq "$RECORD_JQ"
+}

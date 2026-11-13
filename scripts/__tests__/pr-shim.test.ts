@@ -239,6 +239,41 @@ describe.each([
     });
   });
 
+  describe("pr.sh retarget", () => {
+    it("changes the PR's base and returns the record", () => {
+      const r = shim(["retarget", "7", "--base", "feat/x"]);
+      expect(r.status).toBe(0);
+      expect((r.json as { base: string }).base).toBe("feat/x");
+      expect(r.calls[0]).toBe("pr edit 7 --base feat/x");
+      expect(r.calls[1]).toMatch(/^pr view 7 --json /);
+    });
+
+    it("prints the record with the new base", () => {
+      const r = shim(["retarget", "7", "--base", "feat/x-slice-2-web"]);
+      expect(r.status).toBe(0);
+      expect((r.json as { base: string }).base).toBe("feat/x-slice-2-web");
+    });
+
+    it("exits 1 without --base or with a non-numeric number, without calling gh", () => {
+      for (const args of [["retarget", "7"], ["retarget", "x", "--base", "b"], ["retarget"]]) {
+        const r = shim(args);
+        expect(r.status, args.join(" ")).toBe(1);
+        expect(r.stdout, args.join(" ")).toBe("");
+        expect(r.calls, args.join(" ")).toHaveLength(0);
+      }
+    });
+
+    it("exits 2 when gh fails", () => {
+      const r = shim(["retarget", "7", "--base", "feat/x"], "fail");
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain("fake failure");
+    });
+
+    it("is listed in the usage message", () => {
+      expect(shim(["nope"]).stderr).toContain("retarget <number> --base <b>");
+    });
+  });
+
   describe("pr.sh edit and comment", () => {
     it("edit replaces the body and returns the record", () => {
       const body = bodyFile();
