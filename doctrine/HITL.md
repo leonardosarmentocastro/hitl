@@ -239,6 +239,8 @@ repo-specific reviewer context comes from the project memory (its `review-contex
 
   Omit only when there is genuinely no plan (e.g. this convention's own bootstrap
   PR); the reviewer then falls back to searching `docs/superpowers/plans/`.
+  The generated wipe PR is exempt from this rule and the next: its body is written by
+  `wipe.mjs` and has no `Plan:` line and no `## TL;DR`.
 <!-- hitl:knob pr-body-sections -->
 - Every PR body answers, briefly and in plain words (explain it as you would to an
   intern), concise and realistic — do not invent rationale to fill space; if a section
