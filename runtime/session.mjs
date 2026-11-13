@@ -3,7 +3,7 @@
 // registered worktree, at `<memoryDir>/active/<sha256(worktree) first 16 hex>.json`; and the
 // two `.git/info/exclude` lines that keep hitl's worktrees and review output out of
 // `git status`. Also reports the repository's default branch, never assuming `main`.
-// CLI: start | get | end | base. Exit: 0 ok · 1 usage · 2 error · 3 refused.
+// CLI: start | get [--field <name>] | end | base. Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -134,8 +134,10 @@ export function defaultBase(repo) {
   return { base: `origin/${m[1]}`, branch: m[1] };
 }
 
+const FIELDS = ["worktree", "topic", "base", "created"];
+
 const USAGE =
-  "usage: start --worktree <dir> --topic <t> --base <ref> | get --worktree <dir> | end --worktree <dir> | base --repo <dir>";
+  "usage: start --worktree <dir> --topic <t> --base <ref> | get --worktree <dir> [--field <worktree|topic|base|created>] | end --worktree <dir> | base --repo <dir>";
 
 export function run(verb, args) {
   const usage = { code: 1, out: { error: USAGE } };
@@ -152,7 +154,11 @@ export function run(verb, args) {
       return r.refused ? { code: 3, out: r } : { code: 0, out: r };
     }
     if (verb === "get") {
+      if (args.field !== undefined && !FIELDS.includes(args.field)) return usage;
       const record = getRecord(args.worktree);
+      if (args.field !== undefined) {
+        return record ? { code: 0, text: `${record[args.field]}\n` } : { code: 3, text: "" };
+      }
       return record ? { code: 0, out: { record } } : { code: 3, out: { refused: "no-record" } };
     }
     return { code: 0, out: { cleared: endSession(args.worktree) } };
@@ -167,4 +173,12 @@ const isMain =
   existsSync(process.argv[1]) &&
   realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
 
-if (isMain) emit(run(process.argv[2], parseArgs(process.argv.slice(3))));
+if (isMain) {
+  const result = run(process.argv[2], parseArgs(process.argv.slice(3)));
+  // `get --field` prints the bare value, for the Stop hook to read without parsing JSON.
+  if (result.text !== undefined) {
+    process.stdout.write(result.text);
+    process.exit(result.code);
+  }
+  emit(result);
+}

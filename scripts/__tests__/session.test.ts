@@ -208,3 +208,33 @@ describe("session.mjs start / get / end", () => {
     expect(cli("nope").status).toBe(1);
   });
 });
+
+describe("session.mjs get --field", () => {
+  function raw(...args: string[]) {
+    return spawnSync("node", [CLI, ...args], {
+      encoding: "utf8",
+      env: { ...GIT_ENV, HITL_HOME: home },
+    });
+  }
+
+  it("prints the bare value of one field", () => {
+    const { clones } = world("main");
+    cli("start", "--worktree", clones[0], "--topic", "t", "--base", "origin/main");
+    const r = raw("get", "--worktree", clones[0], "--field", "base");
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe("origin/main\n");
+  });
+
+  it("exits 3 with nothing on stdout when there is no record", () => {
+    const { clones } = world("main");
+    const r = raw("get", "--worktree", clones[0], "--field", "base");
+    expect(r.status).toBe(3);
+    expect(r.stdout).toBe("");
+  });
+
+  it("exits 1 for an unknown field", () => {
+    const { clones } = world("main");
+    cli("start", "--worktree", clones[0], "--topic", "t", "--base", "origin/main");
+    expect(raw("get", "--worktree", clones[0], "--field", "nope").status).toBe(1);
+  });
+});
