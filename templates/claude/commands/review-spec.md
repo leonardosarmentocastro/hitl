@@ -4,13 +4,39 @@ description: Review the current feature's design spec with a cold spec-reviewer 
 
 Run the spec review loop for the current feature's umbrella spec.
 
+<!-- hitl:mode no-install -->
+## Before anything: the hitl context
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,gates --format brief
+```
+
+- Exit 3 with `refused: "installed"` → print exactly the line below and stop:
+
+  ```
+  hitl is installed in this repository — run this repository's own review-spec command (no hitl: prefix) instead.
+  ```
+
+- Exit 3 with `refused: "no-gates"` → print `This project has no confirmed gates on this machine — confirm them now.`,
+  read the doctrine (`${CLAUDE_PLUGIN_ROOT}/doctrine/HITL.md`), run its § Project memory,
+  *Confirming gates*, then run this step again.
+- Exit 2 → print its `error` and stop.
+- Exit 0 → keep the printed `## hitl context (no-install)` block: it is appended, verbatim,
+  to every agent brief in this command. Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.
+
+<!-- hitl:mode end -->
 ## 0. Resolve the spec
 
 The spec is the newest `docs/superpowers/specs/*-design.md` on this branch. If the human
+<!-- hitl:mode installed -->
 named a path in the invocation, use that path instead. **A path under `.claude/fixtures/`
 is a dry run: copy the file to `.claude/fixtures/scratch/` and review the copy — fold into
 the copy, commit nothing (skip step 4's commit), and delete the copy when the loop ends. The
 committed fixture is never modified.** If more than one spec is plausible, ask which. Set:
+<!-- hitl:mode no-install -->
+named a path in the invocation, use that path instead. If more than one spec is plausible,
+ask which. Set:
+<!-- hitl:mode end -->
 
 ```bash
 SPEC=docs/superpowers/specs/<file>.md
@@ -29,10 +55,19 @@ mkdir -p .claude/reviews
 OUT=.claude/reviews/$(date +%Y-%m-%d-%H%M%S)-$TOPIC-spec.md
 ```
 
+<!-- hitl:mode installed -->
 Spawn the `spec-reviewer` agent with this brief and nothing else — no summary of the spec,
 no hints, no mention of earlier rounds:
 
 > Review the spec at `<SPEC>`. Write your review to `<OUT>`. Reply with at most three lines.
+<!-- hitl:mode no-install -->
+Spawn the `spec-reviewer` agent with this brief, the hitl context block, and nothing else —
+no summary of the spec, no hints, no mention of earlier rounds:
+
+> Review the spec at `<SPEC>`. Write your review to `<OUT>`. Reply with at most three lines.
+
+followed by the hitl context block, verbatim.
+<!-- hitl:mode end -->
 
 ## 2. Record the round in the spec header — before triage
 

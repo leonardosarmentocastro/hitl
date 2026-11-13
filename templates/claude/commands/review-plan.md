@@ -4,15 +4,41 @@ description: Review ALL slice plans of the current feature as one batch with a c
 
 Run the plan review loop for the current feature's slice plans.
 
+<!-- hitl:mode no-install -->
+## Before anything: the hitl context
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,gates --format brief
+```
+
+- Exit 3 with `refused: "installed"` → print exactly the line below and stop:
+
+  ```
+  hitl is installed in this repository — run this repository's own review-plan command (no hitl: prefix) instead.
+  ```
+
+- Exit 3 with `refused: "no-gates"` → print `This project has no confirmed gates on this machine — confirm them now.`,
+  read the doctrine (`${CLAUDE_PLUGIN_ROOT}/doctrine/HITL.md`), run its § Project memory,
+  *Confirming gates*, then run this step again.
+- Exit 2 → print its `error` and stop.
+- Exit 0 → keep the printed `## hitl context (no-install)` block: it is appended, verbatim,
+  to every agent brief in this command. Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.
+
+<!-- hitl:mode end -->
 ## 0. Resolve the set
 
 The feature key is the `<feature>` segment of the plan filenames
 `docs/superpowers/plans/<YYYY-MM-DD>-<feature>-slice-<N>-<label>.md` on this branch. If two
+<!-- hitl:mode installed -->
 keys are present, ask which. If the human named an explicit set (a spec path and a plan
 glob), use that set instead. **A set under `.claude/fixtures/` is a dry run: copy the plans
 and the spec to `.claude/fixtures/scratch/` and review the copy — fold into the copy, commit
 nothing, and delete the copy when the loop ends. The committed fixtures are never
 modified.** Then:
+<!-- hitl:mode no-install -->
+keys are present, ask which. If the human named an explicit set (a spec path and a plan
+glob), use that set instead. Then:
+<!-- hitl:mode end -->
 
 ```bash
 FEATURE=<feature>
@@ -37,11 +63,21 @@ mkdir -p .claude/reviews
 OUT=.claude/reviews/$(date +%Y-%m-%d-%H%M%S)-$FEATURE-plan.md
 ```
 
+<!-- hitl:mode installed -->
 Spawn `plan-reviewer` with this brief and nothing else:
 
 > Review the plans of feature `<FEATURE>`: <one plan path per line>. Umbrella spec(s):
 > <paths>. Write your review to `<OUT>`. Forwarded from the spec gate: <the items, or
 > "none">. Reply with at most three lines.
+<!-- hitl:mode no-install -->
+Spawn `plan-reviewer` with this brief, the hitl context block, and nothing else:
+
+> Review the plans of feature `<FEATURE>`: <one plan path per line>. Umbrella spec(s):
+> <paths>. Write your review to `<OUT>`. Forwarded from the spec gate: <the items, or
+> "none">. Reply with at most three lines.
+
+followed by the hitl context block, verbatim.
+<!-- hitl:mode end -->
 
 ## 2. Record the round in every plan — before triage
 

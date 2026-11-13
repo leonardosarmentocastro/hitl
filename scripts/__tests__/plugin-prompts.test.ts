@@ -50,4 +50,19 @@ describe("the plugin's no-install prompts", () => {
         "no project review context recorded",
       );
     });
+
+  for (const c of ["review-spec", "review-plan"])
+    it(`commands/${c}.md checks the hitl context first and dispatches the hitl agent`, () => {
+      const text = rendered.get(`commands/${c}.md`)?.content ?? "";
+      expect(text).toContain("--require no-install,gates --format brief");
+      expect(text).toContain(`run this repository's own ${c} command (no hitl: prefix) instead.`);
+      expect(text).toContain("no confirmed gates on this machine");
+      expect(text).toContain(
+        'Read the file on the "Doctrine:" line in full unless this session already has',
+      );
+      expect(text).toContain(
+        "`hitl:" + (c === "review-spec" ? "spec-reviewer" : "plan-reviewer") + "`",
+      );
+      expect(text).toContain("**Reviewed:** round");
+    });
 });

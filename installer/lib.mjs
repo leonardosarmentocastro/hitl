@@ -214,6 +214,7 @@ export function renderAll(pluginRoot, choices) {
 
 /** The agents and commands the plugin renders for no-install mode, as their slices land. */
 const PLUGIN_AGENTS = ["spec-reviewer", "plan-reviewer", "handover"];
+const PLUGIN_COMMANDS = ["review-spec", "review-plan"];
 
 /**
  * The files the plugin ships for no-install mode, rendered from templates/ into the plugin tree.
@@ -225,6 +226,11 @@ export function pluginFiles() {
     ...PLUGIN_AGENTS.map((a) => ({
       pluginPath: `agents/${a}.md`,
       template: `claude/agents/${a}.md`,
+      executable: false,
+    })),
+    ...PLUGIN_COMMANDS.map((c) => ({
+      pluginPath: `commands/${c}.md`,
+      template: `claude/commands/${c}.md`,
       executable: false,
     })),
     { pluginPath: "runtime/pr/pr.sh", template: "scripts/pr.sh", executable: true },
