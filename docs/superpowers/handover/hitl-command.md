@@ -9,7 +9,7 @@ Spec(s): docs/superpowers/specs/2026-11-12-hitl-command-design.md
 
 | slice | plan | branch | parent | status | owns |
 |---|---|---|---|---|---|
-| 1 | docs/superpowers/plans/2026-11-12-hitl-command-slice-1-entry.md | feat/hitl-command-slice-1-entry | feat/hitl-command | todo | Starting a design session from one command (`/hitl:brainstorming`) in any repository, remembering the project where nothing is installed. |
+| 1 | docs/superpowers/plans/2026-11-12-hitl-command-slice-1-entry.md | feat/hitl-command-slice-1-entry | feat/hitl-command | open #23 | Starting a design session from one command (`/hitl:brainstorming`) in any repository, remembering the project where nothing is installed. |
 | 2 | docs/superpowers/plans/2026-11-12-hitl-command-slice-2-design-loop.md | feat/hitl-command-slice-2-design-loop | feat/hitl-command-slice-1-entry | todo | A design session from spec to handover (`/hitl:review-spec`, `/hitl:review-plan`, `/hitl:handover`) with nothing installed in the repository. |
 | 3 | docs/superpowers/plans/2026-11-12-hitl-command-slice-3-stop-hook.md | feat/hitl-command-slice-3-stop-hook | feat/hitl-command-slice-2-design-loop | todo | The review guard on the feature's own specs and plans in no-install sessions, silent everywhere else. |
 | 4 | docs/superpowers/plans/2026-11-12-hitl-command-slice-4-implementation.md | feat/hitl-command-slice-4-implementation | feat/hitl-command-slice-3-stop-hook | todo | Stacked draft PRs from a handover (`/hitl:implement-stack`, `/hitl:review-slice`, `/hitl:umbrella-pr`) with nothing installed, and the TL;DR at the top of PR bodies in both modes. |
