@@ -216,6 +216,16 @@ describe("archiveDocs", () => {
     archiveDocs(repo, "feat/x-slice-1-a", [SPEC], dest);
     expect(filesIn(dest)).toEqual(["specs/2026-11-12-x-design.md"]);
   });
+
+  it("leaves the previous archive whole when a copy fails partway, and no temp folder", () => {
+    const parent = join(tmp("hitl-arch-"), "features");
+    const dest = join(parent, "d-x");
+    archiveDocs(repo, "feat/x-slice-1-a", FOUR, dest);
+    const missing = "docs/superpowers/plans/2026-11-12-x-slice-9-gone.md";
+    expect(() => archiveDocs(repo, "feat/x-slice-1-a", [SPEC, missing], dest)).toThrow();
+    expect(filesIn(dest)).toEqual(FOUR.map((f) => f.slice("docs/superpowers/".length)).sort());
+    expect(readdirSync(parent)).toEqual(["d-x"]);
+  });
 });
 
 describe("wipeCommit", () => {

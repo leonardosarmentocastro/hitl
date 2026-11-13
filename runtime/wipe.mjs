@@ -7,7 +7,15 @@
 // with a temporary index: the working tree and the checked-out branch are never touched.
 // CLI: archive | build. Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,19 +62,29 @@ export function featureDocs(repo, tip, base) {
     .sort();
 }
 
-/** Make `dest` hold exactly `files` as they are at `tip`, relative to docs/superpowers/. */
+/**
+ * Make `dest` hold exactly `files` as they are at `tip`, relative to docs/superpowers/. The copy
+ * is written to a sibling temp folder and renamed into place, so a failure leaves `dest` as it was.
+ */
 export function archiveDocs(repo, tip, files, dest) {
-  rmSync(dest, { recursive: true, force: true });
-  mkdirSync(dest, { recursive: true });
-  for (const f of files) {
-    const content = execFileSync("git", ["show", `${tip}:${f}`], {
-      cwd: repo,
-      stdio: ["ignore", "pipe", "pipe"],
-      maxBuffer: 64 * 1024 * 1024,
-    });
-    const out = join(dest, f.startsWith(DOCS) ? f.slice(DOCS.length) : f);
-    mkdirSync(dirname(out), { recursive: true });
-    writeFileSync(out, content);
+  mkdirSync(dirname(dest), { recursive: true });
+  const staging = mkdtempSync(`${dest}.tmp-`);
+  try {
+    for (const f of files) {
+      const content = execFileSync("git", ["show", `${tip}:${f}`], {
+        cwd: repo,
+        stdio: ["ignore", "pipe", "pipe"],
+        maxBuffer: 64 * 1024 * 1024,
+      });
+      const out = join(staging, f.startsWith(DOCS) ? f.slice(DOCS.length) : f);
+      mkdirSync(dirname(out), { recursive: true });
+      writeFileSync(out, content);
+    }
+    rmSync(dest, { recursive: true, force: true });
+    renameSync(staging, dest);
+  } catch (e) {
+    rmSync(staging, { recursive: true, force: true });
+    throw e;
   }
 }
 
