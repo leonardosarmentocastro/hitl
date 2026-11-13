@@ -217,15 +217,27 @@ export function renderAll(pluginRoot, choices) {
  * `template` is relative to templates/; "HITL.md" is the core doctrine (no testing fragments).
  */
 export function pluginFiles() {
-  return [{ pluginPath: "doctrine/HITL.md", template: "HITL.md", executable: false }];
+  return [
+    { pluginPath: "doctrine/HITL.md", template: "HITL.md", executable: false },
+    { pluginPath: "runtime/pr/pr.sh", template: "scripts/pr.sh", executable: true },
+    {
+      pluginPath: "runtime/pr/backend.sh",
+      template: "scripts/backends/github.sh",
+      executable: true,
+    },
+  ];
 }
 
-/** Every plugin file rendered in no-install mode: pluginPath -> { content, executable }. */
+/**
+ * Every plugin file rendered in no-install mode: pluginPath -> { content, executable }. Only
+ * Markdown templates are mode-rendered; every other template is copied byte for byte.
+ */
 export function renderPlugin(pluginRoot) {
   const out = new Map();
   for (const f of pluginFiles()) {
     const text = readFileSync(join(pluginRoot, "templates", f.template), "utf8");
-    out.set(f.pluginPath, { content: renderMode(text, "no-install"), executable: f.executable });
+    const content = f.template.endsWith(".md") ? renderMode(text, "no-install") : text;
+    out.set(f.pluginPath, { content, executable: f.executable });
   }
   return out;
 }

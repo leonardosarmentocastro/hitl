@@ -1,7 +1,7 @@
 // scripts/__tests__/plugin-drift.test.ts
 // The plugin's no-install files are rendered from the same templates as the installed ones:
 // every file `renderPlugin` produces must be checked in, byte for byte.
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { THIS_REPO_CHOICES, renderAll, renderMode, renderPlugin } from "../../installer/lib.mjs";
@@ -11,9 +11,21 @@ const ROOT = process.cwd();
 describe("the plugin equals its no-install render", () => {
   const rendered = renderPlugin(ROOT);
 
-  for (const [p, { content }] of rendered)
+  for (const [p, { content, executable }] of rendered) {
     it(`${p} matches its template`, () =>
       expect(readFileSync(join(ROOT, p), "utf8")).toBe(content));
+    if (executable)
+      it(`${p} is executable`, () => expect(statSync(join(ROOT, p)).mode & 0o111).not.toBe(0));
+  }
+
+  it("ships the PR shim byte-for-byte, executable", () => {
+    const shim = rendered.get("runtime/pr/pr.sh");
+    expect(shim?.content).toBe(readFileSync(join(ROOT, "templates/scripts/pr.sh"), "utf8"));
+    expect(shim?.executable).toBe(true);
+    expect(rendered.get("runtime/pr/backend.sh")?.content).toBe(
+      readFileSync(join(ROOT, "templates/scripts/backends/github.sh"), "utf8"),
+    );
+  });
 
   const doc = rendered.get("doctrine/HITL.md")!.content;
 
