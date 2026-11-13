@@ -167,6 +167,34 @@ describe("context.mjs JSON", () => {
     expect(fromWt.record).toEqual(expect.objectContaining({ worktree: wt, topic: "thing" }));
     expect(context(r).out.record).toBeNull();
   });
+
+  it("reports an installed repository without resolving the base, even when origin is unreachable", () => {
+    const r = clone();
+    installed(r);
+    git(r, "remote", "set-head", "origin", "-d");
+    git(r, "remote", "set-url", "origin", join(r, "missing.git"));
+    const { status, out } = context(r);
+    expect(status).toBe(0);
+    expect(out.mode).toBe("installed");
+    expect(out.base).toBeNull();
+    expect(out.baseError).toBeUndefined();
+  });
+
+  it("reports an unresolvable base as null with its reason, and brief still fails on it", () => {
+    const r = tmp("hitl-context-");
+    git(r, "init", "-q", "-b", "trunk");
+    git(r, "commit", "-q", "--allow-empty", "-m", "init");
+    git(r, "checkout", "-q", "--detach");
+    const { status, out } = context(r);
+    expect(status).toBe(0);
+    expect(out.mode).toBe("no-install");
+    expect(out.base).toBeNull();
+    expect(out.baseError).toEqual(expect.any(String));
+    fact(r, "gates", "gates", "none\n");
+    const b = brief(r);
+    expect(b.status).toBe(2);
+    expect(JSON.parse(b.stdout).error).toMatch(/default branch/);
+  });
 });
 
 describe("context.mjs --format brief", () => {

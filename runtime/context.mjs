@@ -109,9 +109,20 @@ export function run(args) {
     const ctx = readContext(args.repo, args["plugin-root"]);
     const refused = refusal(ctx, format === "brief" ? [...required, "gates"] : required);
     if (refused) return { code: 3, out: refused };
-    ctx.base = ctx.record
-      ? { base: ctx.record.base, branch: branchOf(ctx.record.base) }
-      : defaultBase(args.repo);
+    // An installed repository never uses the base; elsewhere only the brief needs it, so JSON
+    // reports a lookup failure (offline, no origin/HEAD, detached HEAD) instead of failing.
+    ctx.base = null;
+    if (ctx.mode === "no-install") {
+      try {
+        ctx.base = ctx.record
+          ? { base: ctx.record.base, branch: branchOf(ctx.record.base) }
+          : defaultBase(args.repo);
+      } catch (e) {
+        const error = `cannot resolve the default branch: ${String(e?.message ?? e)}`;
+        if (format === "brief") return { code: 2, out: { error } };
+        ctx.baseError = error;
+      }
+    }
     if (format === "brief") return { code: 0, text: briefOf(ctx, args["plugin-root"]) };
     return { code: 0, out: ctx };
   } catch (e) {

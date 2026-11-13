@@ -39,7 +39,9 @@ For `node` or `git` missing, stop and name the one to install.
 node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}"
 ```
 
-Exit `2` (not a git repository) → say so and stop. Otherwise read the JSON:
+Exit `2` → this folder is not a git repository (or hitl could not read it): say so, with
+its `error`, and stop. Otherwise read the JSON. A `base: null` with a `baseError` is not a
+failure here — step 4 resolves the base and stops there if it cannot:
 
 - **`mode: "installed"`** → say exactly, as your first line:
 
@@ -75,11 +77,12 @@ The base branch is never assumed. First:
 node "${CLAUDE_PLUGIN_ROOT}/runtime/session.mjs" base --repo "$PWD"
 ```
 
-and use its `base` wherever the procedure branches from the base (`<base>`). Then run the
-doctrine's § Feature branches worktree procedure — including its *Already in this topic's
-worktree* and *Collision* cases; do not improvise another one. Once the session is in the
-topic's worktree — created now, already there, or an existing one the human chose to
-reuse — register it:
+If it exits non-zero, say `cannot resolve the default branch: <its error>` and stop — never
+assume one. Otherwise use its `base` wherever the procedure branches from the base
+(`<base>`). Then run the doctrine's § Feature branches worktree procedure — including its
+*Already in this topic's worktree* and *Collision* cases; do not improvise another one.
+Once the session is in the topic's worktree — created now, already there, or an existing
+one the human chose to reuse — register it:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/runtime/session.mjs" start --worktree "<absolute worktree path>" --topic "<topic>" --base "<base>"
