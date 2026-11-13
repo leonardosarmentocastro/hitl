@@ -157,7 +157,9 @@ export function run(verb, args) {
       if (args.field !== undefined && !FIELDS.includes(args.field)) return usage;
       const record = getRecord(args.worktree);
       if (args.field !== undefined) {
-        return record ? { code: 0, text: `${record[args.field]}\n` } : { code: 3, text: "" };
+        // A hand-edited record without the field counts as no record, not the text "undefined".
+        const value = record?.[args.field];
+        return value == null ? { code: 3, text: "" } : { code: 0, text: `${value}\n` };
       }
       return record ? { code: 0, out: { record } } : { code: 3, out: { refused: "no-record" } };
     }

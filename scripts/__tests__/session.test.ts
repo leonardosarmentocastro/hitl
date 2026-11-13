@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -227,6 +228,21 @@ describe("session.mjs get --field", () => {
 
   it("exits 3 with nothing on stdout when there is no record", () => {
     const { clones } = world("main");
+    const r = raw("get", "--worktree", clones[0], "--field", "base");
+    expect(r.status).toBe(3);
+    expect(r.stdout).toBe("");
+  });
+
+  it("exits 3 with nothing on stdout when the record lacks the field", () => {
+    const { clones } = world("main");
+    cli("start", "--worktree", clones[0], "--topic", "t", "--base", "origin/main");
+    const records = readdirSync(home, { recursive: true, encoding: "utf8" }).filter((p) =>
+      /active[\\/][^\\/]+\.json$/.test(p),
+    );
+    expect(records).toHaveLength(1);
+    const path = join(home, records[0]);
+    const { base: _drop, ...rest } = JSON.parse(readFileSync(path, "utf8"));
+    writeFileSync(path, `${JSON.stringify(rest)}\n`);
     const r = raw("get", "--worktree", clones[0], "--field", "base");
     expect(r.status).toBe(3);
     expect(r.stdout).toBe("");
