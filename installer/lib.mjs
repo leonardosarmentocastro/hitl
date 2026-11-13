@@ -212,6 +212,9 @@ export function renderAll(pluginRoot, choices) {
   return out;
 }
 
+/** The agents and commands the plugin renders for no-install mode, as their slices land. */
+const PLUGIN_AGENTS = ["spec-reviewer", "plan-reviewer", "handover"];
+
 /**
  * The files the plugin ships for no-install mode, rendered from templates/ into the plugin tree.
  * `template` is relative to templates/; "HITL.md" is the core doctrine (no testing fragments).
@@ -219,6 +222,11 @@ export function renderAll(pluginRoot, choices) {
 export function pluginFiles() {
   return [
     { pluginPath: "doctrine/HITL.md", template: "HITL.md", executable: false },
+    ...PLUGIN_AGENTS.map((a) => ({
+      pluginPath: `agents/${a}.md`,
+      template: `claude/agents/${a}.md`,
+      executable: false,
+    })),
     { pluginPath: "runtime/pr/pr.sh", template: "scripts/pr.sh", executable: true },
     {
       pluginPath: "runtime/pr/backend.sh",
