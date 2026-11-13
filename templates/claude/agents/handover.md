@@ -29,6 +29,10 @@ If your brief carries no hitl context block, reply "blocked: no hitl context" an
 - Branches, local AND remote (a blocked implementer never pushes, so a `branched` slice may
   exist only locally): `git fetch -q --prune origin` then
   `git branch -a --list '<feature-branch>-slice-*' --list 'origin/<feature-branch>-slice-*'`.
+<!-- hitl:mode no-install -->
+  When the repository has no `origin` remote (`git remote get-url origin` fails), skip the
+  fetch and list local branches only.
+<!-- hitl:mode end -->
 <!-- hitl:mode installed -->
 - PRs: `scripts/hitl/pr.sh list --head-prefix "<feature-branch>"` (every state; each record
   carries `number`, `head`, `base`, `state`, `draft`, `title`) and
@@ -124,8 +128,9 @@ reconstruct. No file, function or test names.>
 Spec, plans and this document are transient and are removed from `main` after merge. This
 description is the durable record.
 <!-- hitl:mode no-install -->
-Spec, plans and this document are transient and are removed from <the branch on the hitl
-context block's "Base:" line> after merge. This description is the durable record.
+Spec, plans and this document are transient and are removed before this feature merges
+into the branch on the hitl context block's "Base:" line. This description is the durable
+record.
 <!-- hitl:mode end -->
 
 ## Fix-up
