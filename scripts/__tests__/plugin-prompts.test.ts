@@ -93,6 +93,38 @@ describe("the plugin's no-install prompts", () => {
     );
   });
 
+  for (const c of ["implement-stack", "review-slice", "umbrella-pr"])
+    it(`commands/${c}.md checks the hitl context first and loads the doctrine`, () => {
+      const text = rendered.get(`commands/${c}.md`)?.content ?? "";
+      const pr = c !== "review-slice";
+      expect(text).toContain(
+        `--require ${pr ? "no-install,github,gates" : "no-install,gates"} --format brief`,
+      );
+      expect(text).toContain(`run this repository's own ${c} command (no hitl: prefix) instead.`);
+      expect(text.includes("issues/19")).toBe(pr);
+      expect(text).toContain(
+        'Read the file on the "Doctrine:" line in full unless this session already has',
+      );
+    });
+
+  it("commands/umbrella-pr.md opens the umbrella on the recorded base, never on main", () => {
+    const umbrella = rendered.get("commands/umbrella-pr.md")?.content ?? "";
+    expect(umbrella).toContain('--base "<Base>"');
+    expect(umbrella).not.toMatch(/--base main/);
+  });
+
+  it("commands/implement-stack.md opens PRs through the plugin shim with memory sections", () => {
+    const stack = rendered.get("commands/implement-stack.md")?.content ?? "";
+    expect(stack).toContain('"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" create');
+    expect(stack).toContain("pr-section fact");
+    expect(stack).toContain("_not captured_");
+    for (const a of ["implementer", "fixer"]) expect(stack).toContain("`hitl:" + a + "`");
+    expect(stack.indexOf("## TL;DR")).toBeGreaterThan(stack.indexOf("Plan: <plan path>"));
+    expect(stack.indexOf("--require no-install,github,gates")).toBeLessThan(
+      stack.indexOf("git fetch"),
+    );
+  });
+
   it("commands/review-plan.md hands over on convergence by the same rules", () => {
     const rp = rendered.get("commands/review-plan.md")!.content;
     for (const s of [

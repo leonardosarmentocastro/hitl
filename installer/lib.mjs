@@ -221,7 +221,14 @@ const PLUGIN_AGENTS = [
   "fixer",
   "slice-reviewer",
 ];
-const PLUGIN_COMMANDS = ["review-spec", "review-plan", "handover"];
+const PLUGIN_COMMANDS = [
+  "review-spec",
+  "review-plan",
+  "handover",
+  "implement-stack",
+  "review-slice",
+  "umbrella-pr",
+];
 
 /**
  * The files the plugin ships for no-install mode, rendered from templates/ into the plugin tree.

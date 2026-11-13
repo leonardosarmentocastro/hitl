@@ -7,6 +7,34 @@ You are the orchestrator. You hold stack state and dispatch cold subagents; you 
 implement, review or fix anything yourself. Your context stays small: paths, branch names,
 PR numbers, and each agent's few-line reply.
 
+<!-- hitl:mode no-install -->
+## Before anything: the hitl context
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,github,gates --format brief
+```
+
+- Exit 3 with `refused: "installed"` → print exactly the line below and stop:
+
+  ```
+  hitl is installed in this repository — run this repository's own implement-stack command (no hitl: prefix) instead.
+  ```
+
+- Exit 3 with `refused: "not-github"` → print exactly the line below and stop, before any
+  fetch, checkout or branch:
+
+  ```
+  This repository is not on GitHub: opening PRs needs https://github.com/leonardosarmentocastro/hitl/issues/19. Implement from the handover by hand until then.
+  ```
+
+- Exit 3 with `refused: "no-gates"` → print `This project has no confirmed gates on this machine — confirm them now.`,
+  read the doctrine (`${CLAUDE_PLUGIN_ROOT}/doctrine/HITL.md`), run its § Project memory,
+  *Confirming gates*, then run this step again.
+- Exit 2 → print its `error` and stop.
+- Exit 0 → keep the printed `## hitl context (no-install)` block: it is appended, verbatim,
+  to every agent brief in this command (implementer, slice reviewer, fixer). Read the file on the "Doctrine:" line in full unless this session already has; it governs this command.
+
+<!-- hitl:mode end -->
 ## 0. Read the handover
 
 `$ARGUMENTS` is the handover document. Read it. Note mode, feature branch, spec(s), and the
@@ -85,6 +113,7 @@ No second review. The fixer's commits ship as they are.
 
 **e. Push and open the PR.**
 
+<!-- hitl:mode installed -->
 ```bash
 git push -u origin "<branch>"
 scripts/hitl/pr.sh create --base "<parent>" --head "<branch>" --title "Slice <N>: <plan title>" --body-file <tmp>
@@ -95,6 +124,18 @@ request for this branch already exists — the state a resumed `branched` slice 
 run that crashed after pushing — and the record on stdout is that PR's: take its `number`,
 put the body on it with `scripts/hitl/pr.sh edit <number> --body-file <tmp>`, and carry on.
 Any other non-zero exit is a **STOP**.
+<!-- hitl:mode no-install -->
+```bash
+git push -u origin "<branch>"
+"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" create --base "<parent>" --head "<branch>" --title "Slice <N>: <plan title>" --body-file <tmp>
+```
+
+The shim prints the PR's record as JSON; `<number>` is its `number`. Exit `3` means a pull
+request for this branch already exists — the state a resumed `branched` slice is left in by a
+run that crashed after pushing — and the record on stdout is that PR's: take its `number`,
+put the body on it with `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" edit <number> --body-file <tmp>`, and carry on.
+Any other non-zero exit is a **STOP**.
+<!-- hitl:mode end -->
 
 <!-- hitl:knob pr-body-sections -->
 Body (write it in the register of explaining to a newcomer; no file, function or test names
@@ -108,11 +149,20 @@ Plan: <plan path>
 What — <2–3 sentences>
 Why — <2–3 sentences>
 How — <2–5 sentences; the approach and any real choice made>
+<!-- hitl:mode no-install -->
+
+<one section per pr-section fact in the hitl context block's project memory, written as that fact describes; none if there is no such fact>
+<!-- hitl:mode end -->
 
 ## Review decisions
 <the block from /review-slice, plus the fixer's not-reproduced items; or "None — every finding was applied.">
 <any allowed plan edit the implementer made, one line each>
 ```
+<!-- hitl:mode no-install -->
+
+A section a pr-section fact asks for that cannot be produced honestly (a screenshot that could
+not be taken) is written as `_not captured_ — <why>`, never invented.
+<!-- hitl:mode end -->
 
 Update the row in the handover document on this branch: status `open #<number>`, and — if a
 plan header changed — its `owns`. Commit `docs(handover): slice <N> open #<number>` and push.
@@ -156,7 +206,11 @@ For each `### Slice <N>` section under `## Fix-up`, in order:
    written. The § 1c "no review" and "wrong gate" stops apply here too. Fixer on APPLY rows
    as in 1d.
 3. Push (fast-forward). Append the Review decisions to the PR with
+<!-- hitl:mode installed -->
    `scripts/hitl/pr.sh comment <number> --body-file <tmp>`.
+<!-- hitl:mode no-install -->
+   `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" comment <number> --body-file <tmp>`.
+<!-- hitl:mode end -->
 Then follow `### Restack order`: for each `<B> onto <A> (old parent tip: <sha>)`,
 `git checkout <B> && git rebase --onto <A> <sha>` — the sha is recorded in the handover's
 Fix-up section by the handover agent, never recomputed here. Before ANY force-push, stop
