@@ -3,6 +3,7 @@
 Tracks: https://github.com/leonardosarmentocastro/hitl/issues/19
 
 **Review mode:** simple
+**Reviewed:** round 1 (2026-11-15).
 
 ## Goal
 
@@ -91,13 +92,23 @@ Anti-goals
 
 ### 1. Host detection — one rule
 
-`hostOf` (today in `installer/discover.mjs`, used by `/hitl:init` and by
-`runtime/context.mjs`) is the only place that decides the host. It gains the environment:
+One rule decides the host, and it has one source. Today it is `hostOf` in
+`installer/discover.mjs`, which returns a string. It becomes a self-contained module (no
+imports beyond Node's own) that takes the remote URL and the environment and returns the
+host, and for GitLab the API base and the project id. That one file reaches its three
+consumers without being rewritten: the installer and `runtime/context.mjs` import it, the
+plugin's shim imports it, and the installer copies it verbatim into `scripts/hitl/` for an
+installed GitLab repository, where the backend imports the copy. An installed repository
+cannot import from the plugin, so a copy is unavoidable; the drift test keeps the copy equal
+to the source, and one table of cases in the tests runs against the rule.
+
+The rule:
 
 - hostname `github.com` → `github`; `bitbucket.org` → `bitbucket` (unchanged);
 - hostname `gitlab.com` → `gitlab`;
 - `GITLAB_URL` is set and the remote's hostname equals `GITLAB_URL`'s hostname → `gitlab`;
-- anything else → `unknown`.
+- anything else → `unknown`. A `GITLAB_URL` that does not parse as a URL (no scheme, empty)
+  counts as unset here, and the GitLab backend refuses with a message naming the variable.
 
 Hostnames compare case-insensitively; the port is ignored (an ssh remote carries none).
 
@@ -153,16 +164,23 @@ Auth is the `PRIVATE-TOKEN` header. The token needs the `api` scope; the message
 - `create` — `POST /projects/:id/merge_requests`. `--draft` prefixes the title with
   `Draft: `. Every MR hitl opens carries the label `hitl` (GitLab creates the label on first
   use). No reviewers, no assignees. When GitLab answers 409 because an open MR already
-  exists for the source branch, the backend finds it (`source_branch=<head>&state=opened`),
-  prints its record and exits 3.
+  exists for the source branch, the backend finds it (`source_branch=<head>&state=opened`,
+  without the label filter), adds the `hitl` label if it lacks it — so later listings see an
+  MR that was opened by hand — prints its record and exits 3.
 - `list` — `GET /projects/:id/merge_requests`, `per_page=100`, following pages. `--state`
   maps `open` → `opened`; `merged`, `closed`, `all` pass through. GitLab cannot filter by a
   source-branch prefix, so the server narrows by `labels=hitl` and the prefix filter is
-  client-side (`head` starts with the prefix, matched literally). Past 1000 labelled merge
-  requests (10 pages) it exits 2 with a message that the list would be incomplete — never a
-  partial list. Consequence, stated in `/hitl:help` on a GitLab repository: an MR opened by
-  hand without the `hitl` label is invisible to hitl until the label is added.
-- `view` — the record plus `reviews` and `comments`, from the MR's approvals and discussions:
+  client-side (`head` starts with the prefix, matched literally). It follows pages to the
+  end, with no cut-off: the label keeps the count to the MRs hitl ever opened in the project
+  (a 15-slice feature is 16 of them), and a cut-off there would be a wall the project hits
+  for good after enough features. A page that fails is exit 2 — never a partial list.
+  Consequence, stated in `/hitl:help` on a GitLab repository: an MR opened by hand without
+  the `hitl` label is invisible to hitl until the label is added. That holds for
+  `/hitl:cleanup` too, which lists through the shim: it never counts an unlabelled MR as
+  evidence that a feature merged.
+- `view` — the record plus `reviews` and `comments`, from the MR's approvals and discussions.
+  Discussions are paginated like any GitLab list: `view` follows every page (`per_page=100`)
+  to the end, so a long review never reads back with threads missing:
   - each approver → a review `approved`, empty body;
   - each **unresolved** resolvable thread → a review `changes_requested`, author and body of
     the thread's first note;
@@ -197,7 +215,10 @@ umbrella's stack block, comments, final reports) names a PR by its record's `ref
 - `/hitl:help` reports the prerequisite of the repository's host: `gh` signed in on GitHub;
   on GitLab, whether `GITLAB_TOKEN` is set, and `GITLAB_URL` when the host is self-hosted. It
   reads the provider from the manifest when there is one, else from the remote.
-- An installed GitLab repository now needs Node 20+ at run time, not only at install time.
+- From this feature on, **every** installed repository needs Node 20+ at run time, not only
+  at install time: the wipe builder (§ 5) is a Node program on both hosts, and so is the
+  GitLab backend. `/hitl:init` and `/hitl:help` already check Node; the doctrine's
+  prerequisites say so.
 
 ### 4. No-install mode on GitLab
 
@@ -226,27 +247,43 @@ creates or retargets its Draft PR. Installed mode gets the same:
 - The installed `/umbrella-pr` gains the wipe step and the stack block's wipe line, and the
   installed `/implement-stack` its "merge it last" report line and the force-push exception
   for the generated wipe branch — the text no-install mode has today, no longer mode-gated.
-- The wipe builder is installed into `scripts/hitl/` as an owned file. In installed mode
-  there is no active-feature record and no memory folder, so: the base branch is passed to it
-  explicitly, and nothing is archived. The PR descriptions are the record, as the doctrine
-  already says. The no-install behaviour (record, archive) is unchanged.
+- The wipe builder is installed into `scripts/hitl/` as an owned file. `runtime/wipe.mjs`
+  cannot be that file: it imports the installer's library, the project memory and the session
+  record, none of which exist in a target repository. So the builder is split along that line.
+  The core — find the feature's documents against an explicit base, build the one-commit wipe
+  branch, push it, create or retarget its Draft PR through the shim — becomes one
+  self-contained file with its own command line. The installer copies it verbatim into
+  `scripts/hitl/`; `runtime/wipe.mjs` imports the same file and adds what only no-install
+  mode has: the base from the active-feature record, and the archive to the memory folder.
+  One source, so the two modes cannot drift; the drift test covers the installed copy.
+- In installed mode, then: the base branch is passed explicitly and nothing is archived. The
+  PR descriptions are the record, as the doctrine already says. The no-install behaviour
+  (record, archive) is unchanged.
 - Removed: `templates/ci/github-actions/wipe-superpowers-docs.yml`, the
   `wipe-superpowers-docs.sh` script, their tests, the init question about the wipe job, and
   the wipe half of the `testing-rules` customize knob.
 - *(My call:)* the `ci` choice then decides nothing, so it leaves the answers file and the
   manifest. A manifest that still carries `ci` is read without complaint and written back
-  without it. The `ci` *testing fragment* (`testing: ["ci"]`) is a different thing and stays.
+  without it; an answers file is accepted with or without a `ci` key, which is ignored (today
+  `adopt.mjs` and `render.mjs` refuse an unknown or missing one). The `ci` *testing fragment* (`testing: ["ci"]`) is a different thing and stays.
 - Upgrade: `/hitl:diff --apply` already deletes files "removed upstream", so an existing
   install loses the workflow and the script on its next upgrade, and gains the wipe builder.
+  A stack that was in flight during the upgrade (umbrella PR already open) has no wipe PR
+  yet: re-running `/umbrella-pr` builds it, and the upgrade report says so. Otherwise that
+  feature's documents would reach `main` with no job left to remove them.
 - Doctrine (`templates/HITL.md`, both modes): specs and plans leave through the generated
   wipe PR, merged last — after every slice, before the umbrella PR. The sentences about a
   workflow deleting them after merge, "deleted by hand", "the wipe script" in § Where things
-  live and in the load-bearing invariants, and the claim that an umbrella PR's diff is never
-  empty *because* it carries the documents, are rewritten to match (the no-install doctrine
-  already has the wording).
+  live and in the load-bearing invariants are rewritten to match (the no-install doctrine
+  already has that wording). In both doctrines, the sentence that a one-slice feature's
+  umbrella PR "is never empty because the feature branch carries the spec, the plan and the
+  handover document" is replaced: the umbrella PR carries the feature's code; the documents
+  have left through the wipe PR before it merges.
 - This repository is its own first consumer: its `.github/workflows/wipe-superpowers-docs.yml`
   and `scripts/hitl/wipe-superpowers-docs.sh` go, and `.claude/hitl.json` and the plugin's
-  no-install files are regenerated (`AGENTS.md` describes both refreshes).
+  no-install files are regenerated (`AGENTS.md` describes both refreshes). `AGENTS.md`'s
+  own mentions of the wipe script and the wipe workflow, and `README.md`'s issue #19 line, are
+  rewritten with them.
 
 ## Testing
 
@@ -254,13 +291,20 @@ creates or retargets its Draft PR. Installed mode gets the same:
   `gh` they use today, GitLab against a fake API — a local HTTP server the test starts, with
   `GITLAB_URL` and a temp repository's `origin` pointing at it. (A synchronous child process
   blocks the event loop the fake server runs on; the test must spawn asynchronously or run
-  the server out of process.) GitLab-only cases: pagination and the 1000 cut-off, the 409 →
+  the server out of process.) GitLab-only cases: pagination, the 409 →
   exit 3 path, the `hitl` label on create and in the list query, the reviews mapping, the missing-token and host-mismatch refusals, that no
   request is made in either refusal, and the three remote URL forms.
-- `hostOf` with and without `GITLAB_URL`; `context.mjs` `--require host`; `help.mjs`
+- **The plugin's shim picks the right backend** (slice 6 owns these), run through
+  `runtime/pr/pr.sh` itself: a GitHub remote reaches the fake `gh` and makes no HTTP request;
+  a `gitlab.com` or `GITLAB_URL`-matching remote reaches the fake API and never calls `gh`;
+  an unknown remote exits 2 having called neither.
+- `view` across more than one page of discussions; `list` across more than one page.
+- The host rule's case table, with and without `GITLAB_URL` (including one that does not
+  parse); `context.mjs` `--require host`; `help.mjs`
   prerequisites per host; render, adopt, diff and drift tests for `provider: gitlab`, for the
   removed files and for a manifest with a leftover `ci`.
-- `wipe.mjs` in installed mode: explicit base, no record, nothing archived.
+- The wipe core on its own (explicit base, no record, nothing archived), and
+  `runtime/wipe.mjs` over it unchanged in behaviour — its existing tests still pass.
 - Prompts are validated by dry run on fixtures, as `AGENTS.md` says. The first real run on a
   GitLab project is watched by a human.
 
@@ -297,3 +341,12 @@ proven by the shim tests alone.
 File names and module layout of the GitLab backend; how the plugin's shim dispatches; how the
 fake API server is run in tests; exact wording of refusals and help lines; whether slices 5
 and 6 share helper code for the prerequisite checks.
+
+## Decisions and declined alternatives
+
+- *Forwarded to the plan gate:* GitLab also reads `[Draft]`, `(Draft)` and `Draft ` as draft
+  markers; the record's `title` should strip whichever marker is present, not only `Draft:`.
+- A cut-off on `list` (1000 MRs, then 1000 labelled MRs) — declined: with the label narrowing
+  the server it counts the project's whole hitl history and becomes a permanent wall.
+- The review of this spec is an experiment tracked in issue #36: round 1 cold, round 2 by the
+  adversarial reviewer alone, under `**Review mode:** simple`.
