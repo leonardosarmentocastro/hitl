@@ -1,6 +1,6 @@
 # Review modes — simple or elaborate, chosen per feature
 
-**Reviewed:** round 1 (2026-11-15).
+**Reviewed:** round 1 (2026-11-15) · round 2 (2026-11-15).
 
 ## Intent
 
@@ -37,8 +37,9 @@ feature, whether the feature gets them.
 ## Anti-goals
 
 - Simple mode changing in any way for a feature that picks it. The one acknowledged
-  difference is the one-time question a spec with no review recorded yet is asked; a spec
-  that already has a round recorded and no mode line is simple and is asked nothing.
+  differences are two one-time questions: the one a spec with no review recorded yet is
+  asked, and the one `/review-slice` asks when run by hand with no handover document. A
+  spec that already has a round recorded and no mode line is simple and is asked nothing.
 - A third triage sitting. Elaborate mode has two rounds, like simple mode.
 - Forced findings. A reviewer with nothing to report says so.
 
@@ -50,7 +51,8 @@ A spec carries, in its header block (between the `#` title and the first `##`):
 **Review mode:** simple
 ```
 
-or `elaborate`. It becomes a load-bearing invariant, listed in `HITL.md` with its parsers:
+or `elaborate`. The value is read ignoring case, surrounding whitespace and a trailing
+period, so a hand edit such as `Elaborate.` is accepted. It becomes a load-bearing invariant, listed in `HITL.md` with its parsers:
 `/review-spec`, `/review-slice` and `/implement-stack`. Because it is an invariant,
 `/hitl:customize` refuses to change it.
 
@@ -70,12 +72,19 @@ the round it runs follows the line as it reads at that moment:
 - `simple` with round 1 recorded → round 2 is a cold round, as today, also when round 1 ran
   while the line said `elaborate`;
 - any other value → refused with a message naming the two valid values; nothing is reviewed
-  until it is fixed.
+  until it is fixed;
+- two rounds recorded → stop, as today, whatever the line says. If the line says
+  `elaborate`, the stop message adds that the spec gate cannot tell whether its adversarial
+  and security round ran, and that a line changed to `elaborate` after two cold rounds means
+  it did not. Nothing is rerun; the code gate still follows the line.
 
 **Reading it at the code gate.** `/implement-stack` and `/review-slice` read the mode from
 the spec or specs the handover document lists under `Spec(s):`.
 
+- `/implement-stack` reads it once per slice, when that slice's review starts, so an edit
+  between slices takes effect from the next slice.
 - Several specs: the feature is elaborate if any listed spec says `elaborate`.
+- A listed spec file that does not exist is a **STOP**, not `simple`.
 - No line in any listed spec → `simple`.
 - An invalid value in any listed spec is a **STOP** in `/implement-stack` and a refusal in
   `/review-slice` — never a silent fall to simple.
@@ -121,9 +130,11 @@ cold spec review → triage → fold in  →    adversarial ─┐
 - No third round, in any circumstance. The round-2 blocker rule is unchanged.
 - **The `review-rounds` knob.** `/hitl:customize` lets a repository tune how many cold
   rounds a spec or plan gets (default two). That knob keeps governing simple mode and the
-  plan gate, and nothing else. Elaborate mode is fixed at one cold round plus the
-  adversarial and security round whatever the knob says; its text sits outside the knob's
-  anchors, and the knob's description in `/hitl:customize` says so.
+  plan gate, and nothing else. In elaborate mode the spec gate runs exactly two rounds —
+  one cold, one adversarial and security — and stops after two recorded rounds, for any
+  value of the knob, including 1 and 3. The paragraphs that state this are not under the
+  knob's anchors, so `/hitl:customize` cannot rewrite them, and the knob's description in
+  `/hitl:customize` says what it no longer covers.
 
 The Stop hook is untouched: it only requires a `**Reviewed:**` line, and the round grammar
 does not change.
@@ -254,9 +265,11 @@ A target with nothing security-relevant (a documentation slice) gets a review th
 - The prompts themselves are validated by dry runs, as `AGENTS.md` prescribes:
   - Simple mode: `/review-spec` on the existing spec fixture, which has no mode line and is
     not changed, must ask nothing and behave exactly as today.
-  - Elaborate spec gate: `/review-spec` on the new elaborate fixture must produce three
-    review files and a merged triage that includes the planted hole and the planted
-    assumption, and must leave the committed fixture unchanged.
+  - Elaborate spec gate: the new elaborate fixture carries `**Review mode:** elaborate` and
+    a recorded `**Reviewed:** round 1`, so the dry run starts at round 2 on the planted text
+    as committed and a cold round cannot fix the planted problems first. It must produce the
+    three round-2 review files and a merged triage that includes the planted hole and the
+    planted assumption, and must leave the committed fixture unchanged.
   - Elaborate code gate, the reviewers: a new fixture diff with a planted injection and a
     planted breakable assumption, with a matching fixture plan. Each new reviewer is run on
     it directly with a slice brief and must report its planted problem; the follow-up is run
@@ -265,16 +278,26 @@ A target with nothing security-relevant (a documentation slice) gets a review th
     by a human watching the first real slice of a feature marked elaborate. A fixture
     cannot stand in for a slice branch, a parent and a PR without building a second
     orchestrator, which is heavier than what it would prove.
+  - The way into elaborate mode — the question, the answer written into the header, the
+    hand-off from round 1 to round 2, and the code gate reading the line — is validated by
+    the same watched first real elaborate feature.
+  - The invalid-value refusal, the several-specs rule and the missing-spec STOP are covered
+    by prompt-text assertions only and are accepted as unproven until first use.
+- The knob-anchor test asserts that the elaborate round rule is not under a `review-rounds`
+  anchor.
 
 ## Delivery slices
 
 1. **Elaborate spec review.** The mode line and the question that sets it, both new
-   reviewers with their spec side, the round-2 flow in `/review-spec`, the invariant, the
-   elaborate spec fixture, and the doctrine paragraphs about the mode line and the spec
-   gate. Provable alone: a spec can be reviewed in either mode.
+   reviewers with their spec side, the round-2 flow in `/review-spec`, the invariant (naming
+   `/review-spec` as its parser), the elaborate spec fixture, the installer's file lists,
+   the `/hitl:customize` refusal and knob description, and the doctrine, `/hitl:help` and
+   README text about the mode line and the spec gate. Provable alone: a spec can be reviewed
+   in either mode.
 2. **Elaborate slice review.** The reviewers' slice side, the second review and second fix
-   in `/review-slice` and `/implement-stack`, the PR body, the fixture diff, and the
-   doctrine paragraphs about the code gate. Provable as §Testing says: the reviewers by dry
+   in `/review-slice` and `/implement-stack` (added to the invariant's parsers here), the PR
+   body, the fixture diff, and the doctrine, `/hitl:help` and README text about the code
+   gate. Provable as §Testing says: the reviewers by dry
    run, the orchestration by a watched run.
 
 Both slices merge into the feature branch before anything reaches `main`, so no consumer
@@ -302,3 +325,12 @@ ever has the spec gate's elaborate mode without the code gate's.
 - Review round 1, my call: the code gate's orchestration is proven by a watched run, not a
   fixture (see §Testing).
 - Review round 1, my call: with several specs, any `elaborate` wins.
+- Review round 2, declined as not worth it: `**Reviewed:** round 2` is written before the
+  follow-up and the merged triage, so a session that dies there leaves untriaged findings.
+  Same exposure as today's round 2; the review files stay under `.claude/reviews/`.
+- Review round 2, forwarded to the plan gate: what a "fixture diff" is to a reviewer that is
+  normally briefed with a branch range.
+- Review round 2, forwarded to the plan gate: whether fix-up mode's second reviewers get the
+  slice's earlier review decisions for the repeat-decline rule.
+- Review round 2, my call: a mode switched to `elaborate` after two recorded rounds is
+  reported, not rerun — there is never a third round.
