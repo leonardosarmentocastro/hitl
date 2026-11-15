@@ -119,6 +119,17 @@ describe("the plugin's no-install prompts", () => {
       );
     });
 
+  it("commands/review-slice.md runs the second step with the plugin's scripts and agents", () => {
+    const text = rendered.get("commands/review-slice.md")!.content;
+    for (const s of [
+      '"${CLAUDE_PLUGIN_ROOT}/runtime/review-mode.sh"',
+      '"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" view',
+      "`hitl:adversarial-reviewer`",
+      "`hitl:security-reviewer`",
+    ])
+      expect(text).toContain(s);
+  });
+
   it("commands/umbrella-pr.md opens the umbrella on the recorded base, never on main", () => {
     const umbrella = rendered.get("commands/umbrella-pr.md")?.content ?? "";
     expect(umbrella).toContain('--base "<Base>"');

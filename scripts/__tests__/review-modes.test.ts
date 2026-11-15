@@ -106,6 +106,37 @@ describe("/review-spec", () => {
   });
 });
 
+describe("/review-slice --step second", () => {
+  const forms: [string, string | undefined][] = [
+    ["installed", installed.get(".claude/commands/review-slice.md")?.content],
+    ["plugin", plugin.get("commands/review-slice.md")?.content],
+  ];
+
+  for (const [form, text] of forms)
+    it(`(${form}) runs the second step in elaborate mode and refuses it in simple mode`, () => {
+      for (const s of [
+        "--step cold|second",
+        "## 1S. Second step — adversarial and security",
+        "-code-adversarial.md",
+        "-code-security.md",
+        "-code-security-followup.md",
+        "ADV:",
+        "Lens",
+        "refused: this feature is in simple mode — there is no second step",
+        "An invalid value or a missing spec file is a refusal, never simple.",
+        "Pass every path listed under `Spec(s):` to the script in one call.",
+        "is declined again for the same reason and adds no new line",
+        "--pr <number>",
+      ])
+        expect(text).toContain(s);
+    });
+
+  it("runs the installed scripts in the installed form", () => {
+    expect(forms[0][1]).toContain("scripts/hitl/review-mode.sh");
+    expect(forms[0][1]).toContain("scripts/hitl/pr.sh view");
+  });
+});
+
 describe("doctrine and plugin commands", () => {
   const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 
