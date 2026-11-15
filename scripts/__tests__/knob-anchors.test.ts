@@ -47,10 +47,16 @@ describe("knob anchors", () => {
     expect(files.filter((f) => f.endsWith("review-plan.md"))).toHaveLength(2);
   });
 
-  it("severities and reporting-cap are anchored in all three reviewers", () => {
+  it("severities and reporting-cap are anchored in all five reviewers", () => {
     for (const id of ["severities", "reporting-cap"]) {
       const files = found.filter((a) => a.id === id).map((a) => a.file);
-      for (const r of ["spec-reviewer", "plan-reviewer", "slice-reviewer"]) {
+      for (const r of [
+        "spec-reviewer",
+        "plan-reviewer",
+        "slice-reviewer",
+        "adversarial-reviewer",
+        "security-reviewer",
+      ]) {
         expect(
           files.some((f) => f.endsWith(`${r}.md`)),
           `${id} in ${r}`,

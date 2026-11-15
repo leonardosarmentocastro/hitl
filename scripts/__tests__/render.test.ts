@@ -121,7 +121,7 @@ describe("render.mjs on an empty repository", () => {
     expect(manifest.ci).toBe("github-actions");
     expect(manifest.testing).toEqual([]);
     expect(manifest).not.toHaveProperty("gates");
-    expect(Object.keys(manifest.files)).toHaveLength(23);
+    expect(Object.keys(manifest.files)).toHaveLength(25);
     expect(manifest.files["HITL.md"]).toMatch(/^[0-9a-f]{64}$/);
     expect(Object.keys(manifest.files)).toEqual([...Object.keys(manifest.files)].sort());
   });
@@ -132,7 +132,7 @@ describe("render.mjs on an empty repository", () => {
     expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
     expect(manifest.ci).toBe("none");
-    expect(Object.keys(manifest.files)).toHaveLength(22);
+    expect(Object.keys(manifest.files)).toHaveLength(24);
   });
 });
 

@@ -43,6 +43,8 @@ const AGENTS = [
   "implementer",
   "fixer",
   "handover",
+  "adversarial-reviewer",
+  "security-reviewer",
 ];
 const COMMANDS = [
   "review-spec",
@@ -161,7 +163,8 @@ export const MODES = ["installed", "no-install"];
 const MODE_MARKER = /^<!-- hitl:mode (installed|no-install|end) -->$/;
 const PREFIXED_COMMAND =
   /(?<![\w/.:-])\/(review-spec|review-plan|review-slice|handover|implement-stack|umbrella-pr)(?![\w/-])/g;
-const PREFIXED_AGENT = /`(spec-reviewer|plan-reviewer|slice-reviewer|implementer|fixer|handover)`/g;
+const PREFIXED_AGENT =
+  /`(spec-reviewer|plan-reviewer|slice-reviewer|implementer|fixer|handover|adversarial-reviewer|security-reviewer)`/g;
 
 /**
  * Resolve `<!-- hitl:mode installed|no-install|end -->` blocks for one mode. Each marker sits
@@ -225,6 +228,8 @@ const PLUGIN_AGENTS = [
   "implementer",
   "fixer",
   "slice-reviewer",
+  "adversarial-reviewer",
+  "security-reviewer",
 ];
 const PLUGIN_COMMANDS = [
   "review-spec",

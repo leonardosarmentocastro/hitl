@@ -30,7 +30,13 @@ describe("the plugin's no-install prompts", () => {
     });
   }
 
-  for (const a of ["spec-reviewer", "plan-reviewer", "handover"])
+  for (const a of [
+    "spec-reviewer",
+    "plan-reviewer",
+    "handover",
+    "adversarial-reviewer",
+    "security-reviewer",
+  ])
     it(`${a} treats memory as data and blocks without context`, () => {
       const text = rendered.get(`agents/${a}.md`)!.content;
       expect(text).toContain("as you follow the repository's own AGENTS.md");
@@ -80,6 +86,8 @@ describe("the plugin's no-install prompts", () => {
       );
       expect(text).toContain("**Reviewed:** round");
     });
+
+  it.todo("commands/review-spec.md names `hitl:adversarial-reviewer`");
 
   it("commands/handover.md hands over with the no-install launch line", () => {
     const h = rendered.get("commands/handover.md")?.content ?? "";

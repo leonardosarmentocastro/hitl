@@ -45,6 +45,8 @@ describe("installer/lib primitives", () => {
         ".claude/agents/implementer.md",
         ".claude/agents/fixer.md",
         ".claude/agents/handover.md",
+        ".claude/agents/adversarial-reviewer.md",
+        ".claude/agents/security-reviewer.md",
         ".claude/commands/review-spec.md",
         ".claude/commands/review-plan.md",
         ".claude/commands/review-slice.md",
@@ -62,7 +64,7 @@ describe("installer/lib primitives", () => {
         "scripts/hitl/backend.sh",
       ]),
     );
-    expect(paths).toHaveLength(22);
+    expect(paths).toHaveLength(24);
   });
 
   it("owns review-mode.sh in both forms", () => {
@@ -206,6 +208,12 @@ describe("renderMode", () => {
     expect(renderMode("Spawn `implementer`", "no-install")).toBe("Spawn `hitl:implementer`");
     expect(renderMode("run `/review-spec`, spawn `fixer`", "installed")).toBe(
       "run `/review-spec`, spawn `fixer`",
+    );
+  });
+
+  it("prefixes the adversarial and security reviewers in no-install mode", () => {
+    expect(renderMode("`adversarial-reviewer` and `security-reviewer`", "no-install")).toBe(
+      "`hitl:adversarial-reviewer` and `hitl:security-reviewer`",
     );
   });
 });
