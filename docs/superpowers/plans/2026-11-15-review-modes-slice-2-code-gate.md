@@ -61,7 +61,7 @@
   - The follow-up section says it applies to a slice the same way.
 - [ ] **Step 4: Write the fixtures.**
   - `slice/2026-09-06-slice-fixture-slice-1-tag-export.md`: a fixture plan of about 25 lines, header `**Owns:** export one tag's expenses as a CSV file.` and `**Reviewed:** grandfathered (2026-09-06).`, one task: an `exportTag(tag)` function and its test.
-  - `slice/slice-fixture.patch`: a unified diff of about 40 lines adding `src/export-tag.js` and its test, with two planted problems and nothing else notable: *injection* — the tag name is interpolated into a shell command (`execSync(\`grep ${tag} expenses.csv > out.csv\`)`); *breakable assumption* — it reads `rows[0].currency` for the header, which throws when the tag has no expenses.
+  - `slice/slice-fixture.patch`: a unified diff of about 40 lines adding `src/export-tag.js` and its test, with two planted problems and nothing else notable: *injection* — the tag name is interpolated into a shell command (`execSync(\`grep ",${tag}$" expenses.csv > out.csv\`)`, an exact match on the tag column); *breakable assumption* — it reads `rows[0].currency` for the header, which throws when the tag has no expenses.
   - Add both to `FIXTURES`.
 - [ ] **Step 5: Re-render. Run** `pnpm test` and `pnpm format:check` — expect PASS. If Prettier reports the `.patch` or fixture `.js` content, the patch is not a formatted type; do not add ignore rules without need.
 - [ ] **Step 6: Commit** `feat(agents): adversarial and security reviewers, slice side`.

@@ -1,6 +1,6 @@
 diff --git a/src/export-tag.js b/src/export-tag.js
 new file mode 100644
-index 0000000..cffe688
+index 0000000..870d80b
 --- /dev/null
 +++ b/src/export-tag.js
 @@ -0,0 +1,18 @@
@@ -9,7 +9,7 @@ index 0000000..cffe688
 +
 +// Write the expenses carrying `tag` to out.csv, under a header naming the currency.
 +export function exportTag(tag) {
-+  execSync(`grep ${tag} expenses.csv > out.csv || true`);
++  execSync(`grep ",${tag}$" expenses.csv > out.csv || true`);
 +  const rows = readFileSync("out.csv", "utf8")
 +    .split("\n")
 +    .filter(Boolean)

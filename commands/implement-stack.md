@@ -56,8 +56,8 @@ convenience, never a gate.
 
 ## 1. For each slice in table order whose status is `todo` or `branched`
 
-A resumed `branched` slice that has no open PR resumes from step b's check, so both review
-steps run again in elaborate mode.
+A resumed `branched` slice that has no open PR runs b → c → d again (→ c2 → d2 in elaborate
+mode), so every review step runs again.
 
 **a. Branch.** Parent and branch name come from the row, never from a rule of your own.
 Resolve the parent before you cut anything. A parent branch deleted when its pull request

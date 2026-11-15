@@ -367,7 +367,9 @@ minors listed one line each):
   slice owns is DEFERRED and is never fixed in the current slice.
 
 Two further reviewers, `adversarial-reviewer` and `security-reviewer`, run only in elaborate
-mode (see § Review modes), at the spec gate and again at the code gate on every slice. They use the same finding types, severities and reporting cap.
+mode (see § Review modes), at the spec gate and again at the code gate on every slice. There,
+`/implement-stack` runs `/review-slice` twice per slice: the cold step, then a second step
+with these two. They use the same finding types, severities and reporting cap.
 The adversarial reviewer tries to make the design fail and states every finding as a
 concrete scenario; the security reviewer asks what an attacker gains and states every
 finding as an attack.

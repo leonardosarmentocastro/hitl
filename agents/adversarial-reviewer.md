@@ -134,6 +134,8 @@ with these changes.
 <!-- hitl:knob severities -->
 Severity: 🔴 blocker (would ship a wrong design) · 🟠 major (resolve before plans) ·
 🟡 minor (polish, optional).
+At a slice: 🔴 blocker (must not merge — ships a defect) · 🟠 major (fix before the PR opens) ·
+🟡 minor (polish, optional).
 
 ## Output — write ONLY this Markdown to the output path in your brief
 
