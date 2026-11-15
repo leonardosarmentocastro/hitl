@@ -85,6 +85,8 @@ the spec or specs the handover document lists under `Spec(s):`.
   between slices takes effect from the next slice.
 - Several specs: the feature is elaborate if any listed spec says `elaborate`.
 - A listed spec file that does not exist is a **STOP**, not `simple`.
+- A mode line edited while a slice is between its two review steps — to `simple`, or to an
+  invalid value — is a **STOP** for that slice: the run does not guess which mode was meant.
 - No line in any listed spec → `simple`.
 - An invalid value in any listed spec is a **STOP** in `/implement-stack` and a refusal in
   `/review-slice` — never a silent fall to simple.
@@ -332,5 +334,8 @@ ever has the spec gate's elaborate mode without the code gate's.
   normally briefed with a branch range.
 - Review round 2, forwarded to the plan gate: whether fix-up mode's second reviewers get the
   slice's earlier review decisions for the repeat-decline rule.
+- **Bubbled up from plan review (round 2)** — a mode line changed between a slice's two
+  review steps stops the run; the spec said the mode is read once per slice and was silent
+  on an edit inside a slice.
 - Review round 2, my call: a mode switched to `elaborate` after two recorded rounds is
   reported, not rerun — there is never a third round.
