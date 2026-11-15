@@ -94,6 +94,11 @@ export function ownedFiles(choices) {
     },
     { repoPath: "scripts/hitl/pr.sh", template: "scripts/pr.sh", executable: true },
     {
+      repoPath: "scripts/hitl/review-mode.sh",
+      template: "scripts/review-mode.sh",
+      executable: true,
+    },
+    {
       repoPath: "scripts/hitl/backend.sh",
       template: `scripts/backends/${choices.provider}.sh`,
       executable: true,
@@ -253,6 +258,7 @@ export function pluginFiles() {
       template: "scripts/backends/github.sh",
       executable: true,
     },
+    { pluginPath: "runtime/review-mode.sh", template: "scripts/review-mode.sh", executable: true },
   ];
 }
 

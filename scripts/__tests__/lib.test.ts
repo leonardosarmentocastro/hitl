@@ -2,7 +2,13 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { ownedFiles, pluginVersion, renderMode, sha256 } from "../../installer/lib.mjs";
+import {
+  ownedFiles,
+  pluginFiles,
+  pluginVersion,
+  renderMode,
+  sha256,
+} from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 
@@ -52,10 +58,24 @@ describe("installer/lib primitives", () => {
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md",
         "scripts/hitl/wipe-superpowers-docs.sh",
         "scripts/hitl/pr.sh",
+        "scripts/hitl/review-mode.sh",
         "scripts/hitl/backend.sh",
       ]),
     );
-    expect(paths).toHaveLength(21);
+    expect(paths).toHaveLength(22);
+  });
+
+  it("owns review-mode.sh in both forms", () => {
+    expect(ownedFiles({ provider: "github", ci: "none", testing: [], gates: [] })).toContainEqual({
+      repoPath: "scripts/hitl/review-mode.sh",
+      template: "scripts/review-mode.sh",
+      executable: true,
+    });
+    expect(pluginFiles()).toContainEqual({
+      pluginPath: "runtime/review-mode.sh",
+      template: "scripts/review-mode.sh",
+      executable: true,
+    });
   });
 
   it("marks the shell scripts executable and HITL.md as composed", () => {
