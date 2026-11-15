@@ -42,6 +42,22 @@ digraph chain {
 - **Rounds.** One is too few, two is good, three is too many. Round 2 runs only if triage
   changed the artefact. Never a third.
 
+### Review modes
+
+A feature is reviewed in one of two modes, set by the human once per spec in a
+`**Review mode:**` header line: `simple` or `elaborate`. `/hitl:review-spec` asks for it when a
+spec has no line and no review recorded yet; no agent sets or changes it otherwise. A spec
+with a round recorded and no line is simple.
+
+- **Simple** is the chain as described above.
+- **Elaborate**, at the spec gate: round 1 is the cold review. Round 2 always runs, whether
+  or not round 1 changed the spec, and is an adversarial reviewer and a security reviewer
+  in parallel, neither told about the other, then a short security follow-up on the
+  adversarial findings, then one merged triage. Two recorded rounds, never a third,
+  whatever the round count has been tuned to.
+
+The code gate's elaborate mode arrives with the next slice of this feature.
+
 ### The Stop hook
 
 The hitl plugin declares the hook. It acts only in a worktree `/hitl:brainstorming` started
@@ -70,6 +86,7 @@ the feature are not checked. Do not fight the hook; run the loop.
 | "The reviewer said APPROVED, so we're done" | The verdict is noise across runs. Triage decides; the round rule decides. |
 | "This finding is accurate, so fold it in" | Accurate is not the bar. Scope, altitude and proportionality are. |
 | "The reviewer flagged a gap; fix it in this slice" | Check the stack table first. If a later slice owns it, it is DEFERRED. |
+| "The cold review was clean, skip the elaborate round" | Elaborate round 2 always runs. A clean cold review is why it was not the cold reviewer's job to find it. |
 | "The hook is blocking me for no reason" | It found an unreviewed artefact of this feature. Run the loop. |
 
 ### Where things live
@@ -191,6 +208,9 @@ documents.
 - Follow the plan task-by-task; keep Global Constraints in the plan aligned with
   this file, the repository's own standards files, when it has them, and the gates in the
   hitl context.
+- A spec may carry a **`**Review mode:**`** line in its header block — `simple` or
+  `elaborate` (see § Review modes). Case, surrounding whitespace and one trailing period are
+  ignored; any other value is refused, never read as simple.
 - Every slice plan declares **`**Owns:**`** in its header block — the lines between
   the `#` title and the first `##` heading — stating the one capability that slice is
   responsible for. The handover agent copies it into the stack table's `owns` column,
@@ -216,10 +236,11 @@ documents.
 
 ## Review gates
 
-Three cold reviewers, all Claude subagents shipped by the hitl plugin, all reporting in one
+Three cold reviewers plus, in elaborate mode, an adversarial and a security reviewer, all
+Claude subagents shipped by the hitl plugin, all reporting in one
 taxonomy of six types — MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED —
-plus DEFERRED, which only the slice reviewer may use (a spec or plan review has no stack
-table to defer against).
+plus DEFERRED, which is used only when reviewing a slice (a spec or plan review has no
+stack table to defer against).
 
 <!-- hitl:knob reporting-cap -->
 All three carry three severities and a reporting cap (every blocker, at most five majors,
@@ -234,6 +255,12 @@ minors listed one line each):
 - `/hitl:review-slice` — one slice branch's merge-base diff against its parent, its plan and the
   stack table; run once per slice by `/hitl:implement-stack` before the PR opens. A gap a later
   slice owns is DEFERRED and is never fixed in the current slice.
+
+Two further reviewers, `hitl:adversarial-reviewer` and `hitl:security-reviewer`, run only in elaborate
+mode (see § Review modes). They use the same finding types, severities and reporting cap.
+The adversarial reviewer tries to make the design fail and states every finding as a
+concrete scenario; the security reviewer asks what an attacker gains and states every
+finding as an attack.
 
 <!-- hitl:knob review-rounds -->
 Round 2 runs only if triage changed the artefact. Never a third round: one is too few, two
@@ -327,6 +354,7 @@ one together with its parser, by PR.
 
 - The `**Reviewed:**` header line of a spec or plan — the Stop hook and the review commands.
 - The `**Owns:**` header line of a slice plan — the handover agent and the slice reviewer.
+- The `**Review mode:**` header line of a spec — `/hitl:review-spec`.
 - The `Plan:` line of a PR body — the slice reviewer.
 - The spec and plan filename patterns `<YYYY-MM-DD>-<topic>-design.md` and
   `<YYYY-MM-DD>-<feature>-slice-<N>-<label>.md` — the review commands, the handover agent.

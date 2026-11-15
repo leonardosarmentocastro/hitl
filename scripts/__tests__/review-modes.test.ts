@@ -1,5 +1,7 @@
 // scripts/__tests__/review-modes.test.ts
 // Review modes: the rules a script or another command relies on, pinned on both renders.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderAll, renderPlugin, THIS_REPO_CHOICES } from "../../installer/lib.mjs";
 
@@ -76,5 +78,26 @@ describe("/review-spec", () => {
 
   it("runs the plugin's script in the no-install form", () => {
     expect(forms[1][1]).toContain('"${CLAUDE_PLUGIN_ROOT}/runtime/review-mode.sh" "$SPEC"');
+  });
+});
+
+describe("doctrine and plugin commands", () => {
+  const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
+
+  it("the doctrine has a Review modes section", () => {
+    expect(read("templates/HITL.md")).toContain("### Review modes");
+  });
+
+  it("/hitl:customize refuses the mode line and narrows the review-rounds knob", () => {
+    const text = read("commands/customize.md");
+    const refuse = text.slice(text.indexOf("## 1. Refuse an invariant"), text.indexOf("## 2."));
+    expect(refuse).toContain("the `**Review mode:**` line");
+    const row = text.split("\n").find((l) => l.startsWith("| `review-rounds` |")) ?? "";
+    expect(row).toContain("simple mode and the plan gate");
+  });
+
+  it("/hitl:help and the README mention elaborate mode", () => {
+    expect(read("commands/help.md")).toContain("elaborate");
+    expect(read("README.md")).toContain("elaborate");
   });
 });

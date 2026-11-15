@@ -27,7 +27,7 @@ Say the matching thing for `state`, then always end with the prerequisites.
   hitl <pluginVersion> — up to date. <locallyEdited> owned file(s) locally edited, <missing> missing.
 
   The chain:
-    1. brainstorm → spec committed → /review-spec (≤2 rounds) → human approves
+    1. brainstorm → spec committed → /review-spec (≤2 rounds; simple or elaborate) → human approves
     2. plans committed → /review-plan (≤2 rounds) → handover document
     3. new session: /implement-stack <handover>
     4. per slice: implementer → /review-slice → fixer → PR onto the parent

@@ -81,6 +81,19 @@ describe("knob anchors", () => {
     expect(anchors).toBe(2);
   });
 
+  it("the doctrine's elaborate text is outside the review-rounds anchors", () => {
+    const lines = readFileSync(join(ROOT, "templates/HITL.md"), "utf8").split("\n");
+    let anchors = 0;
+    lines.forEach((line, i) => {
+      if (line !== "<!-- hitl:knob review-rounds -->") return;
+      anchors += 1;
+      const paragraph: string[] = [];
+      for (let j = i + 1; j < lines.length && lines[j].trim() !== ""; j++) paragraph.push(lines[j]);
+      expect(paragraph.join("\n")).not.toMatch(/elaborate/i);
+    });
+    expect(anchors).toBe(4);
+  });
+
   it("every anchor in the templates names a listed knob", () => {
     for (const a of found) expect(KNOBS, `${a.file}: ${a.id}`).toContain(a.id);
   });
@@ -92,6 +105,7 @@ describe("knob anchors", () => {
   it("this repository's HITL.md carries the invariants section", () => {
     const text = readFileSync(join(ROOT, "HITL.md"), "utf8");
     expect(text).toContain("## Load-bearing invariants");
+    expect(text).toContain("The `**Review mode:**` header line of a spec — `/review-spec`.");
     expect(text).toContain(
       "MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED · DEFERRED",
     );
