@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-15).
+
 **Owns:** without an install, the plugin's shim picks the GitLab or GitHub backend from the repository's remote, and the plugin's commands run a stack on GitLab.
 
 **Goal:** `/hitl:implement-stack` and `/hitl:umbrella-pr` open Draft MRs on a GitLab project where hitl is not installed.
@@ -26,6 +28,9 @@
   `No PR backend for this repository's host (<host>): hitl opens PRs on GitHub and GitLab. A self-hosted GitLab needs GITLAB_URL set to its address. Implement from the handover by hand.`
 - After any `templates/` change run both refreshes from `AGENTS.md`. Local gates: `pnpm test`,
   `pnpm format:check`.
+- File count: this slice crosses the ~20-file tripwire because every template change is
+  committed with its rendered copies (this repository's `.claude/` and `scripts/hitl/`, the
+  plugin's `commands/`, `agents/`, `runtime/`, the manifest). The capability is one; it is not split.
 
 ## Review Focus
 
@@ -130,6 +135,9 @@
     Global Constraints;
   - `brainstorming-command.test.ts`: `commands/brainstorming.md` contains `GITLAB_TOKEN` and
     the phrase `no PR backend`.
+  Rewrite, in the same step, the existing `plugin-prompts.test.ts` case "the handover agent
+  runs the shim only on GitHub" (near line 61): it now asserts the rendered agent runs the
+  shim when the `Host:` line says `github` or `gitlab`, and not otherwise.
 - [ ] **Step 2: Run** — FAIL.
 - [ ] **Step 3: Edit the templates** (no-install branches only):
   - `implement-stack.md`, `umbrella-pr.md`: the context call requires

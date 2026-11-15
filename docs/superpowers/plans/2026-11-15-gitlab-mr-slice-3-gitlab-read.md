@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-15).
+
 **Owns:** the PR shim's `list` and `view` answer from GitLab over REST — with the one host rule (`GITLAB_URL` matched against the remote), the token and host refusals, and `ref` on the record of both backends.
 
 **Goal:** `pr.sh list` and `pr.sh view` work against a GitLab project using only `GITLAB_TOKEN`, held to the shim's existing contract by tests against a fake API.
@@ -196,7 +198,11 @@ path ends in `/api/v4` is a problem, not a base.
   - `mode: "fail"` → exit 2, stderr `GitLab 500: boom`, stdout empty;
   - `mode: "redirect"` → exit 2, stderr names the `Location`, and the log shows exactly one
     request (the redirect was not followed);
-  - a prefix containing `"` or `\` matches literally.
+  - a prefix containing `"` or `\` matches literally;
+  - the remote forms, through `pr.sh list` itself: with `GITLAB_URL` at the fake, an
+    scp-style origin `git@127.0.0.1:g/sub/r.git` and an `ssh://git@127.0.0.1:2222/g/sub/r.git`
+    origin both reach the fake at project `g%2Fsub%2Fr` (the port of an ssh remote is
+    ignored), as does the `http://127.0.0.1:<port>/g/sub/r.git` origin.
 - [ ] **Step 2: Run** — FAIL. **Step 3: Implement.** **Step 4: Run** — PASS.
 - [ ] **Step 5: Commit** `feat(gitlab): list merge requests by label and branch prefix`.
 

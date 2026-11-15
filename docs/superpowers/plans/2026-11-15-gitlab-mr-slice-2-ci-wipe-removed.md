@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-15).
+
 **Owns:** the GitHub Actions wipe job, its script, its init question and the `ci` choice are gone; an upgrade removes them; the doctrine states that the last PR of every stack is the generated wipe PR.
 
 **Goal:** One wipe mechanism everywhere: the generated wipe PR. Nothing installs, asks about or records a CI wipe job any more.
@@ -24,6 +26,9 @@
 - The `ci` *testing fragment* (`testing: ["ci"]`, `templates/testing/ci.md`) is unrelated and
   stays. `discover.mjs` keeps reporting `ci` systems: the interview's CI-rule question reads it.
 - Local gates: `pnpm test`, `pnpm format:check`.
+- File count: this slice crosses the ~20-file tripwire because every template change is
+  committed with its rendered copies (this repository's `.claude/` and `scripts/hitl/`, the
+  plugin's `commands/`, `agents/`, `runtime/`, the manifest). The capability is one; it is not split.
 
 ## Review Focus
 
@@ -45,7 +50,7 @@
 - Delete: `templates/ci/github-actions/wipe-superpowers-docs.yml`, `templates/scripts/wipe-superpowers-docs.sh`, `scripts/__tests__/wipe-superpowers-docs.test.ts`, `.github/workflows/wipe-superpowers-docs.yml`, `scripts/hitl/wipe-superpowers-docs.sh`
 - Modify: `installer/lib.mjs`, `installer/render.mjs`, `installer/adopt.mjs`, `installer/help.mjs`, `installer/customize-testing.mjs`
 - Modify (regenerated): `.claude/hitl.json`
-- Test: `scripts/__tests__/lib.test.ts`, `render.test.ts`, `adopt.test.ts`, `customize-testing.test.ts`, `help.test.ts`
+- Test: `scripts/__tests__/lib.test.ts`, `render.test.ts`, `adopt.test.ts`, `customize-testing.test.ts`, `help.test.ts`, `drift.test.ts`, `diff.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -71,13 +76,17 @@
     untouched.
   - `help.test.ts`: a tree holding only `.github/workflows/wipe-superpowers-docs.yml` is
     `not installed` (the workflow is no longer an owned path).
-  Delete or rewrite the existing cases that assert the old behaviour in those files.
+  Delete or rewrite the existing cases that assert the old behaviour in those files. Two
+  more, by name: `drift.test.ts` asserts the render includes the workflow (near line 38) —
+  it now asserts the render does **not** include it; and every existing `diff.test.ts` case
+  that expects the workflow or the script in the *current* tree's render is deleted here
+  (Task 2 re-adds upgrade coverage against an old-version fixture).
 - [ ] **Step 2: Run** `pnpm test` — the new cases FAIL.
 - [ ] **Step 3: Implement** the interface changes above and delete the listed files. In
   `help.mjs`, `installState` calls `collisions(repo, DEFAULT_CHOICES)`.
-- [ ] **Step 4: Refresh** the manifest per `AGENTS.md`; run `pnpm test` — PASS except
-  `diff.test.ts` cases covered by Task 2 (if any fail, they are Task 2's to fix, in this
-  slice — do not commit a red suite: do Task 2's Step 3 before committing if needed).
+- [ ] **Step 4: Refresh** the manifest per `AGENTS.md`; run `pnpm test` — PASS, whole suite.
+  `installer/diff.mjs` is touched here only as far as needed to keep compiling and green
+  (it may still pass `ci: manifest.ci` everywhere); its upgrade behaviour is Task 2's.
 - [ ] **Step 5: Commit** `feat(installer): stop installing and recording the CI wipe job`.
 
 ### Task 2: The upgrade removes the job and reports what it kept
@@ -95,8 +104,14 @@
   renderer needs it); the choices given to the **latest** render and to the new manifest have
   no `ci`. After `--apply`, the manifest has no `ci` key.
 
-- [ ] **Step 1: Write the failing tests** in `diff.test.ts`, building on its existing
-  recorded-version fixture helpers (read how the file fakes the marketplace tag first):
+- [ ] **Step 1: Write the failing tests** in `diff.test.ts`. The fixture is "a manifest
+  written by an older hitl": add a helper beside `fixtureMarketplaceWithRemoval` that builds a
+  marketplace tag whose `installer/lib.mjs` owns
+  `.github/workflows/wipe-superpowers-docs.yml` and `scripts/hitl/wipe-superpowers-docs.sh`
+  **only when `choices.ci === "github-actions"`** (the old conditional, not an unconditional
+  injection), with those two template files written into the tag, and whose manifest records
+  `ci`. The `ci: "none"` case below must fail if `diff.mjs` stops passing `manifest.ci` to
+  the recorded render — check that by temporarily removing it. Cases:
   - a manifest from the recorded version with `"ci": "github-actions"` and both files
     unedited: both paths are `removed upstream` / `local: "same"`; `--apply` deletes both,
     `keptRemoved` is `[]`, and the written manifest has no `ci`.
@@ -193,18 +208,26 @@ Today `docsOnBase` is computed only where there is an active-feature record and 
 **Interfaces:**
 - Produces: for an entry classified `merged` in an **installed** repository (no record),
   `docsOnBase` is the sorted list of paths under `docs/superpowers/` that exist at the merged
-  umbrella PR's `head_sha`, do not exist at the merge-base of that commit and the base, and
-  still exist on the base (`git cat-file -e <base>:<path>`). When `head_sha` is missing or is
-  not a commit in the clone, `docsOnBase` is `[]`. The no-install computation (from the
+  umbrella PR's `head_sha` **and** on the base (`git cat-file -e <base>:<path>`). No
+  merge-base is involved: after a merge-commit or fast-forward merge the merge-base is
+  `head_sha` itself and would hide everything. (By doctrine nothing under `docs/superpowers/`
+  belongs on the base, so a path present on both is a document to remove.) When `head_sha` is
+  missing or is not a commit in the clone, `docsOnBase` is `[]`. The no-install computation (from the
   archive) is unchanged. `commands/cleanup.md` already prints the list for any non-empty
   `docsOnBase` and needs no edit.
 
 - [ ] **Step 1: Write the failing tests** in `cleanup.test.ts`, using its existing installed
   fixture helpers: an installed repository whose umbrella PR merged with the spec still in the
-  tree → the entry's `docsOnBase` lists the spec; the same after a wipe PR merged first (the
-  spec is not on the base) → `[]`; a document that already existed on the base before the
-  feature → not listed.
+  tree → the entry's `docsOnBase` lists the spec, in three fixtures — the umbrella merged by
+  **merge commit**, by **squash**, and by **fast-forward**; the same after a wipe PR merged
+  first (the spec is not on the base) → `[]`; a document on the base that is not in the
+  feature's tree at `head_sha` → not listed.
 - [ ] **Step 2: Run** `pnpm test scripts/__tests__/cleanup.test.ts` — FAIL.
 - [ ] **Step 3: Implement** in `installer/cleanup.mjs`.
 - [ ] **Step 4: Run** `pnpm test` and `pnpm format:check` — PASS.
 - [ ] **Step 5: Commit** `feat(cleanup): report transient documents left on the base branch in installed mode`.
+
+## Review decisions
+
+- A dry run of `/hitl:init` and `/hitl:customize` after Task 3's prompt edits — declined, not
+  worth it: the edits only remove a question; the spec leaves the first real run to a human.

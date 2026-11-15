@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-15).
+
 **Owns:** an installed repository's feature documents leave through the generated wipe PR built by `/umbrella-pr`.
 
 **Goal:** In installed mode, `/umbrella-pr` builds the same generated `<feature-branch>-wipe` Draft PR that no-install mode builds today.
@@ -108,12 +110,13 @@
   (`featureDocs`, `wipeCommit`, `archiveDocs`, `WIPE_MESSAGE`, `WIPE_BODY`, `run`), the first
   two and the constants now re-exported from `./wipe-core.mjs`.
 
-- [ ] **Step 1: Add the failing test** to `scripts/__tests__/wipe.test.ts`:
-  `it("is the core plus the record and the archive", …)` asserting that
-  `runtime/wipe.mjs`'s source contains `from "./wipe-core.mjs"` and does not define
-  `function wipeCommit`.
-- [ ] **Step 2: Run** `pnpm test scripts/__tests__/wipe.test.ts` — FAIL.
-- [ ] **Step 3: Implement.** Add the `pluginFiles` entry; run
+This is a refactor: the behaviour is already pinned by `wipe.test.ts`, and the red step is
+the plugin-drift test.
+
+- [ ] **Step 1: Add the `pluginFiles` entry** (nothing rendered yet).
+- [ ] **Step 2: Run** `pnpm test scripts/__tests__/plugin-drift.test.ts` — FAIL
+  (`runtime/wipe-core.mjs` is missing).
+- [ ] **Step 3: Implement.** Run
   `node installer/render-plugin.mjs --plugin-root .`. Rewrite `runtime/wipe.mjs`'s `build` as:
   read the record (`refused: "no-record"` unchanged), then
   `buildWipe({ repo, featureBranch, parent, base: record.base, shim, noPush, beforePush })`
@@ -178,9 +181,12 @@ behaviour is validated by the dry run in Step 5.
   umbrella step unless it does not exist yet."); and one `## Never` line for both modes:
   "Force-push unasked (the generated wipe branch is the one exception, and only the wipe
   builder pushes it)." The `wipe.mjs archive` block in § 0 stays no-install only.
-- [ ] **Step 5: Re-render and dry-run.** Run both refreshes; `pnpm test` — PASS. Then in a
-  scratch clone of this repository with a throwaway feature branch carrying one spec, run
-  `node scripts/hitl/wipe.mjs build --repo . --feature-branch <b> --parent <b> --base main --shim scripts/hitl/pr.sh --no-push`
-  and confirm `status: "would-build"` lists the spec. Record the output in the commit body.
+- [ ] **Step 5: Re-render and dry-run the prompt.** Run both refreshes; `pnpm test` — PASS.
+  Then run the installed `/umbrella-pr --dry-run` itself, as `AGENTS.md` prescribes for
+  prompts, in a scratch clone of this repository on a throwaway feature branch that carries
+  one spec and a minimal handover document. Expected: the printed body's `<!-- stack -->`
+  block ends with `Required before merge: the wipe PR (not built in a dry run).`, and
+  afterwards there is no `<b>-wipe` ref locally or on the remote and no new PR. Record the
+  printed stack block in the commit body.
 - [ ] **Step 6: Run** `pnpm format:check` — PASS.
 - [ ] **Step 7: Commit** `feat(commands): the installed umbrella-pr builds the wipe PR`.

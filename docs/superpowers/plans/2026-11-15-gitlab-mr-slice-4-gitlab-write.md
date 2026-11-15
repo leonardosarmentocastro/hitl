@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-15).
+
 **Owns:** the PR shim's `create` (Draft, labelled, exit 3 when one exists), `edit`, `comment` and `retarget` work on GitLab; every text hitl posts or reports names a PR by its `ref`.
 
 **Goal:** The GitLab backend passes the whole shim contract, and prompts stop writing `#<number>` where GitLab would read it as an issue.
@@ -23,6 +25,9 @@
   parsed, and `<number>` is what the shim's verbs take. Do not change it or its parser text.
 - After any `templates/` change run both refreshes from `AGENTS.md` and re-render this
   repository's owned files. Local gates: `pnpm test`, `pnpm format:check`.
+- File count: this slice crosses the ~20-file tripwire because every template change is
+  committed with its rendered copies (this repository's `.claude/` and `scripts/hitl/`, the
+  plugin's `commands/`, `agents/`, `runtime/`, the manifest). The capability is one; it is not split.
 
 ## Review Focus
 
@@ -135,9 +140,10 @@
 ### Task 5: Prose names PRs by `ref`
 
 **Files:**
-- Modify: `templates/claude/commands/implement-stack.md`, `templates/claude/commands/umbrella-pr.md`, `templates/claude/commands/review-slice.md`, `templates/claude/agents/handover.md`
-- Modify (rendered): the same files under `.claude/` and under `commands/`, `agents/`; `.claude/hitl.json`
-- Test: `scripts/__tests__/render.test.ts`
+- Modify: `templates/claude/commands/implement-stack.md`, `templates/claude/commands/umbrella-pr.md`, `templates/claude/agents/handover.md`
+- Modify: `installer/cleanup.mjs`, `commands/cleanup.md`
+- Modify (rendered): the same templates under `.claude/` and under `commands/`, `agents/`; `.claude/hitl.json`
+- Test: `scripts/__tests__/render.test.ts`, `scripts/__tests__/plugin-prompts.test.ts`, `scripts/__tests__/cleanup.test.ts`
 
 The rule to apply, file by file: text that is **posted to the host** (PR bodies, the umbrella
 PR's `<!-- stack -->` block, PR comments, pushed commit subjects) or **reported to the human**
@@ -152,8 +158,13 @@ stay as they are.
   - `umbrella-pr.md` contains `created: <ref> (draft)`, `updated: <ref>`,
     `Required before merge: <ref> removes the transient docs`, `Transient docs removed by <ref>.`
     and `refused: <ref> has a hand-written body`;
-  - none of the four files contains the phrase `PR #<` or `PR #K` outside the stack-table
-    status sentence.
+  - none of the three templates contains the phrase `PR #<` or `PR #K` outside the
+    stack-table status sentence.
+  Existing assertions that pin the old strings are rewritten to `<ref>` in the same step:
+  slice 1's `render.test.ts` cases (`Required before merge: #<pr>`, `The wipe PR #<pr>`) and
+  `plugin-prompts.test.ts` (the `Required before merge: #<pr>` assertion near line 159).
+  And in `cleanup.test.ts`: every PR that `cleanup.mjs` reports carries the shim record's
+  `ref` next to its `number`.
 - [ ] **Step 2: Run** it — FAIL.
 - [ ] **Step 3: Edit `templates/claude/commands/implement-stack.md`.** One sentence near the
   top of § 1e (where the PR is created): "Every record the shim returns carries `ref` — how
@@ -165,11 +176,13 @@ stay as they are.
 - [ ] **Step 4: Edit `templates/claude/commands/umbrella-pr.md`.** The stack table's PR column
   is refreshed with each record's `ref` (read `number`, `ref`, `head` and `state`); the four
   report strings in Step 1 above; the wipe lines use the wipe output's `ref`.
-- [ ] **Step 5: Edit `templates/claude/agents/handover.md` and `review-slice.md`.** In the
+- [ ] **Step 5: Edit `templates/claude/agents/handover.md` and the cleanup report.** In the
   handover agent's `## Umbrella PR body` template, the stack table's PR column is the record's
   `ref` (add `ref` to the fields it reads from `list`); the `### Slice <N> — <branch> — PR #<K>`
-  heading of the Fix-up section becomes `PR <ref>`. In `review-slice.md`, any reported
-  `PR #<number>` becomes `PR <ref>`; the `--pr <number>` argument stays a number.
+  heading of the Fix-up section becomes `PR <ref>`. `review-slice.md` reports no PR number
+  today and is not edited. In `installer/cleanup.mjs`, the PR it reports per entry gains
+  `ref` (copied from the shim record); `commands/cleanup.md` prints
+  `umbrella PR <umbrella.ref>` where it prints `umbrella PR #<umbrella.number>`.
 - [ ] **Step 6: Re-render** (both refreshes); run `pnpm test` and `pnpm format:check` — PASS.
 - [ ] **Step 7: Dry-run the prompt** as `AGENTS.md` prescribes: run `/umbrella-pr --dry-run`
   on the fixture stack (or a scratch branch) and confirm the printed body's stack table shows

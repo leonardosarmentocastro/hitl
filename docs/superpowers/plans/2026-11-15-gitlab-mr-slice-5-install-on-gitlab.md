@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-15).
+
 **Owns:** `/hitl:init`, `/hitl:init --adopt` and `/hitl:help` accept and describe a GitLab repository: the installer renders the GitLab backend for `provider: gitlab`, and the prerequisite is the token, not `gh`.
 
 **Goal:** A GitLab repository can be installed, and its install tells the human what it needs.
@@ -43,7 +45,7 @@
 
 **Files:**
 - Modify: `installer/lib.mjs`, `installer/render.mjs`, `installer/adopt.mjs`
-- Test: `scripts/__tests__/lib.test.ts`, `render.test.ts`, `adopt.test.ts`
+- Test: `scripts/__tests__/lib.test.ts`, `render.test.ts`, `adopt.test.ts`, `diff.test.ts`
 
 **Interfaces:**
 - Produces:
@@ -68,7 +70,11 @@
     block names `GITLAB_TOKEN` and not `gh`;
   - `render.test.ts` and `adopt.test.ts`: `provider: "bitbucket"` → exit 3,
     `refused: "unknown-provider"`, nothing written;
-  - `adopt.test.ts`: a tree already carrying the gitlab files adopts with `provider: gitlab`.
+  - `adopt.test.ts`: a tree already carrying the gitlab files adopts with `provider: gitlab`;
+  - `diff.test.ts`: a repository rendered with `provider: gitlab` at this version diffs clean
+    — `scripts/hitl/backend.sh`, `gitlab.mjs` and `host.mjs` are `unchanged`, none is
+    `removed upstream`; and a `provider: github` install recorded at an older version and
+    upgraded to this one gains neither `scripts/hitl/gitlab.mjs` nor `scripts/hitl/host.mjs`.
 - [ ] **Step 2: Run** `pnpm test` — the new cases FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** `pnpm test` — PASS (this repository's own manifest is unchanged: it is
@@ -89,9 +95,10 @@
   - always: `node`, `git`, `superpowers` (unchanged);
   - `provider` github or unknown/bitbucket: `gh` (unchanged probe);
   - `provider` gitlab: no `gh` key; `gitlabToken: boolean` (`GITLAB_TOKEN` non-empty) and
-    `gitlabUrl: "not-needed" | "set" | "missing"` — `not-needed` when the remote is
-    `gitlab.com`; `set` when `resolveHost` says gitlab through `GITLAB_URL`; `missing`
-    otherwise.
+    `gitlabUrl: "not-needed" | "set" | "invalid" | "missing"` — `not-needed` when the
+    remote is `gitlab.com`; `set` when `resolveHost` says gitlab through `GITLAB_URL`;
+    `invalid` when `resolveHost` reports a `problem` (the variable is set but unusable), with
+    the problem word in `gitlabUrlProblem`; `missing` otherwise.
   `run(args)` accepts an optional `env` (default `process.env`) so tests can pass one.
 
 - [ ] **Step 1: Write the failing tests** in `help.test.ts`:
@@ -99,7 +106,9 @@
     `prerequisites.gitlabToken === true`, `gitlabUrl === "not-needed"`, no `gh` key;
   - the same without the token → `gitlabToken === false`;
   - a GitLab manifest, remote `git@gitlab.corp:g/r.git`, no `GITLAB_URL` → `gitlabUrl: "missing"`;
-    with `GITLAB_URL=https://gitlab.corp` → `"set"`;
+    with `GITLAB_URL=https://gitlab.corp` → `"set"`; with `GITLAB_URL=gitlab.corp` →
+    `"invalid"` and `gitlabUrlProblem: "bad-gitlab-url"`; with
+    `GITLAB_URL=https://gitlab.corp/api/v4` → `"invalid"` and `"gitlab-url-has-api-path"`;
   - no manifest, GitHub remote → `provider: "github"` and `gh` present as today;
   - the token's value appears nowhere in the output.
 - [ ] **Step 2: Run** — FAIL. **Step 3: Implement** `help.mjs`. **Step 4: Run** — PASS.
@@ -109,7 +118,10 @@
   - github: `gh` authenticated (the PR shim);
   - gitlab: `GITLAB_TOKEN` set — "a GitLab access token with the `api` scope, exported in the
     shell that runs Claude Code" — and, when `gitlabUrl` is `missing`, "`GITLAB_URL` set to
-    the address of this self-hosted GitLab (e.g. `https://gitlab.example.com`)". Then one
+    the address of this self-hosted GitLab (e.g. `https://gitlab.example.com`)"; when it is
+    `invalid`, say the variable is set but wrong, not absent: "`GITLAB_URL` needs a scheme
+    (`https://…`)" for `bad-gitlab-url`, "`GITLAB_URL` must be the instance's address, without
+    `/api/v4`" for `gitlab-url-has-api-path`. Then one
     note, GitLab only: "hitl finds its merge requests by the `hitl` label it puts on them. A
     merge request opened by hand is invisible to hitl until that label is added."
 - [ ] **Step 6: Commit** `feat(help): report the GitLab token and GITLAB_URL prerequisites`.
@@ -133,8 +145,11 @@
     `provider = <host>`. Any other host → stop with "no backend for <host>: hitl opens PRs on
     GitHub and GitLab." When `host` is `unknown` and `remote` is non-null, add: "If
     `<hostname of the remote>` is a self-hosted GitLab, export
-    `GITLAB_URL=https://<hostname>` and re-run." When `remote` is null, keep "the origin
-    remote could not be read".
+    `GITLAB_URL=https://<hostname>` and re-run." If `GITLAB_URL` is already set in the
+    environment, say instead that it is set but does not match this remote or is not usable
+    (no scheme, or it ends in `/api/v4`), and show its value's hostname — never tell the human
+    to export a variable they already have. When `remote` is null, keep "the origin remote
+    could not be read".
   - `--adopt` step 5 and § 4: the answers file is
     `{ "provider": "<github|gitlab>", "testing": [...], "gates": [...] }`. Relay
     `refused: "unknown-provider"` as "no backend for <provider>".
