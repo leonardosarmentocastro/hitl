@@ -4,6 +4,8 @@
 
 **Owns:** a spec can be reviewed in simple or elaborate mode — the `**Review mode:**` line, the question that sets it, and the adversarial and security round at the spec gate.
 
+**Reviewed:** round 1 (2026-11-15).
+
 **Goal:** `/review-spec` reads a per-spec mode line and, in elaborate mode, runs one cold round followed by an adversarial and security round.
 
 **Architecture:** One new shell script reads the mode line (so the rule has one tested parser, reused by slice 2). Two new reviewer agents are added as templates and registered in the installer so both forms of hitl render them. `/review-spec`, the doctrine and the plugin-only commands are edited as templates and re-rendered.
@@ -22,6 +24,7 @@
 - Local gates before the PR: `pnpm test` and `pnpm format:check`. Markdown is never formatted.
 - Prompts are validated by dry run, not unit tests; the text assertions in this plan only pin the rules a script or another command relies on.
 - This slice does not touch `/review-slice`, `/implement-stack` or `/review-plan`.
+- File tripwire: this slice crosses ~20 files because every template it changes is committed with its rendered copies (this repository's `.claude/`, the plugin's `agents/`, `commands/`, `doctrine/`, `runtime/`, and the manifest). The hand-written files are about a dozen; splitting the re-renders off would be a horizontal cut.
 
 **Re-render commands** (run from the repository root; referred to below as "re-render"):
 
@@ -79,8 +82,8 @@ node installer/render-plugin.mjs --plugin-root .
 In `lib.test.ts` add: `ownedFiles(...)` contains `{ repoPath: "scripts/hitl/review-mode.sh", template: "scripts/review-mode.sh", executable: true }` and `pluginFiles()` contains `{ pluginPath: "runtime/review-mode.sh", template: "scripts/review-mode.sh", executable: true }`.
 
 - [ ] **Step 2: Run** `pnpm test -- review-mode lib` — expect FAIL (script missing, entries missing).
-- [ ] **Step 3: Implement** `templates/scripts/review-mode.sh` (`#!/bin/sh`, `set -eu`, header comment stating the contract above; awk for the header block, as `.claude/hooks/unreviewed-artifact.sh` does for `**Reviewed:**`). In `installer/lib.mjs` add the `ownedFiles` entry on a new line directly after the `scripts/hitl/pr.sh` entry — leave that entry's line byte-identical, `diff.test.ts` matches it — and the `pluginFiles` entry after `runtime/pr/backend.sh`.
-- [ ] **Step 4: Re-render**, then `chmod +x templates/scripts/review-mode.sh`. Run `pnpm test` — expect PASS (drift, plugin-drift and self-manifest included).
+- [ ] **Step 3: Implement** `templates/scripts/review-mode.sh` (`#!/bin/sh`, `set -eu`, header comment stating the contract above; awk for the header block, as `.claude/hooks/unreviewed-artifact.sh` does for `**Reviewed:**`) and `chmod +x` it. In `installer/lib.mjs` add the `ownedFiles` entry on a new line directly after the `scripts/hitl/pr.sh` entry — leave that entry's line byte-identical, `diff.test.ts` matches it — and the `pluginFiles` entry after `runtime/pr/backend.sh`.
+- [ ] **Step 4: Re-render.** Run `pnpm test` — expect PASS (drift, plugin-drift and self-manifest included).
 - [ ] **Step 5: Commit** `feat(scripts): review-mode.sh reads a spec's review mode`.
 
 ### Task 2: the adversarial and security reviewer agents (spec side)
@@ -131,7 +134,7 @@ In `lib.test.ts` add: `ownedFiles(...)` contains `{ repoPath: "scripts/hitl/revi
   - `review-modes.test.ts`, describe "/review-spec", on the installed and the plugin render of the command:
     - contains `**Review mode:**`, `simple or elaborate?`, `## 1E. Elaborate round 2 — adversarial and security`, `-spec-adversarial.md`, `-spec-security.md`, `-spec-security-followup.md`, `docs(spec): record review mode`, `Lens`;
     - installed contains `scripts/hitl/review-mode.sh "$SPEC"`; plugin contains `"${CLAUDE_PLUGIN_ROOT}/runtime/review-mode.sh" "$SPEC"`;
-    - contains the exact sentences `Round 2 always runs in elaborate mode, whether or not round 1 changed the spec.` and `Elaborate mode is two recorded rounds whatever the round count above has been tuned to.`
+    - contains the exact sentences `Round 2 always runs in elaborate mode, whether or not round 1 changed the spec.` and `In elaborate mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to.`
   - `knob-anchors.test.ts`: new test "the elaborate round rule is outside the review-rounds anchors": in `templates/claude/commands/review-spec.md`, for each `review-rounds` anchor, the paragraph that follows it (lines up to the next blank line) does not match `/elaborate/i`; and the existing count test still finds exactly two anchors in `review-spec.md`.
   - `plugin-prompts.test.ts`: enable the Task 2 todo.
   - `lib.test.ts`: `ownedFiles(...)` contains `.claude/fixtures/spec-fixture-elaborate-design.md`.
@@ -142,7 +145,7 @@ In `lib.test.ts` add: `ownedFiles(...)` contains `{ repoPath: "scripts/hitl/revi
     - exit 2 → print its message, review nothing, stop;
     - `elaborate` / `simple` → that is the mode;
     - `absent` → the mode is `simple` and nothing is asked, **unless** no `**Reviewed:** round` is recorded and this is not a dry run: then ask the human once, "simple or elaborate?", with these two lines — simple: "two cold rounds, as always"; elaborate: "one cold round, then an adversarial and a security review of the spec, and the same again on every slice's code — about three more reviewer runs per gate". Write `**Review mode:** <answer>` in the header block and commit it alone: `git add "$SPEC" && git commit -m "docs(spec): record review mode"`. No other case sets or changes the line.
-  - **After the anchored count paragraph**, an unanchored paragraph: "Elaborate mode is two recorded rounds whatever the round count above has been tuned to. If two are recorded, stop; and if the line says `elaborate`, add to the stop message: 'this command cannot tell whether the adversarial and security round ran; if the mode was changed to elaborate after two cold rounds, it did not, and nothing is rerun.'" Then: "The round that runs follows the mode line as it reads now: with round 1 recorded, elaborate → § 1E; simple → § 1."
+  - **Directly before the anchored count paragraph** (so it is read first and wins when the knob is 1 or 3), an unanchored paragraph: "In elaborate mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to. Count the recorded rounds as the next paragraph describes, ignoring its limit. If two are recorded, stop; and if the line says `elaborate`, add to the stop message: 'this command cannot tell whether the adversarial and security round ran; if the mode was changed to elaborate after two cold rounds, it did not, and nothing is rerun.'" Then: "The round that runs follows the mode line as it reads now: with round 1 recorded, elaborate → § 1E; simple → § 1."
   - **New `## 1E. Elaborate round 2 — adversarial and security`** after § 1: three output paths sharing one stamp; spawn `adversarial-reviewer` and `security-reviewer` in one message with the two briefs from Task 2 "and nothing else — nothing about round 1, nothing about each other"; when both have returned, spawn `security-reviewer` again with the follow-up brief. In the no-install branch each brief carries the hitl context block, as § 1 does.
   - **Step 2**, an added paragraph for § 1E: write ` · round 2 (<date>)` only if the adversarial and the security file each exist and contain a `| Verdict |` row; otherwise `round 2 failed (<date>) — <which reviewer, why>`, tell the human, and a rerun runs all of § 1E again. A follow-up file that is missing or has no verdict row does not fail the round: carry on and say "the security follow-up did not run" in step 6. A follow-up saying `_No findings._` is a success.
   - **Step 3**, an added paragraph: after § 1E, triage the three files as one list; the table gains a `Lens` column (`adversarial`, `security`, `chained`); the same problem from two lenses is one row naming both.
@@ -180,15 +183,15 @@ In `lib.test.ts` add: `ownedFiles(...)` contains `{ repoPath: "scripts/hitl/revi
 
 ---
 
-## Validation by dry run (not automated; listed in the PR body for the human)
+## Validation by dry run (not automated)
 
-The implementer cannot spawn reviewers, so these are run by a human or an orchestrating session after the slice is built, and their outcome noted on the PR:
+The implementer cannot spawn reviewers. The dry runs are this slice's only proof that the prompts work, so they have one owner and one moment: **the human, on this slice's PR, before it merges into the feature branch.** They reach the PR through the forwarded line under Review decisions below.
 
 1. `/review-spec .claude/fixtures/spec-fixture-design.md` — asks nothing, runs as today (simple).
 2. `/review-spec .claude/fixtures/spec-fixture-elaborate-design.md` — starts at round 2, writes the three round-2 files, the merged triage contains the open receipt link (security) and the replaced-receipt cache (adversarial), the committed fixture is unchanged.
-3. On the first real elaborate feature: the question is asked once, the line is written and committed, round 1 hands over to § 1E.
+3. On the first real elaborate feature (after this one merges): the question is asked once, the line is written and committed, round 1 hands over to § 1E.
 
 ## Review decisions
 
-- **Forwarded to the code gate**: none.
+- **Forwarded to the code gate** — dry runs 1 and 2 of "Validation by dry run" are not yet run; the human runs them on this PR before it merges. Dry run 3 waits for the first real elaborate feature.
 - From the spec's forwarded items: the mode answer is committed alone when written (Task 3). The orchestrator's "no second review" lines belong to slice 2.
