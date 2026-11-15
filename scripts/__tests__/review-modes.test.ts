@@ -137,6 +137,45 @@ describe("/review-slice --step second", () => {
   });
 });
 
+describe("/implement-stack in elaborate mode", () => {
+  const forms: [string, string | undefined][] = [
+    ["installed", installed.get(".claude/commands/implement-stack.md")?.content],
+    ["plugin", plugin.get("commands/implement-stack.md")?.content],
+  ];
+
+  for (const [form, text] of forms) {
+    it(`(${form}) runs a second review and a second fix`, () => {
+      for (const s of [
+        "**c2. Second review (elaborate mode).**",
+        "**d2. Second fix (elaborate mode).**",
+        "--step second",
+        "Read the mode once per slice, when its review starts.",
+        "In simple mode: no second review. The fixer's commits ship as they are.",
+        "In elaborate mode the second fixer's commits ship as they are; there is no third review.",
+        "The second review runs even when the first triage had no APPLY rows.",
+        "The security follow-up did not run for this slice.",
+        "Pass every path listed under `Spec(s):` to the script in one call.",
+        "An invalid value or a missing spec file is a STOP, never simple.",
+        "slice <N>: the second review produced nothing",
+        "slice <N>: the review mode changed during the slice",
+      ])
+        expect(text).toContain(s);
+      expect(text).not.toMatch(/^No second review\. The fixer's commits ship as they are\./m);
+    });
+
+    it(`(${form}) never reviews more often than the mode prescribes`, () => {
+      const never = text!.slice(text!.indexOf("## Never"));
+      expect(never).toContain("Review more often than the mode prescribes.");
+      expect(never).not.toContain("Review twice.");
+    });
+
+    it(`(${form}) hands the PR to the second step in a fix-up`, () => {
+      const fixup = text!.slice(text!.indexOf("## Fix-up"), text!.indexOf("## Never"));
+      expect(fixup).toContain("--pr <number>");
+    });
+  }
+});
+
 describe("doctrine and plugin commands", () => {
   const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 

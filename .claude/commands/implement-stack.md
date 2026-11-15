@@ -1,5 +1,5 @@
 ---
-description: Orchestrate the implementation of a feature's remaining slices from its handover document — implementer, one slice review, fixer, PR per slice; draft umbrella PR at the end. Usage: /implement-stack docs/superpowers/handover/<feature>.md
+description: Orchestrate the implementation of a feature's remaining slices from its handover document — implementer, slice review (two steps in elaborate mode), fixer, PR per slice; draft umbrella PR at the end. Usage: /implement-stack docs/superpowers/handover/<feature>.md
 argument-hint: docs/superpowers/handover/<feature>.md
 ---
 
@@ -18,6 +18,9 @@ git fetch -q --prune origin
 ```
 
 ## 1. For each slice in table order whose status is `todo` or `branched`
+
+A resumed `branched` slice that has no open PR resumes from step b's check, so both review
+steps run again in elaborate mode.
 
 **a. Branch.** Parent and branch name come from the row, never from a rule of your own.
 Resolve the parent before you cut anything. A parent branch deleted when its pull request
@@ -53,7 +56,16 @@ human. Never cut or keep the branch anyway.
   force-push anything.
 - Reply begins `done` → continue.
 
-**c. Review once.** Run `/review-slice <handover path>` on this branch. It prints the triage
+**c. Review (the cold step).** Read the mode once per slice, when its review starts. Pass every path listed under `Spec(s):` to the script in one call.
+
+```bash
+scripts/hitl/review-mode.sh <every Spec(s): path>
+```
+
+- Exit 2 → **STOP**: "slice <N>: <the script's message>", and ask the human. An invalid value or a missing spec file is a STOP, never simple.
+- `elaborate` or `simple` → that is the mode for this slice. `absent` → `simple`.
+
+Run `/review-slice <handover path>` on this branch. It prints the triage
 table and the `## Review decisions` block.
 
 Paste the `## Stack` table from the handover document on this branch into the reviewer's
@@ -81,7 +93,36 @@ review file path, the APPLY rows. Wait.
 - `done` → fold its "not reproduced" items into the Review decisions block as
   `DECLINE: wrong` lines in plain words.
 
-No second review. The fixer's commits ship as they are.
+In simple mode: no second review. The fixer's commits ship as they are.
+
+In elaborate mode: continue with c2.
+
+**c2. Second review (elaborate mode).** The second review runs even when the first triage had no APPLY rows. Run `/review-slice <handover path> --step second` on this branch as the
+first fixer left it, so the diff includes its commits; paste the stack table into the
+reviewers' briefs verbatim, as in c. It prints a triage table with a `Lens` column, a
+`## Review decisions` block, and three lines `ADV: <path>`, `SEC: <path>` and
+`FOL: <path>`. Then the same checks as in c, on the `ADV:` and `SEC:` files:
+
+```bash
+for f in "<ADV>" "<SEC>"; do
+  [ -s "$f" ] && grep -q '| Verdict |' "$f" || echo "no review: $f"
+done
+```
+
+- `no review` for either → **STOP**: "slice <N>: the second review produced nothing", name
+  the file and what the reviewer replied, and ask the human. Never open a PR for it.
+- A `DECLINE: wrong gate` row because a finding needs a design change → **STOP**, as in c.
+- `/review-slice` refuses the second step — because the spec now says simple, or because
+  its value is now invalid → **STOP**:
+  "slice <N>: the review mode changed during the slice", with the refusal's message, and
+  ask the human.
+- A `FOL:` file missing or without a verdict row is not a stop: add the line "The security follow-up did not run for this slice." to the PR body's Review decisions.
+
+**d2. Second fix (elaborate mode).** As in d, on the second triage's APPLY rows, with the
+three review file paths. `blocked` → **STOP** with the command and error verbatim; ask the
+human. `done` → fold its "not reproduced" items into the Review decisions block as in d.
+
+In elaborate mode the second fixer's commits ship as they are; there is no third review.
 
 **e. Push and open the PR.**
 
@@ -110,7 +151,7 @@ Why — <2–3 sentences>
 How — <2–5 sentences; the approach and any real choice made>
 
 ## Review decisions
-<the block from /review-slice, plus the fixer's not-reproduced items; or "None — every finding was applied.">
+<the blocks from both steps of /review-slice, plus both fixers' not-reproduced items; or "None — every finding was applied.">
 <any allowed plan edit the implementer made, one line each>
 ```
 
@@ -149,12 +190,16 @@ Omit the block when this session is not in a linked worktree (`git rev-parse --g
 For each `### Slice <N>` section under `## Fix-up`, in order:
 1. `git checkout -q <branch>`. Spawn `implementer` with the plan path and, as the work to
    do, the requested changes from the section (instead of the whole plan). `blocked` → STOP.
-2. Run `/review-slice <handover path> --parent <previous tip>` where the previous tip is
+2. Read the mode at the start of each `### Slice <N>` section, exactly as step c does
+   (the same script call and the same STOP). Run `/review-slice <handover path> --parent
+   <previous tip>` where the previous tip is
    `git rev-parse origin/<branch>` taken before the implementer ran, so the diff is the new
    commits only. Pass that resolved commit itself: `--parent` is taken verbatim, without the
    `origin/` prefix the stack row's parent gets, so anything you pass must already resolve as
    written. The § 1c "no review" and "wrong gate" stops apply here too. Fixer on APPLY rows
-   as in 1d.
+   as in 1d. In elaborate mode, then run `/review-slice <handover path> --parent <previous
+   tip> --step second --pr <number>` (the slice's PR, from the stack table's
+   `open #<number>`) and the fixer on its APPLY rows; the c2 stops apply.
 3. Push (fast-forward). Append the Review decisions to the PR with
    `scripts/hitl/pr.sh comment <number> --body-file <tmp>`.
 Then follow `### Restack order`: for each `<B> onto <A> (old parent tip: <sha>)`,
@@ -165,6 +210,6 @@ Report as in § 2, without the umbrella step unless it does not exist yet.
 
 ## Never
 
-Merge. Mark ready for review. Force-push unasked. Start a slice after a STOP. Review twice.
+Merge. Mark ready for review. Force-push unasked. Start a slice after a STOP. Review more often than the mode prescribes.
 Open a PR for a slice whose review produced nothing. Ask the human a code-level question —
 decide, record, move on.
