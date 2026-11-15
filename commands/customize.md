@@ -17,9 +17,9 @@ rule. `grep -rn --exclude-dir=worktrees "hitl:knob <id>" HITL.md AGENTS.md .clau
 
 | id | what it tunes | where | treasury default — and why |
 |---|---|---|---|
-| `review-rounds` | how many cold review rounds a spec or plan gets | `HITL.md` § Gates and § Review gates; `review-spec.md` and `review-plan.md`, step 0 and step 5 | 2 — one is too few; three chases findings that are non-deterministic across runs |
-| `severities` | what blocker / major / minor mean | the three reviewer agents | blocker stops the merge or ships a wrong design; major is fixed before the next gate; minor is polish |
-| `reporting-cap` | how many findings a review lists | the three reviewer agents; `HITL.md` § Review gates | every blocker, at most five majors, minors one line each — a longer list is not read |
+| `review-rounds` | how many cold review rounds a spec or plan gets in simple mode and the plan gate; elaborate mode is always one cold round plus the adversarial and security round | `HITL.md` § Gates and § Review gates; `review-spec.md` and `review-plan.md`, step 0 and step 5 | 2 — one is too few; three chases findings that are non-deterministic across runs |
+| `severities` | what blocker / major / minor mean | the five reviewer agents (spec, plan, slice, adversarial, security) | blocker stops the merge or ships a wrong design; major is fixed before the next gate; minor is polish |
+| `reporting-cap` | how many findings a review lists | the five reviewer agents (spec, plan, slice, adversarial, security); `HITL.md` § Review gates | every blocker, at most five majors, minors one line each — a longer list is not read |
 | `file-tripwire` | the file count that triggers a justification | `HITL.md` § Delivery slices | ~20 files, a tripwire not a cap; never split horizontally to get under it |
 | `small-lane` | whether any change may skip the chain | `HITL.md` § Delivery chain | none — size shrinks the artefact, never the gate |
 | `effective-date-pilots` | the areas a new rule applies to first | `AGENTS.md` hitl block, `## Effective-date pilots` | none until the humans name one; grandfathered code is never a finding |
@@ -31,7 +31,7 @@ rule. `grep -rn --exclude-dir=worktrees "hitl:knob <id>" HITL.md AGENTS.md .clau
 ## 1. Refuse an invariant
 
 If the human asks to change anything in `## Load-bearing invariants` — the `**Reviewed:**`
-line, the `**Owns:**` line, the `Plan:` line, the spec and plan filename patterns, the
+line, the `**Owns:**` line, the `**Review mode:**` line, the `Plan:` line, the spec and plan filename patterns, the
 stack-table columns, the seven finding-type names, the `docs/superpowers/` path — reply
 exactly: "that is a load-bearing invariant; change it together with its parser, by PR" and
 change nothing. Renaming a finding type is such a request; redefining a severity is not.

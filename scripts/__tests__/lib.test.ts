@@ -2,7 +2,13 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { ownedFiles, pluginVersion, renderMode, sha256 } from "../../installer/lib.mjs";
+import {
+  ownedFiles,
+  pluginFiles,
+  pluginVersion,
+  renderMode,
+  sha256,
+} from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 
@@ -39,6 +45,8 @@ describe("installer/lib primitives", () => {
         ".claude/agents/implementer.md",
         ".claude/agents/fixer.md",
         ".claude/agents/handover.md",
+        ".claude/agents/adversarial-reviewer.md",
+        ".claude/agents/security-reviewer.md",
         ".claude/commands/review-spec.md",
         ".claude/commands/review-plan.md",
         ".claude/commands/review-slice.md",
@@ -48,14 +56,31 @@ describe("installer/lib primitives", () => {
         ".claude/hooks/unreviewed-artifact.sh",
         ".claude/review-context.md",
         ".claude/fixtures/spec-fixture-design.md",
+        ".claude/fixtures/spec-fixture-elaborate-design.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md",
+        ".claude/fixtures/slice/slice-fixture.patch",
+        ".claude/fixtures/slice/2026-09-06-slice-fixture-slice-1-tag-export.md",
         "scripts/hitl/wipe-superpowers-docs.sh",
         "scripts/hitl/pr.sh",
+        "scripts/hitl/review-mode.sh",
         "scripts/hitl/backend.sh",
       ]),
     );
-    expect(paths).toHaveLength(21);
+    expect(paths).toHaveLength(27);
+  });
+
+  it("owns review-mode.sh in both forms", () => {
+    expect(ownedFiles({ provider: "github", ci: "none", testing: [], gates: [] })).toContainEqual({
+      repoPath: "scripts/hitl/review-mode.sh",
+      template: "scripts/review-mode.sh",
+      executable: true,
+    });
+    expect(pluginFiles()).toContainEqual({
+      pluginPath: "runtime/review-mode.sh",
+      template: "scripts/review-mode.sh",
+      executable: true,
+    });
   });
 
   it("marks the shell scripts executable and HITL.md as composed", () => {
@@ -186,6 +211,12 @@ describe("renderMode", () => {
     expect(renderMode("Spawn `implementer`", "no-install")).toBe("Spawn `hitl:implementer`");
     expect(renderMode("run `/review-spec`, spawn `fixer`", "installed")).toBe(
       "run `/review-spec`, spawn `fixer`",
+    );
+  });
+
+  it("prefixes the adversarial and security reviewers in no-install mode", () => {
+    expect(renderMode("`adversarial-reviewer` and `security-reviewer`", "no-install")).toBe(
+      "`hitl:adversarial-reviewer` and `hitl:security-reviewer`",
     );
   });
 });

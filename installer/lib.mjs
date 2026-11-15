@@ -43,6 +43,8 @@ const AGENTS = [
   "implementer",
   "fixer",
   "handover",
+  "adversarial-reviewer",
+  "security-reviewer",
 ];
 const COMMANDS = [
   "review-spec",
@@ -54,8 +56,11 @@ const COMMANDS = [
 ];
 const FIXTURES = [
   "spec-fixture-design.md",
+  "spec-fixture-elaborate-design.md",
   "plans/2026-09-06-spec-fixture-slice-1-schema.md",
   "plans/2026-09-06-spec-fixture-slice-2-api.md",
+  "slice/slice-fixture.patch",
+  "slice/2026-09-06-slice-fixture-slice-1-tag-export.md",
 ];
 
 /** The owned files for a set of choices. `template` is relative to templates/; null = composed. */
@@ -93,6 +98,11 @@ export function ownedFiles(choices) {
       executable: true,
     },
     { repoPath: "scripts/hitl/pr.sh", template: "scripts/pr.sh", executable: true },
+    {
+      repoPath: "scripts/hitl/review-mode.sh",
+      template: "scripts/review-mode.sh",
+      executable: true,
+    },
     {
       repoPath: "scripts/hitl/backend.sh",
       template: `scripts/backends/${choices.provider}.sh`,
@@ -156,7 +166,8 @@ export const MODES = ["installed", "no-install"];
 const MODE_MARKER = /^<!-- hitl:mode (installed|no-install|end) -->$/;
 const PREFIXED_COMMAND =
   /(?<![\w/.:-])\/(review-spec|review-plan|review-slice|handover|implement-stack|umbrella-pr)(?![\w/-])/g;
-const PREFIXED_AGENT = /`(spec-reviewer|plan-reviewer|slice-reviewer|implementer|fixer|handover)`/g;
+const PREFIXED_AGENT =
+  /`(spec-reviewer|plan-reviewer|slice-reviewer|implementer|fixer|handover|adversarial-reviewer|security-reviewer)`/g;
 
 /**
  * Resolve `<!-- hitl:mode installed|no-install|end -->` blocks for one mode. Each marker sits
@@ -220,6 +231,8 @@ const PLUGIN_AGENTS = [
   "implementer",
   "fixer",
   "slice-reviewer",
+  "adversarial-reviewer",
+  "security-reviewer",
 ];
 const PLUGIN_COMMANDS = [
   "review-spec",
@@ -253,6 +266,7 @@ export function pluginFiles() {
       template: "scripts/backends/github.sh",
       executable: true,
     },
+    { pluginPath: "runtime/review-mode.sh", template: "scripts/review-mode.sh", executable: true },
   ];
 }
 

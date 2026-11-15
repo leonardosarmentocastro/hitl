@@ -67,7 +67,8 @@ apart.
                          ≤2 rounds)                        implementer  (TDD, local gates)
             ─▶ slice plans ─▶ /review-plan                 slice-reviewer (cold, vs plan)
                                (cold reviewer,             fixer        (applies findings)
-                                ≤2 rounds)                 PR ─▶ parent branch
+                                ≤2 rounds)                 (elaborate: + adversarial, security)
+                                                           PR ─▶ parent branch
             ─▶ handover document ─────────────────────▶  draft umbrella PR ─▶ YOU REVIEW
 ```
 
@@ -90,6 +91,12 @@ apart.
 
 Every review loop is capped: **one round is too few, two is good, three is too many.** The
 reviewer's "approved" means nothing on its own; what counts is the triage.
+
+Each feature is reviewed in one of two modes, chosen once when its spec is first reviewed:
+**simple**, the cold rounds above, or **elaborate**, where the spec's second round is an
+adversarial review that tries to break the design and a security review that asks what an
+attacker would gain. In elaborate mode each slice's code also gets those two reviews after
+the cold slice review and its fixes, and a second fix pass before its PR opens.
 
 ## Where you decide, and where the agents work
 
@@ -154,7 +161,7 @@ uninstall the plugin and the workflow keeps working.
 | Path | What it is |
 |---|---|
 | `HITL.md` | The workflow rules, written for agents and humans alike |
-| `.claude/agents/` | `spec-reviewer`, `plan-reviewer`, `slice-reviewer`, `implementer`, `fixer`, `handover` |
+| `.claude/agents/` | `spec-reviewer`, `plan-reviewer`, `slice-reviewer`, `implementer`, `fixer`, `handover`, `adversarial-reviewer`, `security-reviewer` |
 | `.claude/commands/` | `/review-spec`, `/review-plan`, `/review-slice`, `/handover`, `/implement-stack`, `/umbrella-pr` |
 | `.claude/hooks/` + `settings.json` | The Stop hook that blocks the turn while a spec or plan is unreviewed |
 | `.claude/review-context.md` | What reviewers should know about *your* repo |

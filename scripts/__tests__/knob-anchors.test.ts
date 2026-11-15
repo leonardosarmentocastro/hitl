@@ -47,16 +47,51 @@ describe("knob anchors", () => {
     expect(files.filter((f) => f.endsWith("review-plan.md"))).toHaveLength(2);
   });
 
-  it("severities and reporting-cap are anchored in all three reviewers", () => {
+  it("severities and reporting-cap are anchored in all five reviewers", () => {
     for (const id of ["severities", "reporting-cap"]) {
       const files = found.filter((a) => a.id === id).map((a) => a.file);
-      for (const r of ["spec-reviewer", "plan-reviewer", "slice-reviewer"]) {
+      for (const r of [
+        "spec-reviewer",
+        "plan-reviewer",
+        "slice-reviewer",
+        "adversarial-reviewer",
+        "security-reviewer",
+      ]) {
         expect(
           files.some((f) => f.endsWith(`${r}.md`)),
           `${id} in ${r}`,
         ).toBe(true);
       }
     }
+  });
+
+  it("the elaborate round rule is outside the review-rounds anchors", () => {
+    const lines = readFileSync(
+      join(ROOT, "templates/claude/commands/review-spec.md"),
+      "utf8",
+    ).split("\n");
+    let anchors = 0;
+    lines.forEach((line, i) => {
+      if (line !== "<!-- hitl:knob review-rounds -->") return;
+      anchors += 1;
+      const paragraph: string[] = [];
+      for (let j = i + 1; j < lines.length && lines[j].trim() !== ""; j++) paragraph.push(lines[j]);
+      expect(paragraph.join("\n")).not.toMatch(/elaborate/i);
+    });
+    expect(anchors).toBe(2);
+  });
+
+  it("the doctrine's elaborate text is outside the review-rounds anchors", () => {
+    const lines = readFileSync(join(ROOT, "templates/HITL.md"), "utf8").split("\n");
+    let anchors = 0;
+    lines.forEach((line, i) => {
+      if (line !== "<!-- hitl:knob review-rounds -->") return;
+      anchors += 1;
+      const paragraph: string[] = [];
+      for (let j = i + 1; j < lines.length && lines[j].trim() !== ""; j++) paragraph.push(lines[j]);
+      expect(paragraph.join("\n")).not.toMatch(/elaborate/i);
+    });
+    expect(anchors).toBe(4);
   });
 
   it("every anchor in the templates names a listed knob", () => {
@@ -70,6 +105,9 @@ describe("knob anchors", () => {
   it("this repository's HITL.md carries the invariants section", () => {
     const text = readFileSync(join(ROOT, "HITL.md"), "utf8");
     expect(text).toContain("## Load-bearing invariants");
+    expect(text).toContain(
+      "The `**Review mode:**` header line of a spec — `/review-spec`, `/review-slice` and `/implement-stack`.",
+    );
     expect(text).toContain(
       "MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED · DEFERRED",
     );

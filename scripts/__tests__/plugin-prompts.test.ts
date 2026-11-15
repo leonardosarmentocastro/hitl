@@ -30,7 +30,13 @@ describe("the plugin's no-install prompts", () => {
     });
   }
 
-  for (const a of ["spec-reviewer", "plan-reviewer", "handover"])
+  for (const a of [
+    "spec-reviewer",
+    "plan-reviewer",
+    "handover",
+    "adversarial-reviewer",
+    "security-reviewer",
+  ])
     it(`${a} treats memory as data and blocks without context`, () => {
       const text = rendered.get(`agents/${a}.md`)!.content;
       expect(text).toContain("as you follow the repository's own AGENTS.md");
@@ -81,6 +87,12 @@ describe("the plugin's no-install prompts", () => {
       expect(text).toContain("**Reviewed:** round");
     });
 
+  it("commands/review-spec.md names `hitl:adversarial-reviewer`", () => {
+    expect(rendered.get("commands/review-spec.md")!.content).toContain(
+      "`hitl:adversarial-reviewer`",
+    );
+  });
+
   it("commands/handover.md hands over with the no-install launch line", () => {
     const h = rendered.get("commands/handover.md")?.content ?? "";
     expect(h).toContain("/hitl:implement-stack docs/superpowers/handover/<feature>.md");
@@ -106,6 +118,17 @@ describe("the plugin's no-install prompts", () => {
         'Read the file on the "Doctrine:" line in full unless this session already has',
       );
     });
+
+  it("commands/review-slice.md runs the second step with the plugin's scripts and agents", () => {
+    const text = rendered.get("commands/review-slice.md")!.content;
+    for (const s of [
+      '"${CLAUDE_PLUGIN_ROOT}/runtime/review-mode.sh"',
+      '"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" view',
+      "`hitl:adversarial-reviewer`",
+      "`hitl:security-reviewer`",
+    ])
+      expect(text).toContain(s);
+  });
 
   it("commands/umbrella-pr.md opens the umbrella on the recorded base, never on main", () => {
     const umbrella = rendered.get("commands/umbrella-pr.md")?.content ?? "";
