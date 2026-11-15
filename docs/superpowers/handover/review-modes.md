@@ -10,7 +10,7 @@ Spec(s): docs/superpowers/specs/2026-11-15-review-modes-design.md
 | slice | plan | branch | parent | status | owns |
 |---|---|---|---|---|---|
 | 1 | docs/superpowers/plans/2026-11-15-review-modes-slice-1-spec-gate.md | feat/review-modes-slice-1-spec-gate | feat/review-modes | open #31 | a spec can be reviewed in simple or elaborate mode — the `**Review mode:**` line, the question that sets it, and the adversarial and security round at the spec gate. |
-| 2 | docs/superpowers/plans/2026-11-15-review-modes-slice-2-code-gate.md | feat/review-modes-slice-2-code-gate | feat/review-modes-slice-1-spec-gate | todo | a slice of a feature marked elaborate gets a second review — adversarial and security, on the diff including the first fixes — and a second fix pass before its PR opens. |
+| 2 | docs/superpowers/plans/2026-11-15-review-modes-slice-2-code-gate.md | feat/review-modes-slice-2-code-gate | feat/review-modes-slice-1-spec-gate | open #32 | a slice of a feature marked elaborate gets a second review — adversarial and security, on the diff including the first fixes — and a second fix pass before its PR opens. |
 
 ## Umbrella PR body
 
