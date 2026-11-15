@@ -49,6 +49,31 @@ describe("the two new reviewers", () => {
     });
 });
 
+describe("the reviewers' slice side", () => {
+  for (const agent of ["adversarial-reviewer", "security-reviewer"])
+    for (const [form, text] of bothForms(agent))
+      it(`${agent} (${form}) can review a slice`, () => {
+        for (const s of [
+          "## Reviewing a slice",
+          "DEFERRED",
+          "STACK TABLE",
+          "the FULL current contents of every changed file",
+        ])
+          expect(text).toContain(s);
+      });
+
+  for (const [form, text] of bothForms("adversarial-reviewer"))
+    it(`adversarial-reviewer (${form}) still wants a scenario`, () => {
+      expect(text).toContain("No scenario, no finding.");
+    });
+
+  for (const [form, text] of bothForms("security-reviewer"))
+    it(`security-reviewer (${form}) knows the code-level attacks`, () => {
+      for (const s of ["injection", "secrets in code, logs or errors", "No attack, no finding."])
+        expect(text).toContain(s);
+    });
+});
+
 describe("/review-spec", () => {
   const forms: [string, string | undefined][] = [
     ["installed", installed.get(".claude/commands/review-spec.md")?.content],

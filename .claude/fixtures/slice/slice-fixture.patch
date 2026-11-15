@@ -1,0 +1,39 @@
+diff --git a/src/export-tag.js b/src/export-tag.js
+new file mode 100644
+index 0000000..cffe688
+--- /dev/null
++++ b/src/export-tag.js
+@@ -0,0 +1,18 @@
++import { execSync } from "node:child_process";
++import { readFileSync, writeFileSync } from "node:fs";
++
++// Write the expenses carrying `tag` to out.csv, under a header naming the currency.
++export function exportTag(tag) {
++  execSync(`grep ${tag} expenses.csv > out.csv || true`);
++  const rows = readFileSync("out.csv", "utf8")
++    .split("\n")
++    .filter(Boolean)
++    .map((line) => {
++      const [date, amount, currency] = line.split(",");
++      return { date, amount, currency };
++    });
++  const header = `date,amount (${rows[0].currency})`;
++  const body = rows.map((r) => `${r.date},${r.amount}`);
++  writeFileSync("out.csv", [header, ...body].join("\n") + "\n");
++  return rows.length;
++}
+diff --git a/src/export-tag.test.js b/src/export-tag.test.js
+new file mode 100644
+index 0000000..6fbe186
+--- /dev/null
++++ b/src/export-tag.test.js
+@@ -0,0 +1,9 @@
++import { readFileSync, writeFileSync } from "node:fs";
++import { expect, it } from "vitest";
++import { exportTag } from "./export-tag.js";
++
++it("exports one tag's expenses under a currency header", () => {
++  writeFileSync("expenses.csv", "2026-09-01,12.50,EUR,food\n2026-09-02,40.00,EUR,travel\n");
++  expect(exportTag("food")).toBe(1);
++  expect(readFileSync("out.csv", "utf8")).toBe("date,amount (EUR)\n2026-09-01,12.50\n");
++});

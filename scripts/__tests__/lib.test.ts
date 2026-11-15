@@ -59,13 +59,15 @@ describe("installer/lib primitives", () => {
         ".claude/fixtures/spec-fixture-elaborate-design.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md",
+        ".claude/fixtures/slice/slice-fixture.patch",
+        ".claude/fixtures/slice/2026-09-06-slice-fixture-slice-1-tag-export.md",
         "scripts/hitl/wipe-superpowers-docs.sh",
         "scripts/hitl/pr.sh",
         "scripts/hitl/review-mode.sh",
         "scripts/hitl/backend.sh",
       ]),
     );
-    expect(paths).toHaveLength(25);
+    expect(paths).toHaveLength(27);
   });
 
   it("owns review-mode.sh in both forms", () => {

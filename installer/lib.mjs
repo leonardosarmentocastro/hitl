@@ -59,6 +59,8 @@ const FIXTURES = [
   "spec-fixture-elaborate-design.md",
   "plans/2026-09-06-spec-fixture-slice-1-schema.md",
   "plans/2026-09-06-spec-fixture-slice-2-api.md",
+  "slice/slice-fixture.patch",
+  "slice/2026-09-06-slice-fixture-slice-1-tag-export.md",
 ];
 
 /** The owned files for a set of choices. `template` is relative to templates/; null = composed. */
