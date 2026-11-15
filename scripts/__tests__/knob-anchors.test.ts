@@ -105,7 +105,9 @@ describe("knob anchors", () => {
   it("this repository's HITL.md carries the invariants section", () => {
     const text = readFileSync(join(ROOT, "HITL.md"), "utf8");
     expect(text).toContain("## Load-bearing invariants");
-    expect(text).toContain("The `**Review mode:**` header line of a spec — `/review-spec`.");
+    expect(text).toContain(
+      "The `**Review mode:**` header line of a spec — `/review-spec`, `/review-slice` and `/implement-stack`.",
+    );
     expect(text).toContain(
       "MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED · DEFERRED",
     );

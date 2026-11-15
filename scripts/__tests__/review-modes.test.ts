@@ -191,6 +191,16 @@ describe("doctrine and plugin commands", () => {
     expect(row).toContain("simple mode and the plan gate");
   });
 
+  it("the doctrine describes the code gate's elaborate mode", () => {
+    const text = read("templates/HITL.md");
+    expect(text).not.toContain("arrives with the next slice");
+    expect(text).toContain("second fix");
+  });
+
+  it("/hitl:help shows the second review and fix per slice", () => {
+    expect(read("commands/help.md")).toContain("(twice in elaborate mode)");
+  });
+
   it("/hitl:help and the README mention elaborate mode", () => {
     expect(read("commands/help.md")).toContain("elaborate");
     expect(read("README.md")).toContain("elaborate");

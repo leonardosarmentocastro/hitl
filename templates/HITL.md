@@ -63,7 +63,15 @@ with a round recorded and no line is simple.
   adversarial findings, then one merged triage. Two recorded rounds, never a third,
   whatever the round count has been tuned to.
 
-The code gate's elaborate mode arrives with the next slice of this feature.
+- **Elaborate**, at the code gate, per slice: the cold slice review, its triage and the
+  fixer, as in simple mode; then the adversarial and the security reviewer, with the same
+  follow-up, on the slice's diff including those fixes; one merged triage; a second fix.
+  The second fixer's commits are not reviewed again — no third review. A second review that
+  produced nothing is a STOP, never an approval. The PR's `## Review decisions` covers both
+  steps.
+- `/implement-stack` reads the mode once per slice, from the spec(s) the handover document
+  lists: any `elaborate` wins, no line is simple, and an invalid value or a listed spec that
+  does not exist is a STOP, never simple.
 
 ### The Stop hook
 
@@ -359,7 +367,7 @@ minors listed one line each):
   slice owns is DEFERRED and is never fixed in the current slice.
 
 Two further reviewers, `adversarial-reviewer` and `security-reviewer`, run only in elaborate
-mode (see § Review modes). They use the same finding types, severities and reporting cap.
+mode (see § Review modes), at the spec gate and again at the code gate on every slice. They use the same finding types, severities and reporting cap.
 The adversarial reviewer tries to make the design fail and states every finding as a
 concrete scenario; the security reviewer asks what an attacker gains and states every
 finding as an attack.
@@ -469,7 +477,7 @@ one together with its parser, by PR.
 
 - The `**Reviewed:**` header line of a spec or plan — the Stop hook and the review commands.
 - The `**Owns:**` header line of a slice plan — the handover agent and the slice reviewer.
-- The `**Review mode:**` header line of a spec — `/review-spec`.
+- The `**Review mode:**` header line of a spec — `/review-spec`, `/review-slice` and `/implement-stack`.
 - The `Plan:` line of a PR body — the slice reviewer.
 - The spec and plan filename patterns `<YYYY-MM-DD>-<topic>-design.md` and
   `<YYYY-MM-DD>-<feature>-slice-<N>-<label>.md` — the review commands, the handover agent.
