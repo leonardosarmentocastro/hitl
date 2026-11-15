@@ -65,6 +65,22 @@ describe("knob anchors", () => {
     }
   });
 
+  it("the elaborate round rule is outside the review-rounds anchors", () => {
+    const lines = readFileSync(
+      join(ROOT, "templates/claude/commands/review-spec.md"),
+      "utf8",
+    ).split("\n");
+    let anchors = 0;
+    lines.forEach((line, i) => {
+      if (line !== "<!-- hitl:knob review-rounds -->") return;
+      anchors += 1;
+      const paragraph: string[] = [];
+      for (let j = i + 1; j < lines.length && lines[j].trim() !== ""; j++) paragraph.push(lines[j]);
+      expect(paragraph.join("\n")).not.toMatch(/elaborate/i);
+    });
+    expect(anchors).toBe(2);
+  });
+
   it("every anchor in the templates names a listed knob", () => {
     for (const a of found) expect(KNOBS, `${a.file}: ${a.id}`).toContain(a.id);
   });

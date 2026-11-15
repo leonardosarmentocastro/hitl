@@ -87,7 +87,11 @@ describe("the plugin's no-install prompts", () => {
       expect(text).toContain("**Reviewed:** round");
     });
 
-  it.todo("commands/review-spec.md names `hitl:adversarial-reviewer`");
+  it("commands/review-spec.md names `hitl:adversarial-reviewer`", () => {
+    expect(rendered.get("commands/review-spec.md")!.content).toContain(
+      "`hitl:adversarial-reviewer`",
+    );
+  });
 
   it("commands/handover.md hands over with the no-install launch line", () => {
     const h = rendered.get("commands/handover.md")?.content ?? "";

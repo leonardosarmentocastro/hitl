@@ -46,3 +46,35 @@ describe("the two new reviewers", () => {
         expect(text).toContain(s);
     });
 });
+
+describe("/review-spec", () => {
+  const forms: [string, string | undefined][] = [
+    ["installed", installed.get(".claude/commands/review-spec.md")?.content],
+    ["plugin", plugin.get("commands/review-spec.md")?.content],
+  ];
+
+  for (const [form, text] of forms)
+    it(`(${form}) reads the mode line and runs the elaborate round 2`, () => {
+      for (const s of [
+        "**Review mode:**",
+        "simple or elaborate?",
+        "## 1E. Elaborate round 2 — adversarial and security",
+        "-spec-adversarial.md",
+        "-spec-security.md",
+        "-spec-security-followup.md",
+        "docs(spec): record review mode",
+        "Lens",
+        "Round 2 always runs in elaborate mode, whether or not round 1 changed the spec.",
+        "In elaborate mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to.",
+      ])
+        expect(text).toContain(s);
+    });
+
+  it("runs the installed script in the installed form", () => {
+    expect(forms[0][1]).toContain('scripts/hitl/review-mode.sh "$SPEC"');
+  });
+
+  it("runs the plugin's script in the no-install form", () => {
+    expect(forms[1][1]).toContain('"${CLAUDE_PLUGIN_ROOT}/runtime/review-mode.sh" "$SPEC"');
+  });
+});

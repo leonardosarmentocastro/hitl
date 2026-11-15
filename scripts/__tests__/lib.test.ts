@@ -56,6 +56,7 @@ describe("installer/lib primitives", () => {
         ".claude/hooks/unreviewed-artifact.sh",
         ".claude/review-context.md",
         ".claude/fixtures/spec-fixture-design.md",
+        ".claude/fixtures/spec-fixture-elaborate-design.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md",
         "scripts/hitl/wipe-superpowers-docs.sh",
@@ -64,7 +65,7 @@ describe("installer/lib primitives", () => {
         "scripts/hitl/backend.sh",
       ]),
     );
-    expect(paths).toHaveLength(24);
+    expect(paths).toHaveLength(25);
   });
 
   it("owns review-mode.sh in both forms", () => {
