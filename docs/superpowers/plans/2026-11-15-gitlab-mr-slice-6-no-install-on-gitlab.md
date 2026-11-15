@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-15).
+**Reviewed:** round 1 (2026-11-15) · round 2 (2026-11-15).
 
 **Owns:** without an install, the plugin's shim picks the GitLab or GitHub backend from the repository's remote, and the plugin's commands run a stack on GitLab.
 
@@ -53,7 +53,7 @@
 - Create: `templates/scripts/backends/dispatch.sh`
 - Modify: `templates/scripts/host.mjs` (a CLI), `installer/lib.mjs` (`pluginFiles`)
 - Create (rendered): `runtime/pr/backend-github.sh`, `runtime/pr/backend-gitlab.sh`, `runtime/pr/gitlab.mjs`, `runtime/pr/host.mjs`; Modify (rendered): `runtime/pr/backend.sh`
-- Test: `scripts/__tests__/host.test.ts`, `scripts/__tests__/pr-shim.test.ts`, `scripts/__tests__/pr-shim-dispatch.test.ts`
+- Test: `scripts/__tests__/host.test.ts`, `scripts/__tests__/pr-shim.test.ts`, `scripts/__tests__/pr-shim-dispatch.test.ts`, `scripts/__tests__/wipe.test.ts`, `scripts/__tests__/plugin-drift.test.ts`
 
 **Interfaces:**
 - `templates/scripts/host.mjs` gains a CLI (when run as main; the same realpath `isMain` check
@@ -93,9 +93,16 @@
 - [ ] **Step 2: Run** `pnpm test` — the new cases FAIL.
 - [ ] **Step 3: Implement** the CLI, `dispatch.sh` and the `pluginFiles` entries; run
   `node installer/render-plugin.mjs --plugin-root .`.
-- [ ] **Step 4: Run** `pnpm test` — PASS (plugin-drift included; `wipe.test.ts` and
-  `cleanup.test.ts` use the plugin shim — give their temp repositories a GitHub `origin` if
-  they have none).
+- [ ] **Step 4: Fix the two suites the dispatcher changes, then run** `pnpm test` — PASS.
+  - `wipe.test.ts` runs `runtime/pr/pr.sh` from a clone whose `origin` is a local bare path
+    it pushes to; the dispatcher reads that as `unknown` and would refuse. Its `SHIM` becomes
+    `<githubShimDir()>/pr.sh` (slice 3's helper: `pr.sh` with the GitHub backend as
+    `backend.sh`); the remote stays as it is. Dispatch is proven by
+    `pr-shim-dispatch.test.ts`, not here. No environment override of the host rule is added,
+    anywhere.
+  - `plugin-drift.test.ts` pins `runtime/pr/backend.sh` equal to `backends/github.sh` (near
+    lines 23–26): it now pins it equal to `backends/dispatch.sh`, and
+    `runtime/pr/backend-github.sh` / `backend-gitlab.sh` equal to their templates.
 - [ ] **Step 5: Commit** `feat(runtime): the plugin's PR shim picks the backend from the remote`.
 
 ### Task 2: `context.mjs` requires a host with a backend
@@ -135,7 +142,9 @@
     Global Constraints;
   - `brainstorming-command.test.ts`: `commands/brainstorming.md` contains `GITLAB_TOKEN` and
     the phrase `no PR backend`.
-  Rewrite, in the same step, the existing `plugin-prompts.test.ts` case "the handover agent
+  Rewrite, in the same step, the existing `brainstorming-command.test.ts` assertion that
+  the command contains `issues/19` (near line 29) — it now asserts the command does not —
+  and the existing `plugin-prompts.test.ts` case "the handover agent
   runs the shim only on GitHub" (near line 61): it now asserts the rendered agent runs the
   shim when the `Host:` line says `github` or `gitlab`, and not otherwise.
 - [ ] **Step 2: Run** — FAIL.

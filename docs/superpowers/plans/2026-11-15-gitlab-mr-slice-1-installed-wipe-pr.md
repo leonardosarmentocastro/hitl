@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-15).
+**Reviewed:** round 1 (2026-11-15) · round 2 (2026-11-15).
 
 **Owns:** an installed repository's feature documents leave through the generated wipe PR built by `/umbrella-pr`.
 
@@ -184,7 +184,7 @@ behaviour is validated by the dry run in Step 5.
 - [ ] **Step 5: Re-render and dry-run the prompt.** Run both refreshes; `pnpm test` — PASS.
   Then run the installed `/umbrella-pr --dry-run` itself, as `AGENTS.md` prescribes for
   prompts, in a scratch clone of this repository on a throwaway feature branch that carries
-  one spec and a minimal handover document. Expected: the printed body's `<!-- stack -->`
+  one spec and a minimal handover document. There is no stack fixture under `.claude/fixtures/`, so the scratch clone is the fixture; and a subagent cannot invoke a slash command, so the implementer follows the rendered command's text step by step, exactly as written. Expected: the printed body's `<!-- stack -->`
   block ends with `Required before merge: the wipe PR (not built in a dry run).`, and
   afterwards there is no `<b>-wipe` ref locally or on the remote and no new PR. Record the
   printed stack block in the commit body.

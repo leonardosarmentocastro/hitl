@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-15).
+**Reviewed:** round 1 (2026-11-15) · round 2 (2026-11-15).
 
 **Owns:** `/hitl:init`, `/hitl:init --adopt` and `/hitl:help` accept and describe a GitLab repository: the installer renders the GitLab backend for `provider: gitlab`, and the prerequisite is the token, not `gh`.
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-15).
+**Reviewed:** round 1 (2026-11-15) · round 2 (2026-11-15).
 
 **Owns:** the PR shim's `list` and `view` answer from GitLab over REST — with the one host rule (`GITLAB_URL` matched against the remote), the token and host refusals, and `ref` on the record of both backends.
 
@@ -82,13 +82,17 @@ The rule (spec § 1), as a case table the test encodes with `it.each`:
 | `git@gitlab.corp:g/r.git` | `gitlab.corp` (no scheme) | unknown, problem `bad-gitlab-url` | — | — |
 | `git@gitlab.corp:g/r.git` | `` (empty) | unknown, no problem | — | — |
 | `git@gitlab.corp:g/r.git` | `https://gitlab.corp/api/v4` | unknown, problem `gitlab-url-has-api-path` | — | — |
+| `git@gitlab.corp:g/r.git` | `https://gitlab.corp/api/v4/` | unknown, problem `gitlab-url-has-api-path` | — | — |
+| `git@gitlab.corp:g/r.git` | `gitlab.corp:8443` | unknown, problem `bad-gitlab-url` | — | — |
 | `git@other.corp:g/r.git` | `https://gitlab.corp` | unknown | — | — |
 | `null` | — | unknown | — | — |
 
 Notes that decide the rows: hostnames compare case-insensitively and ignore the port; an
 empty `GITLAB_URL` is unset; the `GITLAB_URL` path is stripped from an https remote's path
 only on a path-segment boundary (`/git` does not match `/gitops/...`); a `GITLAB_URL` whose
-path ends in `/api/v4` is a problem, not a base.
+path ends in `/api/v4` (with or without a trailing slash) is a problem, not a base; a
+`GITLAB_URL` is usable only when it parses **and** its scheme is `http:` or `https:`
+(`gitlab.corp:8443` parses, with scheme `gitlab.corp:`, and is a problem).
 
 - [ ] **Step 1: Write the failing test** `scripts/__tests__/host.test.ts` with the table above
   (assert `host`, `apiBase`, `project`, `problem` per row), plus in `discover.test.ts`:
@@ -179,8 +183,9 @@ path ends in `/api/v4` is a problem, not a base.
   - `toRecord(mr): Record` — the mapping of spec § 2:
     `number: iid`, `ref: "!" + iid`, `url: web_url`, `head: source_branch`,
     `base: target_branch`, `state: opened|locked → "open", merged → "merged", closed → "closed"`,
-    `draft: draft`, `title` with one leading draft marker removed
-    (`/^\s*(?:\[draft\]|\(draft\)|draft:|draft\s)\s*/i`), `body: description ?? ""`,
+    `draft: draft`, `title` — when `draft` is true, with one leading draft marker removed
+    (`/^\s*(?:\[draft\]|\(draft\)|draft:|draft\s)\s*/i`); when `draft` is false, unchanged —
+    `body: description ?? ""`,
     `head_sha: sha`.
 - `list <prefix> <state>`: `paged(ctx, "/merge_requests", { labels: "hitl", state, order_by: "created_at", sort: "asc" })`
   with `state` mapped `open → opened`, others unchanged; then keep records whose `head` starts
@@ -193,7 +198,8 @@ path ends in `/api/v4` is a problem, not a base.
   - `--state open` sends `state=opened`; `merged`, `closed`, `all` pass through;
   - the record: an MR titled `Draft: Slice 1: api`, `draft: true`, `description: null`,
     `state: "locked"` comes back as `{ number, ref: "!<iid>", title: "Slice 1: api", draft: true, body: "", state: "open", head_sha: <sha>, … }`;
-    titles `[Draft] x`, `(Draft) x`, `draft x` all come back as `x`;
+    titles `[Draft] x`, `(Draft) x`, `draft x` with `draft: true` all come back as `x`; an
+    MR seeded with `draft: false` and title `Draft plans for Q3` keeps its title;
   - 250 labelled MRs with the prefix → 250 records, and the log shows `page=1`, `2`, `3`;
   - `mode: "fail"` → exit 2, stderr `GitLab 500: boom`, stdout empty;
   - `mode: "redirect"` → exit 2, stderr names the `Location`, and the log shows exactly one
@@ -262,3 +268,42 @@ path ends in `/api/v4` is a problem, not a base.
   records — `wipe.test.ts`, `cleanup.test.ts`, the stub shim — do not assert the full record
   and need no change; fix any that do).
 - [ ] **Step 5: Commit** `feat(shim): every PR record carries ref`.
+
+### Task 6: One contract suite over both backends — the reading verbs
+
+The spec asks for the same contract cases over both backends. `pr-shim.test.ts` keeps its
+GitHub-specific cases (what `gh` was called with) and `pr-shim-gitlab.test.ts` its
+GitLab-specific ones (pagination, label, redirect, refusals). The contract itself is proven
+once, by one suite run against each backend.
+
+**Files:**
+- Create: `scripts/__tests__/pr-shim-contract.test.ts`
+- Modify: `scripts/__tests__/helpers/gitlab.ts` (export a world), create `scripts/__tests__/helpers/github.ts`
+
+**Interfaces:**
+- Produces: a `World` per backend, used by `describe.each([githubWorld, gitlabWorld])`:
+  `{ name: string, setup(prs: SeedPr[]): Promise<void>, run(args: string[]): { status, stdout, stderr, json }, backendCalls(): number, teardown(): void }`
+  where `SeedPr = { number, head, base, state: "open"|"merged"|"closed", draft, title, body, head_sha }`.
+  The GitHub world seeds the fake `gh` in `store` mode and counts its log lines; the GitLab
+  world seeds the fake GitLab (labelled `hitl`) and counts its logged requests. Both run the
+  shim assembled from the templates (`pr.sh` + that backend), not a rendered copy.
+  `githubShimDir()` in `helpers/github.ts` mirrors `gitlabShimDir()`: `pr.sh` plus
+  `backends/github.sh` as `backend.sh`.
+
+- [ ] **Step 1: Write the suite** with these cases, each asserted identically for both worlds:
+  - `view <n>` → exit 0, a record with exactly the keys
+    `number, ref, url, head, base, state, draft, title, body, head_sha, reviews, comments`,
+    whose values equal the seed (`ref` aside, which is `#<n>` or `!<n>`);
+  - `list --head-prefix feat/x-slice-` → only the seeded PRs with that prefix, in every
+    state (the default is `all`); `--state merged` → only the merged one; a seeded head that
+    contains the prefix but does not start with it is excluded; a prefix containing `"` is
+    matched literally;
+  - `list` with no `--head-prefix`, `view` with a non-number, and an unknown verb → exit 1,
+    usage on stderr, and `backendCalls()` is 0;
+  - `view` of a number that does not exist → exit 2, a non-empty stderr, empty stdout.
+- [ ] **Step 2: Run** `pnpm test scripts/__tests__/pr-shim-contract.test.ts` — a case that
+  fails on either backend is a contract bug in that backend: fix the backend, not the case.
+  (Write the suite before Task 3's implementation is final if working strictly test-first;
+  it must be red for GitLab until `list` and `view` exist.)
+- [ ] **Step 3: Run** `pnpm test` and `pnpm format:check` — PASS.
+- [ ] **Step 4: Commit** `test(shim): one contract suite over the GitHub and GitLab backends`.

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-15).
+**Reviewed:** round 1 (2026-11-15) · round 2 (2026-11-15).
 
 **Owns:** the PR shim's `create` (Draft, labelled, exit 3 when one exists), `edit`, `comment` and `retarget` work on GitLab; every text hitl posts or reports names a PR by its `ref`.
 
@@ -126,14 +126,19 @@
 **Files:**
 - Modify: `templates/scripts/wipe-core.mjs`
 - Modify (rendered): `scripts/hitl/wipe.mjs`, `runtime/wipe-core.mjs`, `.claude/hitl.json`
-- Test: `scripts/__tests__/wipe-core.test.ts`
+- Test: `scripts/__tests__/wipe-core.test.ts`, `scripts/__tests__/wipe-core-gitlab.test.ts`
 
 **Interfaces:**
 - Produces: `buildWipe`'s `built` and `merged` outputs gain `ref` — the PR record's `ref`
   (`{ status: "built", branch, pr, ref, files }`, `{ status: "merged", pr, ref }`).
 
-- [ ] **Step 1: Write the failing test:** a `built` run and a `merged` run both report
-  `ref: "#<pr>"` (the tests run against the fake `gh`).
+- [ ] **Step 1: Write the failing tests:** a `built` run and a `merged` run both report
+  `ref: "#<pr>"` against the fake `gh`. And, in `wipe-core-gitlab.test.ts`, the wipe core
+  through the GitLab backend (`--shim <gitlabShimDir>/pr.sh`, the fake GitLab): the
+  repository's `remote.origin.url` is the fake's `http://127.0.0.1:<port>/g/r.git` (what the
+  host rule reads) and `remote.origin.pushurl` is a local bare repository (where the wipe
+  branch is pushed); a `built` run creates one Draft MR labelled `hitl` with `ref: "!<n>"`,
+  and a second run after a new parent commit retargets that same MR and opens no second one.
 - [ ] **Step 2: Run** — FAIL. **Step 3: Implement**; refresh and re-render.
 - [ ] **Step 4: Run** `pnpm test` — PASS. **Step 5: Commit** `feat(wipe): report the wipe PR's ref`.
 
@@ -141,7 +146,7 @@
 
 **Files:**
 - Modify: `templates/claude/commands/implement-stack.md`, `templates/claude/commands/umbrella-pr.md`, `templates/claude/agents/handover.md`
-- Modify: `installer/cleanup.mjs`, `commands/cleanup.md`
+- Modify: `installer/cleanup.mjs`, `commands/cleanup.md`, `commands/diff.md`, `scripts/__fixtures__/stub-pr-shim/pr.sh`
 - Modify (rendered): the same templates under `.claude/` and under `commands/`, `agents/`; `.claude/hitl.json`
 - Test: `scripts/__tests__/render.test.ts`, `scripts/__tests__/plugin-prompts.test.ts`, `scripts/__tests__/cleanup.test.ts`
 
@@ -158,8 +163,8 @@ stay as they are.
   - `umbrella-pr.md` contains `created: <ref> (draft)`, `updated: <ref>`,
     `Required before merge: <ref> removes the transient docs`, `Transient docs removed by <ref>.`
     and `refused: <ref> has a hand-written body`;
-  - none of the three templates contains the phrase `PR #<` or `PR #K` outside the
-    stack-table status sentence.
+  - in the three templates, every occurrence of `#<` or `#K` or `#N` is one of exactly
+    these stack-table strings: `open #<number>`, `merged #<number>`, `open #K`, `merged #K`.
   Existing assertions that pin the old strings are rewritten to `<ref>` in the same step:
   slice 1's `render.test.ts` cases (`Required before merge: #<pr>`, `The wipe PR #<pr>`) and
   `plugin-prompts.test.ts` (the `Required before merge: #<pr>` assertion near line 159).
@@ -182,9 +187,36 @@ stay as they are.
   heading of the Fix-up section becomes `PR <ref>`. `review-slice.md` reports no PR number
   today and is not edited. In `installer/cleanup.mjs`, the PR it reports per entry gains
   `ref` (copied from the shim record); `commands/cleanup.md` prints
-  `umbrella PR <umbrella.ref>` where it prints `umbrella PR #<umbrella.number>`.
+  `umbrella PR <umbrella.ref>` where it prints `umbrella PR #<umbrella.number>`. The stub
+  shim fixture (`scripts/__fixtures__/stub-pr-shim/pr.sh`), which `cleanup.test.ts` drives,
+  emits `ref` on its records. `commands/diff.md` reports the upgrade PR it opens as
+  `created: <ref> <url>` (today `created: #N <url>`).
 - [ ] **Step 6: Re-render** (both refreshes); run `pnpm test` and `pnpm format:check` — PASS.
 - [ ] **Step 7: Dry-run the prompt** as `AGENTS.md` prescribes: run `/umbrella-pr --dry-run`
-  on the fixture stack (or a scratch branch) and confirm the printed body's stack table shows
+  in a scratch clone on a throwaway feature branch with a minimal handover document. There is no stack fixture under `.claude/fixtures/`, so the scratch clone is the fixture; and a subagent cannot invoke a slash command, so the implementer follows the rendered command's text step by step, exactly as written. Confirm the printed body's stack table shows
   `#<n>` refs on this GitHub repository. Note the result in the commit body.
 - [ ] **Step 8: Commit** `feat(commands): name PRs by ref in everything posted or reported`.
+
+### Task 6: The contract suite — the writing verbs
+
+**Files:**
+- Modify: `scripts/__tests__/pr-shim-contract.test.ts`
+
+**Interfaces:**
+- Consumes: slice 3 Task 6's `World` (`githubWorld`, `gitlabWorld`).
+
+- [ ] **Step 1: Add the cases**, asserted identically for both worlds:
+  - `create --draft` → exit 0, exactly one JSON document, a record with the ten record keys,
+    `draft: true`, the title as passed (no draft marker), `head`/`base` as passed; without
+    `--draft` → `draft: false`;
+  - `create` for a head that already has an open PR to that base → exit 3, stdout is exactly
+    one JSON line, the existing PR's record;
+  - `edit <n> --body-file` → the record, with the new `body` and the same `draft` and `title`;
+  - `comment <n> --body-file` → the record of PR `<n>` (same ten keys);
+  - `retarget <n> --base b` → the record with `base: "b"`;
+  - `create` without `--title`, `edit` without `--body-file`, `retarget` without `--base` →
+    exit 1 and `backendCalls()` is 0.
+- [ ] **Step 2: Run** `pnpm test scripts/__tests__/pr-shim-contract.test.ts` — a failure on
+  either backend is fixed in that backend.
+- [ ] **Step 3: Run** `pnpm test` and `pnpm format:check` — PASS.
+- [ ] **Step 4: Commit** `test(shim): the contract suite covers create, edit, comment and retarget`.

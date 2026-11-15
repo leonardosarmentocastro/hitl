@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-15).
+**Reviewed:** round 1 (2026-11-15) · round 2 (2026-11-15).
 
 **Owns:** the GitHub Actions wipe job, its script, its init question and the `ci` choice are gone; an upgrade removes them; the doctrine states that the last PR of every stack is the generated wipe PR.
 
@@ -106,18 +106,19 @@
 
 - [ ] **Step 1: Write the failing tests** in `diff.test.ts`. The fixture is "a manifest
   written by an older hitl": add a helper beside `fixtureMarketplaceWithRemoval` that builds a
-  marketplace tag whose `installer/lib.mjs` owns
-  `.github/workflows/wipe-superpowers-docs.yml` and `scripts/hitl/wipe-superpowers-docs.sh`
-  **only when `choices.ci === "github-actions"`** (the old conditional, not an unconditional
-  injection), with those two template files written into the tag, and whose manifest records
-  `ci`. The `ci: "none"` case below must fail if `diff.mjs` stops passing `manifest.ci` to
+  marketplace tag whose `installer/lib.mjs` owns what the released versions own:
+  `scripts/hitl/wipe-superpowers-docs.sh` **always**, and
+  `.github/workflows/wipe-superpowers-docs.yml` **only when
+  `choices.ci === "github-actions"`** (the old conditional, not an unconditional injection),
+  with those two template files written into the tag, and whose manifest records `ci`. The `ci: "none"` case below must fail if `diff.mjs` stops passing `manifest.ci` to
   the recorded render — check that by temporarily removing it. Cases:
   - a manifest from the recorded version with `"ci": "github-actions"` and both files
     unedited: both paths are `removed upstream` / `local: "same"`; `--apply` deletes both,
     `keptRemoved` is `[]`, and the written manifest has no `ci`.
   - the same with the workflow edited: the script is deleted, the workflow is kept,
     `keptRemoved` equals `[".github/workflows/wipe-superpowers-docs.yml"]`.
-  - a manifest with `"ci": "none"`: no entry for the workflow path at all.
+  - a manifest with `"ci": "none"`: no entry for the workflow path at all; the script is
+    `removed upstream` / `local: "same"` and `--apply` deletes it; `keptRemoved` is `[]`.
 - [ ] **Step 2: Run** `pnpm test scripts/__tests__/diff.test.ts` — FAIL.
 - [ ] **Step 3: Implement** in `installer/diff.mjs` as the Interfaces block says.
 - [ ] **Step 4: Run** `pnpm test` — PASS.
@@ -127,8 +128,9 @@
     You edited them, so they were kept. Delete `.github/workflows/wipe-superpowers-docs.yml`
     and `scripts/hitl/wipe-superpowers-docs.sh` together, by hand: one without the other is a
     job that fails on every push."
-  - when the upgrade removed the workflow or the script (either path is `removed upstream`):
-    "The CI wipe job is gone: a feature's documents now leave through a generated wipe PR,
+  - when either path is `removed upstream`: begin with "The CI wipe job is gone: " only if
+    the **workflow** path is among them (a repository that never had the job loses only the
+    script), then, in both cases: "A feature's documents now leave through a generated wipe PR,
     merged last. If a stack is in flight, bring the upgraded base branch into its feature
     branch first, then re-run `/umbrella-pr` there — it builds the wipe PR. Branches cut
     before this upgrade still carry the old command and would build nothing."
