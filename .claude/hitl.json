@@ -16,7 +16,7 @@
     ".claude/commands/implement-stack.md": "cddffb5834bf2ba678e1dcacbca97b0ab9d1ac63b10a552a12e7e918d8601555",
     ".claude/commands/review-plan.md": "0cf72f0076c0803641594105b7feaa91d632d90d293943296870641319cf7847",
     ".claude/commands/review-slice.md": "a8a3239f7ef670c77846b1f5822e342072b4c61ee37967d358aaf29d9f9ee44f",
-    ".claude/commands/review-spec.md": "1b8e29d449888a93cb35e119b72dee7a38e1667e37d3b9d7fe736a9effa856d6",
+    ".claude/commands/review-spec.md": "06a8d34d5260c5abf3ea762ec8caf59a609b8d1b89477c765cbc82ca1078c875",
     ".claude/commands/umbrella-pr.md": "219da83dc45efb43d8c6001edd03da95f68e184361435bb237d9970e5768abaf",
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md": "be55290b2a215fab748dbd4cbc5a2a3110c6f3516b797feb27d50534248bee2b",
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md": "4844682a12664356822133235d8c59ce3bdb8182a6b845d9caf39c861cecd0ec",

@@ -56,7 +56,7 @@ below) or `elaborate` (one cold round, then an adversarial and security round). 
   the first `##`) and commit it alone:
 
   ```bash
-  git add "$SPEC" && git commit -m "docs(spec): record review mode"
+  git commit -m "docs(spec): record review mode" -- "$SPEC"
   ```
 
   No other case sets or changes the line: the human edits it by hand, in a commit.
@@ -113,8 +113,8 @@ verbatim, and nothing else:
 
 ## 2. Record the round in the spec header — before triage
 
-If `<OUT>` exists and contains a `| Verdict |` row, add to the spec's header block (the
-lines between the `#` title and the first `##`), creating the line if absent:
+After § 1, if `<OUT>` exists and contains a `| Verdict |` row, add to the spec's header
+block (the lines between the `#` title and the first `##`), creating the line if absent:
 
 ```
 **Reviewed:** round <N+1> (<YYYY-MM-DD>).
@@ -144,7 +144,7 @@ and triage may need to stop and ask the human.
 
 ## 3. Triage — you decide the verdict, the reviewer never does
 
-Read `<OUT>`. For every table finding and every "Also noticed" line, assign ONE verdict:
+After § 1, read `<OUT>`. For every table finding and every "Also noticed" line, assign ONE verdict:
 
 - **YOUR CALL** — a design decision. Ask the human, ONE finding at a time, with your
   recommendation. Never fold a design decision in without the answer.
