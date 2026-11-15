@@ -3,7 +3,7 @@
 Tracks: https://github.com/leonardosarmentocastro/hitl/issues/19
 
 **Review mode:** simple
-**Reviewed:** round 1 (2026-11-15).
+**Reviewed:** round 1 (2026-11-15) · round 2 (2026-11-15).
 
 ## Goal
 
@@ -142,6 +142,12 @@ Before any request the backend refuses, exit 2, with a message naming the variab
 
   The token is never sent to a host the remote does not match, and is never printed.
 
+The backend never follows a redirect. Node's `fetch` would turn a redirected `POST` into a
+`GET` (a `create` that silently becomes a listing) and would carry the `PRIVATE-TOKEN` header
+to another hostname. So a 3xx answer is exit 2, naming `GITLAB_URL` and the `Location` it was
+given. Pages are requested by page number against the same base, never by following a URL
+the server returned.
+
 Auth is the `PRIVATE-TOKEN` header. The token needs the `api` scope; the messages and
 `/hitl:help` say so.
 
@@ -164,8 +170,9 @@ Auth is the `PRIVATE-TOKEN` header. The token needs the `api` scope; the message
 - `create` — `POST /projects/:id/merge_requests`. `--draft` prefixes the title with
   `Draft: `. Every MR hitl opens carries the label `hitl` (GitLab creates the label on first
   use). No reviewers, no assignees. When GitLab answers 409 because an open MR already
-  exists for the source branch, the backend finds it (`source_branch=<head>&state=opened`,
-  without the label filter), adds the `hitl` label if it lacks it — so later listings see an
+  exists, the backend finds it by source **and** target branch
+  (`source_branch=<head>&target_branch=<base>&state=opened`, without the label filter —
+  GitLab allows one open MR per pair, so a branch can have a second one to another target), adds the `hitl` label if it lacks it — so later listings see an
   MR that was opened by hand — prints its record and exits 3.
 - `list` — `GET /projects/:id/merge_requests`, `per_page=100`, following pages. `--state`
   maps `open` → `opened`; `merged`, `closed`, `all` pass through. GitLab cannot filter by a
@@ -182,11 +189,13 @@ Auth is the `PRIVATE-TOKEN` header. The token needs the `api` scope; the message
   Discussions are paginated like any GitLab list: `view` follows every page (`per_page=100`)
   to the end, so a long review never reads back with threads missing:
   - each approver → a review `approved`, empty body;
-  - each **unresolved** resolvable thread → a review `changes_requested`, author and body of
-    the thread's first note;
-  - each **resolved** thread → a review `commented`, same author and body *(my reading of
-    "rest → commented")*;
-  - every other non-system note → `comments` (`author`, `body`, `created_at`).
+  - each **unresolved** resolvable thread → a review `changes_requested`;
+  - each **resolved** thread → a review `commented` *(my reading of "rest → commented")*;
+  - a thread's review carries the author of its first note, and as body **all** of the
+    thread's non-system notes in order, each prefixed with its author — a reply that changes
+    or withdraws the request must reach the fix-up;
+  - only non-system notes outside any resolvable thread → `comments` (`author`, `body`,
+    `created_at`).
 - `edit` — `PUT` with `description` only. The title is never sent, so Draft status stands.
 - `comment` — `POST …/notes`.
 - `retarget` — `PUT` with `target_branch`.
@@ -268,9 +277,21 @@ creates or retargets its Draft PR. Installed mode gets the same:
   `adopt.mjs` and `render.mjs` refuse an unknown or missing one). The `ci` *testing fragment* (`testing: ["ci"]`) is a different thing and stays.
 - Upgrade: `/hitl:diff --apply` already deletes files "removed upstream", so an existing
   install loses the workflow and the script on its next upgrade, and gains the wipe builder.
-  A stack that was in flight during the upgrade (umbrella PR already open) has no wipe PR
-  yet: re-running `/umbrella-pr` builds it, and the upgrade report says so. Otherwise that
-  feature's documents would reach `main` with no job left to remove them.
+  Two cases the upgrade report must spell out:
+  - *A workflow or script the repository edited.* `/hitl:diff` keeps a "removed upstream"
+    file whose content differs from the manifest, so the pair can be half-removed (an edited
+    workflow left calling a deleted script). The report names every kept file and tells the
+    human to delete the workflow and the script together, by hand.
+  - *A stack in flight during the upgrade* (umbrella PR already open). Its branches were cut
+    before the upgrade and still carry the old `/umbrella-pr` and no wipe builder, so
+    re-running the command there builds nothing. The report says: bring the upgraded base
+    branch into the feature branch first, then re-run `/umbrella-pr`, which builds the wipe
+    PR.
+- The fallback stays in both doctrines, as one sentence: documents that reached the base
+  branch because the wipe PR did not merge before the umbrella PR are deleted by hand, in one
+  commit. Nothing else removes them: the builder only counts documents a feature added.
+  `/hitl:cleanup` already tells the human when that happened; it does so in installed mode
+  too.
 - Doctrine (`templates/HITL.md`, both modes): specs and plans leave through the generated
   wipe PR, merged last — after every slice, before the umbrella PR. The sentences about a
   workflow deleting them after merge, "deleted by hand", "the wipe script" in § Where things
@@ -291,7 +312,8 @@ creates or retargets its Draft PR. Installed mode gets the same:
   `gh` they use today, GitLab against a fake API — a local HTTP server the test starts, with
   `GITLAB_URL` and a temp repository's `origin` pointing at it. (A synchronous child process
   blocks the event loop the fake server runs on; the test must spawn asynchronously or run
-  the server out of process.) GitLab-only cases: pagination, the 409 →
+  the server out of process.) GitLab-only cases: pagination, a 3xx answer (exit 2, no second request), a thread with
+  replies, the 409 →
   exit 3 path, the `hitl` label on create and in the list query, the reviews mapping, the missing-token and host-mismatch refusals, that no
   request is made in either refusal, and the three remote URL forms.
 - **The plugin's shim picks the right backend** (slice 6 owns these), run through
@@ -302,7 +324,8 @@ creates or retargets its Draft PR. Installed mode gets the same:
 - The host rule's case table, with and without `GITLAB_URL` (including one that does not
   parse); `context.mjs` `--require host`; `help.mjs`
   prerequisites per host; render, adopt, diff and drift tests for `provider: gitlab`, for the
-  removed files and for a manifest with a leftover `ci`.
+  removed files, for a manifest with a leftover `ci`, and for an upgrade where the workflow
+  or the script was edited (kept, and named in the report).
 - The wipe core on its own (explicit base, no record, nothing archived), and
   `runtime/wipe.mjs` over it unchanged in behaviour — its existing tests still pass.
 - Prompts are validated by dry run on fixtures, as `AGENTS.md` says. The first real run on a
@@ -346,6 +369,16 @@ and 6 share helper code for the prerequisite checks.
 
 - *Forwarded to the plan gate:* GitLab also reads `[Draft]`, `(Draft)` and `Draft ` as draft
   markers; the record's `title` should strip whichever marker is present, not only `Draft:`.
+- *Forwarded to the plan gate:* a `GITLAB_URL` that already ends in `/api/v4` should be
+  refused by name, not turned into `/api/v4/api/v4`.
+- *Forwarded to the plan gate:* stripping `GITLAB_URL`'s path from a remote must match on a
+  path-segment boundary (`https://host/git` must not eat the start of `/gitops/repo`).
+- An archive of the documents in installed mode, for a fix-up after the wipe PR merged —
+  declined: the wipe PR's body already says fix-up rounds happen before it merges, and the
+  documents stay in the feature branch's history.
+- Filtering out threads opened by the MR's own author or by a bot in `view` — declined: an
+  unresolved thread is open work whoever started it, and reading it as `changes_requested` is
+  the cautious side.
 - A cut-off on `list` (1000 MRs, then 1000 labelled MRs) — declined: with the label narrowing
   the server it counts the project's whole hitl history and becomes a permanent wall.
 - The review of this spec is an experiment tracked in issue #36: round 1 cold, round 2 by the
