@@ -50,7 +50,92 @@ function context(env) {
   return { apiBase: resolved.apiBase, project: resolved.project, token };
 }
 
-const VERBS = {};
+/**
+ * One request to `<apiBase>/api/v4/projects/<project><path>`. Never follows a redirect. A
+ * non-2xx answer is exit 2, unless its status is in `allow`; then the response comes back.
+ */
+export async function api(ctx, method, path, { query, body, allow = [] } = {}) {
+  const url = new URL(`${ctx.apiBase}/api/v4/projects/${ctx.project}${path}`);
+  for (const [k, v] of Object.entries(query ?? {})) url.searchParams.set(k, String(v));
+  const headers = { "PRIVATE-TOKEN": ctx.token };
+  if (body !== undefined) headers["content-type"] = "application/json";
+  let res;
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      redirect: "manual",
+    });
+  } catch (e) {
+    fail(`could not reach GitLab at ${ctx.apiBase}: ${e.cause?.message ?? e.message}`);
+  }
+  const text = await res.text();
+  let json = null;
+  try {
+    json = text === "" ? null : JSON.parse(text);
+  } catch {
+    json = null;
+  }
+  if (res.status >= 300 && res.status < 400) {
+    fail(
+      `GitLab answered ${res.status} with a redirect to ${res.headers.get("location")}; ` +
+        "set GITLAB_URL to the address it redirects to.",
+    );
+  }
+  if ((res.status < 200 || res.status >= 300) && !allow.includes(res.status)) {
+    let detail = json?.message ?? json?.error ?? text;
+    if (typeof detail !== "string") detail = JSON.stringify(detail);
+    fail(`GitLab ${res.status}: ${detail}`);
+  }
+  return { status: res.status, json, headers: res.headers };
+}
+
+const PER_PAGE = 100;
+
+/** Every item of a paged list: page 1, 2, … until a page holds fewer than PER_PAGE items. */
+export async function paged(ctx, path, query) {
+  const all = [];
+  for (let page = 1; ; page++) {
+    const { json } = await api(ctx, "GET", path, {
+      query: { ...query, per_page: PER_PAGE, page },
+    });
+    const items = Array.isArray(json) ? json : [];
+    all.push(...items);
+    if (items.length < PER_PAGE) return all;
+  }
+}
+
+const DRAFT_MARKER = /^\s*(?:\[draft\]|\(draft\)|draft:|draft\s)\s*/i;
+const STATES = { opened: "open", locked: "open", merged: "merged", closed: "closed" };
+
+/** The shim's record for a GitLab merge request. */
+export function toRecord(mr) {
+  return {
+    number: mr.iid,
+    ref: `!${mr.iid}`,
+    url: mr.web_url,
+    head: mr.source_branch,
+    base: mr.target_branch,
+    state: STATES[mr.state] ?? mr.state,
+    draft: mr.draft,
+    title: mr.draft ? mr.title.replace(DRAFT_MARKER, "") : mr.title,
+    body: mr.description ?? "",
+    head_sha: mr.sha,
+  };
+}
+
+async function list(ctx, [prefix, state]) {
+  const mrs = await paged(ctx, "/merge_requests", {
+    labels: "hitl",
+    state: state === "open" ? "opened" : state,
+    order_by: "created_at",
+    sort: "asc",
+  });
+  return mrs.map(toRecord).filter((r) => r.head.startsWith(prefix));
+}
+
+const VERBS = { list };
 
 async function main(argv) {
   const [verb, ...args] = argv;
