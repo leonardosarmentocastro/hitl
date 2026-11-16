@@ -101,8 +101,8 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "$
 - exit `3`, `refused: "collision"` → list every path, then: "These files are owned by hitl and
   already exist. If this repository was ejected from an earlier hitl or from treasury-2, run
   `/hitl:init --adopt`. Otherwise remove them and re-run.
-  Nothing was written." When `paths` holds a path other than `scripts/hitl` that is not under
-  `.hitl/` or `.claude/`, or the reviewer context under `.claude/`, add: "A doctrine or reviewer context from the earlier layout is in the way: `/hitl:init --adopt` moves it." Stop.
+  Nothing was written." When `paths` holds the doctrine at the repository root or the
+  reviewer context directly in `.claude/` (the two files' places before 0.3.0), add: "A doctrine or reviewer context from the earlier layout is in the way: `/hitl:init --adopt` moves it." Stop.
 - exit `3`, `refused: "settings-unparsable"` → print the error and "fix
   `.claude/settings.json` and re-run; nothing was written." Stop.
 - exit `0` → continue.
