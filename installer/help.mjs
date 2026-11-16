@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { emit, parseArgs } from "./lib.mjs";
 import {
   DEFAULT_CHOICES,
+  DOCTRINE_PATH,
   collisions,
   compareVersions,
   pluginVersion,
@@ -65,7 +66,8 @@ export function installState(repo, manifest, plugin) {
   }
   const anyOwned = collisions(repo, DEFAULT_CHOICES).length > 0;
   if (!anyOwned) return "not installed";
-  const ejected = existsSync(join(repo, ".claude/agents")) && existsSync(join(repo, "HITL.md"));
+  const doctrine = existsSync(join(repo, DOCTRINE_PATH)) || existsSync(join(repo, "HITL.md"));
+  const ejected = existsSync(join(repo, ".claude/agents")) && doctrine;
   return ejected ? "ejected" : "partially installed";
 }
 

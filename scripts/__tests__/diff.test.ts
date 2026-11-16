@@ -15,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { pluginVersion, renderMode, sha256 } from "../../installer/lib.mjs";
+import { MANIFEST_PATH, pluginVersion, renderMode, sha256 } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 const DIFF = join(ROOT, "installer/diff.mjs");
@@ -165,7 +165,7 @@ function stateOf(json: any, path: string) {
 }
 
 function editManifest(repo: string, edit: (m: any) => void) {
-  const p = join(repo, ".claude/hitl.json");
+  const p = join(repo, MANIFEST_PATH);
   const m = JSON.parse(readFileSync(p, "utf8"));
   edit(m);
   writeFileSync(p, JSON.stringify(m, null, 2));
@@ -235,10 +235,10 @@ describe("diff.mjs refusals", () => {
 
   it("refuses when the recorded render does not hash to the manifest", () => {
     const repo = installedRepo(mk);
-    editManifest(repo, (m) => (m.files["HITL.md"] = "0".repeat(64)));
+    editManifest(repo, (m) => (m.files[".hitl/HITL.md"] = "0".repeat(64)));
     const r = diff(repo, plugin, mk);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "manifest-mismatch", paths: ["HITL.md"] });
+    expect(r.json).toEqual({ refused: "manifest-mismatch", paths: [".hitl/HITL.md"] });
   });
 });
 
@@ -250,7 +250,7 @@ describe("diff.mjs across versions (recorded from the tag, latest one minor ahea
     expect(r.json.recorded).toBe(CURRENT);
     expect(r.json.latest).toBe(NEXT);
     expect(stateOf(r.json, HANDOVER).state).toBe("unchanged");
-    expect(stateOf(r.json, "HITL.md").state).toBe("unchanged");
+    expect(stateOf(r.json, ".hitl/HITL.md").state).toBe("unchanged");
     expect(stateOf(r.json, FIXER).state).toBe("upstream changed");
     expect(r.json.files.filter((f: any) => f.state !== "unchanged")).toHaveLength(1);
   });
@@ -393,7 +393,7 @@ describe("diff.mjs --apply", () => {
     expect(existsSync(join(repo, "scripts/hitl/gone.sh"))).toBe(false);
     expect(readFileSync(join(repo, HANDOVER), "utf8")).toContain("Ours."); // locally edited: kept
 
-    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    const manifest = JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
     expect(manifest.version).toBe(NEXT);
     expect(manifest.files).not.toHaveProperty("scripts/hitl/gone.sh");
     expect(manifest.files[FIXER]).toBe(
@@ -483,9 +483,7 @@ describe("diff.mjs --apply", () => {
       expect(r.json.deleted).toEqual([]);
       expect(r.json.manifest).toBe("untouched");
       // The manifest is written last, so it still records the old version.
-      expect(JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8")).version).toBe(
-        CURRENT,
-      );
+      expect(JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8")).version).toBe(CURRENT);
     } finally {
       chmodSync(join(repo, "scripts/hitl"), 0o755);
     }
@@ -494,19 +492,18 @@ describe("diff.mjs --apply", () => {
   it("says nothing to apply at the same version with no writes", () => {
     const repo = installedRepo(mk);
     const notAClone = mkdtempSync(join(tmpdir(), "hitl-notaclone-"));
-    const before = readFileSync(join(repo, ".claude/hitl.json"), "utf8");
+    const before = readFileSync(join(repo, MANIFEST_PATH), "utf8");
     const r = diff(repo, mk, notAClone, true);
     expect(r.status).toBe(0);
     expect(r.json.nothing).toBe(true);
-    expect(readFileSync(join(repo, ".claude/hitl.json"), "utf8")).toBe(before);
+    expect(readFileSync(join(repo, MANIFEST_PATH), "utf8")).toBe(before);
   });
 });
 
 describe("diff.mjs upgrading a manifest written by an older hitl with the CI wipe job", () => {
   const WORKFLOW = ".github/workflows/wipe-superpowers-docs.yml";
   const SCRIPT = "scripts/hitl/wipe-superpowers-docs.sh";
-  const manifestOf = (repo: string) =>
-    JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+  const manifestOf = (repo: string) => JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
 
   it("removes both unedited files and drops ci from the manifest", () => {
     const repo = installedRepo(mkCi, { ...ANSWERS, ci: "github-actions" });

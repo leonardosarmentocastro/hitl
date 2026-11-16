@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pluginVersion } from "../../installer/lib.mjs";
+import { MANIFEST_PATH, pluginVersion } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
 const CURRENT = pluginVersion(PLUGIN_ROOT);
@@ -42,7 +42,7 @@ function installed() {
 }
 
 function setVersion(repo: string, version: string) {
-  const p = join(repo, ".claude/hitl.json");
+  const p = join(repo, MANIFEST_PATH);
   const m = JSON.parse(readFileSync(p, "utf8"));
   m.version = version;
   writeFileSync(p, JSON.stringify(m));
@@ -73,6 +73,11 @@ describe("help.mjs states", () => {
 
   it("ejected (agents dir and HITL.md, no manifest)", () => {
     const r = help(tempDir({ "HITL.md": "# HITL\n", ".claude/agents/fixer.md": "x\n" }));
+    expect(r.json.state).toBe("ejected");
+  });
+
+  it("ejected (agents dir and .hitl/HITL.md, no manifest)", () => {
+    const r = help(tempDir({ ".hitl/HITL.md": "# HITL\n", ".claude/agents/fixer.md": "x\n" }));
     expect(r.json.state).toBe("ejected");
   });
 

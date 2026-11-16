@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pluginVersion, renderAll, sha256 } from "../../installer/lib.mjs";
+import { MANIFEST_PATH, pluginVersion, renderAll, sha256 } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
 const CURRENT = pluginVersion(PLUGIN_ROOT);
@@ -32,7 +32,7 @@ function ejectedRepo() {
   const repo = mkdtempSync(join(tmpdir(), "hitl-ejected-"));
   spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
   expect(run(RENDER, repo).status).toBe(0);
-  rmSync(join(repo, ".claude/hitl.json"));
+  rmSync(join(repo, MANIFEST_PATH));
   writeFileSync(join(repo, ".claude/agents/handover.md"), "# edited by hand\n");
   return repo;
 }
@@ -54,8 +54,8 @@ describe("adopt.mjs", () => {
 
     const r = run(ADOPT, repo);
     expect(r.status).toBe(0);
-    expect(r.json.wrote).toEqual([".claude/hitl.json"]);
-    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    expect(r.json.wrote).toEqual([MANIFEST_PATH]);
+    const manifest = JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
     expect(manifest.version).toBe(CURRENT);
     expect(manifest).not.toHaveProperty("ci");
     expect(manifest.files[".claude/agents/handover.md"]).toBe(templateHash);
@@ -63,7 +63,7 @@ describe("adopt.mjs", () => {
     expect(readFileSync(join(repo, ".claude/agents/handover.md"), "utf8")).toBe(
       "# edited by hand\n",
     );
-    expect(tree(repo)).toEqual([...before, ".claude/hitl.json"].sort());
+    expect(tree(repo)).toEqual([...before, MANIFEST_PATH].sort());
   });
 
   it("refuses when a manifest is present", () => {
@@ -79,7 +79,7 @@ describe("adopt.mjs", () => {
       const repo = ejectedRepo();
       const r = run(ADOPT, repo, answers);
       expect(r.status).toBe(0);
-      const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+      const manifest = JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
       expect(manifest).not.toHaveProperty("ci");
       expect(Object.keys(manifest.files)).not.toContain(
         ".github/workflows/wipe-superpowers-docs.yml",
@@ -106,10 +106,10 @@ describe("adopt.mjs", () => {
     const repo = mkdtempSync(join(tmpdir(), "hitl-ejected-gitlab-"));
     spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
     expect(run(RENDER, repo, gitlab).status).toBe(0);
-    rmSync(join(repo, ".claude/hitl.json"));
+    rmSync(join(repo, MANIFEST_PATH));
     const r = run(ADOPT, repo, gitlab);
     expect(r.status, r.stdout + r.stderr).toBe(0);
-    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    const manifest = JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
     expect(manifest.provider).toBe("gitlab");
     for (const p of [
       "scripts/hitl/backend.sh",
@@ -125,7 +125,7 @@ describe("adopt.mjs", () => {
     const r = run(ADOPT, repo);
     expect(r.status).toBe(3);
     expect(r.json).toEqual({ refused: "nothing-to-adopt" });
-    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+    expect(existsSync(join(repo, MANIFEST_PATH))).toBe(false);
   });
 
   it("exits 1 on a missing flag", () => {
