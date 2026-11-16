@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 // /hitl:init's writer (`--mode check` runs the refusals only and writes nothing). Refuses
-// before its first write (unknown ci, manifest present, collision, bad settings.json);
+// before its first write (manifest present, collision, bad settings.json);
 // otherwise writes every owned file, the appended blocks, the merged hook and the manifest,
 // and prints one JSON report. Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {
-  CI_CHOICES,
   DEFAULT_CHOICES,
   MANIFEST_PATH,
   agentsBlock,
@@ -45,8 +44,6 @@ export function run(args) {
   if (mode === "write" && !answersPath) return { code: 1, out: { error: USAGE } };
   const choices = answersPath ? JSON.parse(readFileSync(answersPath, "utf8")) : DEFAULT_CHOICES;
   const version = pluginVersion(pluginRoot);
-  if (!CI_CHOICES.includes(choices.ci))
-    return { code: 3, out: { refused: "unknown-ci", ci: choices.ci, allowed: CI_CHOICES } };
 
   const manifest = readManifest(repo);
   if (manifest) return { code: 3, out: { refused: "manifest-present", version: manifest.version } };

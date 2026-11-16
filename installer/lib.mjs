@@ -6,9 +6,7 @@ import { join } from "node:path";
 export const TESTING_ORDER = ["e2e", "tiers", "ci", "hooks", "effective-date"];
 export const OWNED_DIRS = ["scripts/hitl", ".claude/fixtures"];
 export const MANIFEST_PATH = ".claude/hitl.json";
-/** The `ci` values the installer supports; any other value is refused before a write. */
-export const CI_CHOICES = ["github-actions", "none"];
-export const DEFAULT_CHOICES = { provider: "github", ci: "github-actions", testing: [], gates: [] };
+export const DEFAULT_CHOICES = { provider: "github", testing: [], gates: [] };
 
 // Argument parsing and output shared by the installer CLIs. `--name value` pairs; names in
 // `booleans` take no value. Returns null on any malformed argv so the caller prints usage.
@@ -92,11 +90,6 @@ export function ownedFiles(choices) {
       template: `claude/fixtures/${f}`,
       executable: false,
     })),
-    {
-      repoPath: "scripts/hitl/wipe-superpowers-docs.sh",
-      template: "scripts/wipe-superpowers-docs.sh",
-      executable: true,
-    },
     { repoPath: "scripts/hitl/pr.sh", template: "scripts/pr.sh", executable: true },
     { repoPath: "scripts/hitl/wipe.mjs", template: "scripts/wipe-core.mjs", executable: true },
     {
@@ -110,13 +103,6 @@ export function ownedFiles(choices) {
       executable: true,
     },
   ];
-  if (choices.ci === "github-actions") {
-    files.push({
-      repoPath: ".github/workflows/wipe-superpowers-docs.yml",
-      template: "ci/github-actions/wipe-superpowers-docs.yml",
-      executable: false,
-    });
-  }
   return files;
 }
 
@@ -147,7 +133,6 @@ export function readManifest(repoRoot) {
 }
 export const THIS_REPO_CHOICES = {
   provider: "github",
-  ci: "github-actions",
   testing: [],
   gates: ["pnpm test", "pnpm format:check"],
 };
@@ -393,7 +378,6 @@ export function manifestFor(version, choices, rendered) {
   return {
     version,
     provider: choices.provider,
-    ci: choices.ci,
     testing: [...choices.testing],
     files,
   };

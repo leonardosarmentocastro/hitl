@@ -31,10 +31,7 @@ function installed() {
   const repo = tempDir();
   spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
   const answers = join(repo, "..", `answers-${Math.random()}.json`);
-  writeFileSync(
-    answers,
-    JSON.stringify({ provider: "github", ci: "github-actions", testing: [], gates: [] }),
-  );
+  writeFileSync(answers, JSON.stringify({ provider: "github", testing: [], gates: [] }));
   const r = spawnSync(
     "node",
     [RENDER, "--repo", repo, "--plugin-root", PLUGIN_ROOT, "--answers", answers],
@@ -67,6 +64,11 @@ describe("help.mjs states", () => {
     expect(r.json.state).toBe("not installed");
     expect(r.json.manifestVersion).toBeNull();
     expect(r.json.locallyEdited).toBeNull();
+  });
+
+  it("not installed when only the old wipe workflow is present (no longer an owned path)", () => {
+    const r = help(tempDir({ ".github/workflows/wipe-superpowers-docs.yml": "name: wipe\n" }));
+    expect(r.json.state).toBe("not installed");
   });
 
   it("ejected (agents dir and HITL.md, no manifest)", () => {

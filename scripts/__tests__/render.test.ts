@@ -30,7 +30,7 @@ function tempRepo(files: Record<string, string> = {}) {
   return dir;
 }
 
-const ANSWERS = { provider: "github", ci: "github-actions", testing: [], gates: ["pnpm test"] };
+const ANSWERS = { provider: "github", testing: [], gates: ["pnpm test"] };
 
 function render(repo: string, answers: object = ANSWERS) {
   const answersPath = join(repo, "..", `answers-${Date.now()}-${Math.random()}.json`);
@@ -55,10 +55,8 @@ describe("render.mjs on an empty repository", () => {
       ".claude/hooks/unreviewed-artifact.sh",
       ".claude/review-context.md",
       ".claude/fixtures/spec-fixture-design.md",
-      "scripts/hitl/wipe-superpowers-docs.sh",
       "scripts/hitl/pr.sh",
       "scripts/hitl/backend.sh",
-      ".github/workflows/wipe-superpowers-docs.yml",
     ]) {
       expect(existsSync(join(repo, p)), p).toBe(true);
     }
@@ -145,21 +143,24 @@ describe("render.mjs on an empty repository", () => {
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
     expect(manifest.version).toBe(CURRENT);
     expect(manifest.provider).toBe("github");
-    expect(manifest.ci).toBe("github-actions");
+    expect(manifest).not.toHaveProperty("ci");
     expect(manifest.testing).toEqual([]);
     expect(manifest).not.toHaveProperty("gates");
-    expect(Object.keys(manifest.files)).toHaveLength(29);
+    expect(Object.keys(manifest.files)).toHaveLength(27);
     expect(manifest.files["HITL.md"]).toMatch(/^[0-9a-f]{64}$/);
     expect(Object.keys(manifest.files)).toEqual([...Object.keys(manifest.files)].sort());
   });
 
-  it("omits the workflow when ci is none", () => {
-    const repo = tempRepo();
-    render(repo, { ...ANSWERS, ci: "none" });
-    expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
-    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
-    expect(manifest.ci).toBe("none");
-    expect(Object.keys(manifest.files)).toHaveLength(28);
+  it("ignores a ci key in the answers, whatever its value or absence", () => {
+    for (const answers of [{ ...ANSWERS, ci: "jenkins" }, ANSWERS]) {
+      const repo = tempRepo();
+      const r = render(repo, answers);
+      expect(r.status).toBe(0);
+      expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
+      expect(existsSync(join(repo, "scripts/hitl/wipe-superpowers-docs.sh"))).toBe(false);
+      const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+      expect(manifest).not.toHaveProperty("ci");
+    }
   });
 });
 
@@ -202,30 +203,13 @@ describe("render.mjs refusals", () => {
     expect(r.json.paths).toEqual(expect.arrayContaining(["scripts/hitl", ".claude/fixtures"]));
   });
 
-  it("refuses on HITL.md, review-context.md and the workflow as files", () => {
-    for (const p of [
-      "HITL.md",
-      ".claude/review-context.md",
-      ".github/workflows/wipe-superpowers-docs.yml",
-    ]) {
+  it("refuses on HITL.md and review-context.md as files", () => {
+    for (const p of ["HITL.md", ".claude/review-context.md"]) {
       const repo = tempRepo({ [p]: "x\n" });
       const r = render(repo);
       expect(r.status, p).toBe(3);
       expect(r.json.paths, p).toEqual([p]);
     }
-  });
-
-  it("refuses an unknown ci value before writing anything", () => {
-    const repo = tempRepo();
-    const before = tree(repo);
-    const r = render(repo, { ...ANSWERS, ci: "github" });
-    expect(r.status).toBe(3);
-    expect(r.json).toEqual({
-      refused: "unknown-ci",
-      ci: "github",
-      allowed: ["github-actions", "none"],
-    });
-    expect(tree(repo)).toEqual(before);
   });
 
   it("refuses an unparsable settings.json before writing anything", () => {
@@ -248,7 +232,7 @@ describe("render.mjs refusals", () => {
       expect(r.status).toBe(2);
       expect(r.json.error).toMatch(/EACCES|permission/i);
       expect(r.json.wrote).toContain("HITL.md");
-      expect(r.json.wrote).not.toContain("scripts/hitl/wipe-superpowers-docs.sh");
+      expect(r.json.wrote).not.toContain("scripts/hitl/pr.sh");
       expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
       chmodSync(join(repo, "scripts"), 0o755);
     },

@@ -10,7 +10,7 @@ const PLUGIN_ROOT = process.cwd();
 const CURRENT = pluginVersion(PLUGIN_ROOT);
 const RENDER = join(PLUGIN_ROOT, "installer/render.mjs");
 const ADOPT = join(PLUGIN_ROOT, "installer/adopt.mjs");
-const ANSWERS = { provider: "github", ci: "github-actions", testing: [], gates: [] };
+const ANSWERS = { provider: "github", testing: [], gates: [] };
 
 function answersFile(answers: object) {
   const p = join(mkdtempSync(join(tmpdir(), "hitl-answers-")), "answers.json");
@@ -57,7 +57,7 @@ describe("adopt.mjs", () => {
     expect(r.json.wrote).toEqual([".claude/hitl.json"]);
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
     expect(manifest.version).toBe(CURRENT);
-    expect(manifest.ci).toBe("github-actions");
+    expect(manifest).not.toHaveProperty("ci");
     expect(manifest.files[".claude/agents/handover.md"]).toBe(templateHash);
     expect(manifest.files[".claude/agents/handover.md"]).not.toBe(editedHash);
     expect(readFileSync(join(repo, ".claude/agents/handover.md"), "utf8")).toBe(
@@ -74,16 +74,18 @@ describe("adopt.mjs", () => {
     expect(r.json).toEqual({ refused: "manifest-present", version: CURRENT });
   });
 
-  it("refuses an unknown ci before writing, as render.mjs does", () => {
-    const repo = ejectedRepo();
-    const r = run(ADOPT, repo, { ...ANSWERS, ci: "gitlab" });
-    expect(r.status).toBe(3);
-    expect(r.json).toEqual({
-      refused: "unknown-ci",
-      ci: "gitlab",
-      allowed: ["github-actions", "none"],
-    });
-    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+  it("ignores a ci key in the answers, whatever its value or absence", () => {
+    for (const answers of [{ ...ANSWERS, ci: "jenkins" }, ANSWERS]) {
+      const repo = ejectedRepo();
+      const r = run(ADOPT, repo, answers);
+      expect(r.status).toBe(0);
+      const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+      expect(manifest).not.toHaveProperty("ci");
+      expect(Object.keys(manifest.files)).not.toContain(
+        ".github/workflows/wipe-superpowers-docs.yml",
+      );
+      expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
+    }
   });
 
   it("refuses when nothing owned exists", () => {

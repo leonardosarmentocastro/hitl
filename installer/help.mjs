@@ -7,7 +7,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { emit, parseArgs } from "./lib.mjs";
-import { collisions, compareVersions, pluginVersion, readManifest, sha256 } from "./lib.mjs";
+import {
+  DEFAULT_CHOICES,
+  collisions,
+  compareVersions,
+  pluginVersion,
+  readManifest,
+  sha256,
+} from "./lib.mjs";
 
 const USAGE = "usage: --repo <dir> --plugin-root <dir> [--home <dir>]";
 
@@ -31,9 +38,7 @@ export function installState(repo, manifest, plugin) {
     const c = compareVersions(manifest.version, plugin);
     return c < 0 ? "behind" : c > 0 ? "ahead" : "up to date";
   }
-  const anyOwned =
-    collisions(repo, { provider: "github", ci: "github-actions", testing: [], gates: [] }).length >
-    0;
+  const anyOwned = collisions(repo, DEFAULT_CHOICES).length > 0;
   if (!anyOwned) return "not installed";
   const ejected = existsSync(join(repo, ".claude/agents")) && existsSync(join(repo, "HITL.md"));
   return ejected ? "ejected" : "partially installed";

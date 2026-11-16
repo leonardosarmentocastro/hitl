@@ -18,7 +18,7 @@ import { pluginVersion, renderMode, sha256 } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 const DIFF = join(ROOT, "installer/diff.mjs");
-const ANSWERS = { provider: "github", ci: "github-actions", testing: [], gates: [] };
+const ANSWERS = { provider: "github", testing: [], gates: [] };
 // This repository's own version, and the next minor one that the fixture plugin is bumped to.
 const CURRENT = pluginVersion(ROOT);
 const NEXT = CURRENT.replace(/^(\d+)\.(\d+)\.\d+$/, (_, maj, min) => `${maj}.${Number(min) + 1}.0`);
@@ -303,14 +303,6 @@ describe("diff.mjs absent cases", () => {
     expect(stateOf(diff(repo, plugin, mkRemoval).json, "scripts/hitl/gone.sh").local).toBe(
       "absent",
     );
-  });
-
-  it("never reports the wipe workflow for a repository that declined it (ci: none)", () => {
-    const repo = installedRepo(mk, { ...ANSWERS, ci: "none" });
-    const r = diff(repo, plugin, mk);
-    expect(r.status).toBe(0);
-    expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
-    expect(stateOf(r.json, ".github/workflows/wipe-superpowers-docs.yml")).toBeUndefined();
   });
 });
 
