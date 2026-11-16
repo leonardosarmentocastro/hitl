@@ -233,3 +233,16 @@ Today `docsOnBase` is computed only where there is an active-feature record and 
 
 - A dry run of `/hitl:init` and `/hitl:customize` after Task 3's prompt edits — declined, not
   worth it: the edits only remove a question; the spec leaves the first real run to a human.
+- Implementer clarification (Task 2): with the passthrough of `manifest.ci` to the recorded
+  render removed, the two `"ci": "github-actions"` cases fail (the recorded render no longer
+  owns the workflow, so the manifest's workflow path is refused as unowned); the `"ci": "none"`
+  case cannot fail, because an absent `ci` and `"none"` render identically under the old
+  conditional. The guard the task asks for is held by the `github-actions` cases; checked by
+  temporarily removing the passthrough.
+- Implementer clarification (Task 4): the specs-and-plans bullet reads "merged last" without
+  bold, so the rendered doctrine contains the exact phrase Step 1's test asserts.
+- Implementer clarification (Tasks 1 and 3): the `unknown-ci` refusal is gone, so its two
+  relay bullets in `commands/init.md` were removed with it; the testing-rules knob's
+  `customize-testing.mjs` report no longer carries `removed` (it deletes nothing now), and
+  `commands/customize.md` reports `wrote`, `kept` and `testing` only. `self-manifest.test.ts`
+  was updated alongside the listed tests (it asserted the manifest's `ci`).
