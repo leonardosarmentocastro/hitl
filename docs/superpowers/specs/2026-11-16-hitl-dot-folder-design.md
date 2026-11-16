@@ -1,5 +1,7 @@
 # The `.hitl/` folder — design
 
+**Reviewed:** round 1 (2026-11-16).
+
 ## Intent
 
 In installed mode, everything that is hitl's and not Claude Code's lives in a `.hitl/`
@@ -43,8 +45,8 @@ is paid once, by upgrading: there is no period in which both layouts work.
 ## Anti-goals
 
 - A plugin that understands both layouts. The old layout is recognised for exactly two
-  purposes: refusing with the upgrade message, and being upgraded by `/hitl:diff --apply`
-  (and adopted by `--adopt`).
+  purposes: refusing with the upgrade message, and being upgraded by `/hitl:diff --apply`.
+  (`--adopt` separately moves old-place *files* in a repository that has no manifest at all.)
 - An upgrade that leaves a customized doctrine behind at the root and installs a fresh one
   under `.hitl/`.
 - Rename detection by content similarity.
@@ -59,8 +61,10 @@ is paid once, by upgrading: there is no period in which both layouts work.
 - Neither init, adopt nor the upgrade is transactional; each already reports exactly what
   landed on failure. The new writes (moves, the `CLAUDE.md` line, the manifest's relocation)
   join those reports.
-- Upgrading from version X needs tag `vX` in the marketplace clone (existing rule). Releasing
-  0.3.0 therefore requires `v0.2.1` to be tagged.
+- Upgrading from version X needs tag `vX` in the marketplace clone (existing rule). No `v0.2.1`
+  tag exists today (tags are `v0.1.0` and `v0.2.0`), so a 0.2.1 install cannot upgrade until
+  the human tags it, on the commit whose render matches what 0.2.1 installs recorded. That is
+  a release step the human owns, outside this feature's code.
 - `Markdown is never formatted`; the local gates are `pnpm test` and `pnpm format:check`.
 
 ## Approaches
@@ -94,7 +98,8 @@ The human chose A.
 - Every template that names an old path names the new one: the agents' grounding steps
   (`.hitl/HITL.md`, no longer "at the repo root"; `.hitl/review-context.md`), the commands,
   the Stop hook's message, the doctrine's *Where things live* and *Review gates* sections,
-  the README block (`readmeBlock`), `/hitl:init`'s and `/hitl:help`'s text.
+  the README block (`readmeBlock`), `/hitl:init`'s and `/hitl:help`'s text, and the
+  prose of this plugin's own `README.md`.
 - `/hitl:customize`: the knob table, the anchor `grep` (it must search `.hitl/` too), and
   `customize-testing.mjs` use the new paths. The doctrine's load-bearing invariants are
   unchanged; none of them names a moved path.
@@ -116,7 +121,10 @@ One function in `installer/lib.mjs` answers "which layout is this repository on?
 - **old** — it does not, and `.claude/hitl.json` exists;
 - **none** — neither.
 
-`runtime/context.mjs` reports it as a `layout` field. On **old**:
+`runtime/context.mjs` reports it as a `layout` field. An old-layout repository still reports
+`mode: "installed"`, so every plugin command that refuses or defers in an installed repository
+keeps doing so; only the commands named below swap their behaviour for the upgrade message.
+On **old**:
 
 - `/hitl:brainstorming`, `/hitl:customize` and `/hitl:cleanup` print exactly
 
@@ -130,11 +138,15 @@ One function in `installer/lib.mjs` answers "which layout is this repository on?
 - The plugin's Stop hook stays silent and `session.mjs start` refuses as for an installed
   repository: the repository's own hook and commands still work on the old layout and remain
   self-consistent, so a feature in flight can finish before the upgrade.
-- `/hitl:init` (without `--adopt`) refuses as `manifest-present`, as today.
+- `/hitl:init`, with or without `--adopt`, refuses as `manifest-present`; on the old layout the
+  refusal carries the upgrade message.
+
+"Finish" means the repository's own review and implementation commands. `/hitl:cleanup` is a
+plugin command and waits for the upgrade.
 
 The opposite mismatch cannot be handled: a plugin older than 0.3.0 sees an upgraded
-repository as not installed. The cure is updating the plugin. The release notes and the
-upgrade PR body say so (section 3).
+repository as not installed. The cure is updating the plugin. The upgrade PR body says so
+(section 3); so do the notes of the v0.3.0 release, which the human writes when tagging.
 
 ### 3. The upgrade moves the files
 
@@ -161,16 +173,27 @@ first). For each move whose `from` is in the manifest and whose `to` is in the l
   | `both` | the three-way merge (`merged: clean` or `conflict`) |
 
   and the file at `from`, when present, is removed;
-- if the repository already has a file at `to` while `from` is still present, the engine
-  refuses (`refused: "move-collision"`, with the paths) and writes nothing. If only `to` is
-  present, the file is classified at `to` as an ordinary path (someone moved it by hand).
+- if only `to` is on disk (moved by hand, or by an earlier apply that stopped part-way), the
+  pair is still one moved entry: the repository's text is read at `to`, the recorded text and
+  hash are still those of `from`. It is never treated as `new upstream`, which would
+  overwrite it;
+- if both `from` and `to` are on disk, the engine computes what it would write at `to` from
+  the file at `from`. When the file at `to` already equals that, the move is resumed (only
+  `from` is removed). Otherwise it refuses (`refused: "move-collision"`, with the paths) and
+  writes nothing.
+
+For each move the engine writes `to` and removes `from` back to back, so a part-way failure
+leaves at most one pair with both files, and a re-run resumes it by the rule above.
 
 The existing safety checks apply to the `from` path as before (the recorded render must own
 it and hash to the manifest).
 
 With `--apply`, additionally:
 
-- the manifest is written at `.hitl/manifest.json` and `.claude/hitl.json` is removed;
+- the manifest is written at `.hitl/manifest.json`, then `.claude/hitl.json` is removed. A
+  repository that has both (an apply that stopped between the two) is on the current layout;
+  its next `/hitl:diff` reports the leftover `.claude/hitl.json` as one more thing to apply
+  and `--apply` removes it;
 - in `CLAUDE.md`, a line that is exactly `@HITL.md` becomes `@.hitl/HITL.md`. The output
   reports `claudeLine` as `rewritten`, `current` (the new line is already there) or `absent`.
   An absent line is not added;
@@ -202,8 +225,10 @@ they are `upstream changed`, or `both` where the repository edited them.
 
 ### 4. Adopt moves, then records
 
-`installer/adopt.mjs`, before writing the manifest, applies the same move list to a repository
-that has no manifest: a file at `from` with nothing at `to` is renamed, content untouched; the
+`installer/adopt.mjs` refuses `manifest-present` when either manifest path exists. A file at a
+`from` path counts as something to adopt, so a repository whose only hitl file is a root
+`HITL.md` is not `nothing-to-adopt`. Before writing the manifest, adopt applies the same move
+list: a file at `from` with nothing at `to` is renamed, content untouched; the
 `@HITL.md` line is rewritten as in section 3. Files at both `from` and `to` refuse
 (`move-collision`) before anything is written. The output gains `moved` (the pairs) and
 `claudeLine`; `wrote` names the new manifest path. `commands/init.md`'s adopt branch reports
@@ -228,8 +253,9 @@ line when anything moved.
    move and the version bump. One capability: `/hitl:init` produces the `.hitl/` layout and
    the plugin recognises it. Wide by nature (every agent and command template names a moved
    path); expect it to cross the file tripwire.
-2. **The upgrade moves the files** — section 3.
-3. **Old layout is refused** — section 2.
+2. **The upgrade moves the files** — section 3. Introduces the layout function of section 2,
+   which it needs to find the manifest.
+3. **Old layout is refused** — section 2, the rest.
 4. **Adopt moves, then records** — section 4.
 
 Between slices 1 and 3 the plugin sees an old-layout repository as not installed. That state
@@ -248,5 +274,35 @@ exists only on the feature branch and is never released.
   worktree.
 - `/hitl:init --adopt` on a repository with a root `HITL.md` and no manifest moves it and
   writes `.hitl/manifest.json`.
-- No file rendered for installed mode contains `` `HITL.md` at the repo root ``,
-  `.claude/review-context.md` or `.claude/hitl.json`.
+- No file rendered for installed mode, nor the README block, names `HITL.md` other than as
+  `.hitl/HITL.md`, and none contains `.claude/review-context.md` or `.claude/hitl.json`. The
+  no-install renders are exempt where they name the plugin's `doctrine/HITL.md`; the upgrade
+  and adopt code and their command text are exempt where they name the old paths as the
+  source of a move.
+
+## Testing the upgrade
+
+The existing upgrade tests tag this repository's *current* installer and templates as the
+recorded version. After slice 1 that render already has the new paths, so such a test proves
+nothing about the move. The upgrade tests for this feature must use a recorded version whose
+own installer returns the old paths and the old manifest path (a frozen pre-change fixture
+under `scripts/__fixtures__/`, or an equivalent the plan names), and must assert the
+repository's edits at `.hitl/HITL.md` for the `locally edited` and `both` states and for a
+re-run after a part-way apply.
+
+## Decisions and declined alternatives
+
+- Reading both layouts for a deprecation period — declined by the human: breaking change,
+  paid once.
+- Warning and continuing on an old layout — declined by the human: block.
+- Adopt refusing with hand-move instructions — declined by the human: adopt moves.
+- Rewriting an import of the doctrine in a nested `CLAUDE.md` or `.claude/CLAUDE.md` —
+  declined, not worth it: init only ever wrote the root file's line.
+- Who tags `v0.2.1` — out of scope: a release step for the human (see Constraints).
+- While this stack is in flight, a released 0.2.x plugin on the implementer's machine sees
+  this repository as not installed once slice 1 lands — accepted: the implementation session
+  uses the repository's own commands, and the state ends when 0.3.0 is released.
+- *Forwarded to the plan gate:* the README-block rewrite must be safe to run twice (never
+  `.hitl/.hitl/HITL.md`).
+- *Forwarded to the plan gate:* for the old-layout refusal, name what a script test proves
+  (`layout` from `context.mjs`, the engines' refusals) and what a command dry run proves.
