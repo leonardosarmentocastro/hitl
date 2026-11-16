@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { THIS_REPO_CHOICES, renderAll } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
-const EXCEPT = new Set([".claude/review-context.md"]);
+const EXCEPT = new Set([".hitl/review-context.md"]);
 
 describe("this repository equals its own render", () => {
   const rendered = renderAll(ROOT, THIS_REPO_CHOICES);

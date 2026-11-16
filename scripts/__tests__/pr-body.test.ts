@@ -19,6 +19,6 @@ describe("PR body TL;DR (installed render)", () => {
     expect(i("What — ")).toBeGreaterThan(i("## TL;DR"));
     expect(i("## Review decisions")).toBeGreaterThan(i("How — "));
     expect(installed.get(".claude/agents/handover.md")!.content).toContain("## TL;DR");
-    expect(installed.get("HITL.md")!.content).toContain("`## TL;DR`");
+    expect(installed.get(".hitl/HITL.md")!.content).toContain("`## TL;DR`");
   });
 });

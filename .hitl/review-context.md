@@ -1,6 +1,6 @@
 # Review context (repo-owned)
 
-Reviewers read this file after `HITL.md`, `AGENTS.md` and `CONTEXT.md` (if present). It
+Reviewers read this file after `.hitl/HITL.md`, `AGENTS.md` and `CONTEXT.md` (if present). It
 holds what those do not say and a reviewer needs. Keep it short; if a rule belongs in
 `AGENTS.md`, put it there.
 
@@ -19,5 +19,5 @@ holds what those do not say and a reviewer needs. Keep it short; if a rule belon
 
 - A template under the plugin and this repository's own `.claude/` copy of it are two
   files. A slice that changes one and not the other is MISSING, unless the plan says why.
-- "It's tooling" is not a reason to skip the chain. `HITL.md` § Rationalizations applies to
+- "It's tooling" is not a reason to skip the chain. `.hitl/HITL.md` § Rationalizations applies to
   this repository exactly as to any consumer.

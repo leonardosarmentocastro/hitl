@@ -326,3 +326,4 @@ git commit -m "chore(hitl): move this repository to the .hitl/ layout at 0.3.0"
 ## Review decisions
 
 - None declined in round 1 or round 2.
+- Implementer (slice 1): Task 3's "point the doctrine lookups at the new paths" in `knob-anchors.test.ts` covers the template lookups and the new `/hitl:customize` grep assertion; the one lookup of *this repository's* doctrine (the invariants-section test) moved to `.hitl/HITL.md` in Task 4 with its peers (`pr-body`, `plugin-drift`), so Task 3 Step 4 stays green as written. No acceptance criterion changed.

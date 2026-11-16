@@ -50,7 +50,7 @@ describe("the plugin equals its no-install render", () => {
 
   it("keeps the load-bearing invariants identical to the installed doctrine, command names aside", () => {
     const section = (t: string) => t.slice(t.indexOf("## Load-bearing invariants"));
-    const installed = section(renderAll(ROOT, THIS_REPO_CHOICES).get("HITL.md")!.content);
+    const installed = section(renderAll(ROOT, THIS_REPO_CHOICES).get(".hitl/HITL.md")!.content);
     // the section names workflow commands, which the no-install render prefixes; nothing else may differ
     expect(section(doc)).toBe(renderMode(installed, "no-install"));
   });
@@ -68,7 +68,7 @@ describe("the plugin equals its no-install render", () => {
     expect(doc).toContain('node "<Plugin root>/installer/discover.mjs" --repo');
     expect(doc).toContain('node "<Plugin root>/runtime/memory.mjs" write --repo');
     expect(doc).toContain("--name gates");
-    expect(renderAll(ROOT, THIS_REPO_CHOICES).get("HITL.md")!.content).not.toContain(
+    expect(renderAll(ROOT, THIS_REPO_CHOICES).get(".hitl/HITL.md")!.content).not.toContain(
       "## Project memory",
     );
   });

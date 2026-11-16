@@ -1,2 +1,2 @@
-@HITL.md
+@.hitl/HITL.md
 @AGENTS.md
