@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The `testing-rules` knob of /hitl:customize: re-compose HITL.md with a new fragment set and
-// record the new choices in the manifest so /hitl:diff stays exact. Refuses when the manifest is behind the plugin or HITL.md was edited by
-// hand. Exit: 0 ok · 1 usage · 3 refused.
+// record the new choices in the manifest so /hitl:diff stays exact. Refuses when the manifest
+// is behind the plugin or HITL.md was edited by hand. Exit: 0 ok · 1 usage · 3 refused.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
