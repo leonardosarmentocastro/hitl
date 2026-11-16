@@ -323,8 +323,8 @@ Every feature and bugfix follows a human-in-the-loop chain: brainstorm → spec 
 review → plans → cold plan review → handover → stacked slice PRs, each implemented, reviewed
 and fixed by subagents, with a human deciding at every gate. The doctrine is \`HITL.md\`.
 
-- Specs and plans live under \`docs/superpowers/\` for the life of a feature branch and are
-  removed from \`main\` after the feature merges. The PR description is the durable record.
+- Specs and plans live under \`docs/superpowers/\` for the life of a feature branch and
+  leave through a generated wipe PR, merged last. The PR description is the durable record.
 - \`.claude/\` (agents, commands, hook) and \`HITL.md\` are reviewed like code: change them by
   pull request.
 - Installed by hitl ${version}. \`/hitl:diff\` shows what changed upstream since;

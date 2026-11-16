@@ -342,3 +342,15 @@ describe("render.mjs and AGENTS.md", () => {
     expect(manifest).not.toHaveProperty("gates");
   });
 });
+
+describe("the installed HITL.md states the one wipe rule", () => {
+  it("names the generated wipe PR, merged last, and no CI job", () => {
+    const repo = tempRepo();
+    expect(render(repo).status).toBe(0);
+    const hitl = readFileSync(join(repo, "HITL.md"), "utf8");
+    expect(hitl).toContain("<feature branch>-wipe");
+    expect(hitl).toContain("merged last");
+    for (const s of ["a workflow deletes them", "the wipe script", "never empty"])
+      expect(hitl, s).not.toContain(s);
+  });
+});

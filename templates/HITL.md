@@ -123,9 +123,11 @@ the feature are not checked. Do not fight the hook; run the loop.
 `.claude/hooks/` and `.claude/settings.json` (the Stop hook above, declared for everyone who
 clones the repo) · `.claude/review-context.md` (repo-specific reviewer context) ·
 `.claude/reviews/` (gitignored review output) · `.claude/worktrees/` (gitignored design-session worktrees) · `scripts/hitl/` (the PR shim and the wipe
-script) · `.claude/hitl.json` (install metadata written by `/hitl:init`; its presence tells
+builder) · `.claude/hitl.json` (install metadata written by `/hitl:init`; its presence tells
 the hitl plugin's commands and Stop hook that this repository is installed) ·
 `docs/superpowers/` (transient specs, plans, handover).
+
+The scripts under `scripts/hitl/` need Node 20+.
 <!-- hitl:mode no-install -->
 Three places, and nothing hitl-owned is committed to the repository except the feature's
 documents.
@@ -212,8 +214,8 @@ documents.
   branch as the first slice PR.
 <!-- hitl:mode end -->
   A one-slice feature is stacked like any other: one slice branch on the feature branch,
-  one draft umbrella PR opened after the slice merges into it — its diff is never empty
-  because the feature branch carries the spec, the plan and the handover document.
+  one draft umbrella PR opened after the slice merges into it — it carries the feature's
+  code; the documents have left through the wipe PR before it merges.
 - Prefer small, frequent commits (one logical TDD cycle per commit is fine).
 
 ## Stacked PRs (slices land on the feature branch)
@@ -278,15 +280,12 @@ documents.
 ## Specs and plans
 
 - Specs and plans are **transient per-feature artifacts**, not permanent records.
-<!-- hitl:mode installed -->
-  They live under `docs/superpowers/specs/` and `docs/superpowers/plans/` for the
-  life of a feature branch; a workflow deletes them once the feature lands on `main`, and
-  where no such job is installed they are deleted by hand after merge.
+  They live under `docs/superpowers/` for the life of a feature branch, and leave it through
+  the generated `<feature branch>-wipe` PR, merged last — after every slice, before the
+  umbrella PR. Documents that reached the base branch because the wipe PR did not merge
+  first are deleted by hand, in one commit; nothing else removes them.
 <!-- hitl:mode no-install -->
-  They live under `docs/superpowers/specs/` and `docs/superpowers/plans/` for the
-  life of a feature branch, and leave it through the generated `<feature branch>-wipe` PR,
-  which merges last, before the feature lands on the base branch; a copy is archived on
-  this machine under `~/.hitl/projects/<key>/features/`.
+  A copy is archived on this machine under `~/.hitl/projects/<key>/features/`.
 <!-- hitl:mode end -->
 <!-- hitl:mode installed -->
 - Nothing durable may reference them. A rule that must outlive the feature belongs
@@ -394,10 +393,8 @@ repo-specific reviewer context comes from the project memory (its `review-contex
 
   Omit only when there is genuinely no plan (e.g. this convention's own bootstrap
   PR); the reviewer then falls back to searching `docs/superpowers/plans/`.
-<!-- hitl:mode no-install -->
   The generated wipe PR is exempt from this rule and the next: its body is written by
   `wipe.mjs` and has no `Plan:` line and no `## TL;DR`.
-<!-- hitl:mode end -->
 <!-- hitl:knob pr-body-sections -->
 - Every PR body answers, briefly and in plain words (explain it as you would to an
   intern), concise and realistic — do not invent rationale to fill space; if a section
@@ -487,4 +484,4 @@ one together with its parser, by PR.
   `/implement-stack` and the slice reviewer.
 - The seven finding-type names MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED · DEFERRED —
   every review command's triage.
-- The `docs/superpowers/` path — the Stop hook, the wipe script, every command.
+- The `docs/superpowers/` path — the Stop hook, the wipe builder, every command.
