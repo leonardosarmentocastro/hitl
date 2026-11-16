@@ -3,9 +3,9 @@
 # normalises with gh's built-in --jq, so jq is not a prerequisite.
 
 RECORD_FIELDS='number,url,headRefName,baseRefName,state,isDraft,title,body,headRefOid'
-RECORD_JQ='{number: .number, url: .url, head: .headRefName, base: .baseRefName,
-            state: (.state | ascii_downcase), draft: .isDraft, title: .title, body: .body,
-            head_sha: .headRefOid}'
+RECORD_JQ='{number: .number, ref: ("#" + (.number | tostring)), url: .url,
+            head: .headRefName, base: .baseRefName, state: (.state | ascii_downcase),
+            draft: .isDraft, title: .title, body: .body, head_sha: .headRefOid}'
 REVIEW_STATE_JQ='(if . == "APPROVED" then "approved"
                   elif . == "CHANGES_REQUESTED" then "changes_requested"
                   else "commented" end)'

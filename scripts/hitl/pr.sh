@@ -9,7 +9,9 @@
 #   pr.sh retarget <number> --base <branch>
 #
 # stdout is exactly one JSON document: `list` prints an array, every other verb a record:
-#   { number, url, head, base, state: open|merged|closed, draft, title, body, head_sha }
+#   { number, ref, url, head, base, state: open|merged|closed, draft, title, body, head_sha }
+# `ref` is how the host writes a reference to the PR in text: `#12` on GitHub, `!12` on
+# GitLab. Use it in any text posted to the host; `number` is what the verbs take.
 # head_sha is the PR's head commit (what the host merged, for a merged PR); /hitl:cleanup uses
 # it to prove a squash-merged branch saved after the host deleted it. A backend must supply it.
 # `view` adds reviews: [{ author, state: approved|changes_requested|commented, body }] and

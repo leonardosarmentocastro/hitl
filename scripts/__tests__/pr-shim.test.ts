@@ -41,6 +41,7 @@ function runShim(
 
 const RECORD = {
   number: 12,
+  ref: "#12",
   url: "https://github.com/o/r/pull/12",
   head: "feat/x-slice-1-api",
   base: "feat/x",
@@ -90,6 +91,7 @@ describe.each([
       expect(r.json).toEqual([
         {
           number: 12,
+          ref: "#12",
           url: "https://github.com/o/r/pull/12",
           head: "feat/x-slice-1-api",
           base: "feat/x",
