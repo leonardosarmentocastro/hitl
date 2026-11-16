@@ -118,14 +118,14 @@ the feature are not checked. Do not fight the hook; run the loop.
 ### Where things live
 
 <!-- hitl:mode installed -->
+`.hitl/HITL.md` (this doctrine) · `.hitl/review-context.md` (repo-specific reviewer
+context) · `.hitl/manifest.json` (install metadata written by `/hitl:init`; its presence tells
+the hitl plugin's commands and Stop hook that this repository is installed) ·
 `.claude/agents/` (reviewer, implementer, fixer, handover agents) · `.claude/commands/`
 (`/review-spec`, `/review-plan`, `/handover`, `/implement-stack`, `/umbrella-pr`) ·
 `.claude/hooks/` and `.claude/settings.json` (the Stop hook above, declared for everyone who
-clones the repo) · `.claude/review-context.md` (repo-specific reviewer context) ·
-`.claude/reviews/` (gitignored review output) · `.claude/worktrees/` (gitignored design-session worktrees) · `scripts/hitl/` (the PR shim and the wipe
-builder) · `.claude/hitl.json` (install metadata written by `/hitl:init`; its presence tells
-the hitl plugin's commands and Stop hook that this repository is installed) ·
-`docs/superpowers/` (transient specs, plans, handover).
+clones the repo) · `.claude/reviews/` (gitignored review output) · `.claude/worktrees/` (gitignored design-session worktrees) · `scripts/hitl/` (the PR shim and the wipe
+builder) · `docs/superpowers/` (transient specs, plans, handover).
 
 The scripts under `scripts/hitl/` need Node 20+.
 <!-- hitl:mode no-install -->
@@ -378,7 +378,7 @@ Round 2 runs only if triage changed the artefact. Never a third round: one is to
 is good, three is too many. The reviewer's verdict is not a convergence signal; triage is.
 <!-- hitl:mode installed -->
 Review output is gitignored under `.claude/reviews/`; repo-specific reviewer context lives
-in `.claude/review-context.md`.
+in `.hitl/review-context.md`.
 <!-- hitl:mode no-install -->
 Review output lives under `.claude/reviews/`, hidden through `.git/info/exclude`;
 repo-specific reviewer context comes from the project memory (its `review-context` facts).

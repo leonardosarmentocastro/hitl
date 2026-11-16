@@ -49,7 +49,7 @@ failure here — step 4 resolves the base and stops there if it cannot:
   hitl is installed here — following this repository's rules.
   ```
 
-  Read the repository's `HITL.md`, create the worktree as it prescribes, invoke the
+  Read the repository's `.hitl/HITL.md`, create the worktree as it prescribes, invoke the
   superpowers brainstorming skill with `$ARGUMENTS`, and follow the repository's doctrine,
   commands and agents from there. Read nothing from this plugin's doctrine, write no
   active-feature record and read no project memory. This command's own steps end here.

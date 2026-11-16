@@ -39,4 +39,8 @@ describe("/hitl:brainstorming", () => {
   it("leaves the worktree procedure to the doctrine", () => {
     expect(text).not.toMatch(/git worktree add/);
   });
+
+  it("reads an installed repository's doctrine at its .hitl/ path", () => {
+    expect(text).toContain("Read the repository's `.hitl/HITL.md`");
+  });
 });

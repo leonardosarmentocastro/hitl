@@ -130,6 +130,15 @@ describe("knob anchors", () => {
     expect(composeHitl(ROOT, [])).not.toContain("hitl:knob testing-rules");
   });
 
+  it("/hitl:customize searches .hitl/ for anchors", () => {
+    const text = readFileSync(join(ROOT, "commands/customize.md"), "utf8");
+    const greps = text
+      .split("\n")
+      .filter((l) => l.includes('grep -rn --exclude-dir=worktrees "hitl:knob <id>"'));
+    expect(greps.length).toBeGreaterThan(0);
+    for (const g of greps) expect(g).toContain(".hitl/ AGENTS.md .claude/");
+  });
+
   it("this repository's AGENTS.md carries the local-gates anchor (no pilots: testing is empty here)", () => {
     const text = readFileSync(join(ROOT, "AGENTS.md"), "utf8");
     expect(text).toContain("<!-- hitl:knob local-gates -->\n## Local gates");

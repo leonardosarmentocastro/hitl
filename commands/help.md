@@ -36,7 +36,7 @@ Say the matching thing for `state`, then always end with the prerequisites.
   Plugin commands:   /hitl:init [--adopt] · /hitl:diff [--apply] · /hitl:help · /hitl:customize · /hitl:cleanup
   Workflow commands: /review-spec · /review-plan · /review-slice · /handover · /implement-stack · /umbrella-pr
 
-  To change a rule: edit HITL.md or .claude/ by pull request, or run /hitl:customize.
+  To change a rule: edit .hitl/HITL.md or .claude/ by pull request, or run /hitl:customize.
   ```
 
 Prerequisites, always, as a table `prerequisite · needed by · present`: `node` (the

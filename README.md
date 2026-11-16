@@ -162,13 +162,13 @@ uninstall the plugin and the workflow keeps working.
 
 | Path | What it is |
 |---|---|
-| `HITL.md` | The workflow rules, written for agents and humans alike |
+| `.hitl/HITL.md` | The workflow rules, written for agents and humans alike |
 | `.claude/agents/` | `spec-reviewer`, `plan-reviewer`, `slice-reviewer`, `implementer`, `fixer`, `handover`, `adversarial-reviewer`, `security-reviewer` |
 | `.claude/commands/` | `/review-spec`, `/review-plan`, `/review-slice`, `/handover`, `/implement-stack`, `/umbrella-pr` |
 | `.claude/hooks/` + `settings.json` | The Stop hook that blocks the turn while a spec or plan is unreviewed |
-| `.claude/review-context.md` | What reviewers should know about *your* repo |
+| `.hitl/review-context.md` | What reviewers should know about *your* repo |
 | `scripts/hitl/` | A small PR shim (swappable code-host backend) and the wipe builder |
-| `.claude/hitl.json` | Install record (version, choices, file hashes), used only by `/hitl:diff` and `/hitl:help` |
+| `.hitl/manifest.json` | Install record (version, choices, file hashes), used only by `/hitl:diff` and `/hitl:help` |
 
 Specs and plans live under `docs/superpowers/` only while a feature is in progress: they
 leave through a generated draft PR, `<feature branch>-wipe`, built by `/umbrella-pr` and
@@ -230,7 +230,7 @@ pnpm test           # script tests + drift test
 pnpm format:check
 ```
 
-This repository's own `.claude/`, `HITL.md` and `scripts/hitl/` are rendered from
+This repository's own `.claude/`, `.hitl/HITL.md` and `scripts/hitl/` are rendered from
 `templates/`, and `pnpm test` fails if they drift apart. Edit the template and its copy
 together. See `AGENTS.md` for refreshing the install manifest.
 

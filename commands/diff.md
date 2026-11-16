@@ -13,14 +13,14 @@ MK="$HOME/.claude/plugins/marketplaces/hitl"
 node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --marketplace "$MK"
 ```
 
-- exit `3`, `refused: "no-manifest"` → "no `.claude/hitl.json`; run `/hitl:init` or
+- exit `3`, `refused: "no-manifest"` → "no `.hitl/manifest.json`; run `/hitl:init` or
   `/hitl:init --adopt`." Stop.
 - exit `3`, `refused: "tag-missing"` → "the marketplace clone has no tag <tag>; run
   `claude plugin marketplace update hitl` and retry." Stop.
 - exit `3`, `refused: "manifest-mismatch"` → "the manifest and the templates disagree for
-  <paths>; delete `.claude/hitl.json` and re-run `/hitl:init --adopt`." Stop.
+  <paths>; delete `.hitl/manifest.json` and re-run `/hitl:init --adopt`." Stop.
 - exit `3`, `refused: "unowned-path"` → "the manifest lists <paths>, which hitl <recorded>
-  never installed; nothing was deleted. Remove those keys from `.claude/hitl.json` (or delete
+  never installed; nothing was deleted. Remove those keys from `.hitl/manifest.json` (or delete
   it and re-run `/hitl:init --adopt`) and retry." Stop.
 - exit `3`, `refused: "ahead"` → "the install is at <recorded>, newer than the plugin at
   <plugin>; update the plugin: `claude plugin marketplace update hitl` then
@@ -69,7 +69,7 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
   overwritten and every path under `deleted` removed; nothing is committed. To undo: save any
   of those files that held uncommitted edits of yours, then
   `git restore --source=HEAD --worktree -- <the tracked paths among written and deleted, plus
-  .claude/hitl.json, README.md and .gitignore>`, delete the paths under `written` that git does not track,
+  .hitl/manifest.json, README.md and .gitignore>`, delete the paths under `written` that git does not track,
   `git checkout <FROM>` and `git branch -D <BRANCH>`. Fix the error and re-run
   `/hitl:diff --apply`." Stop.
 - exit `0` → stage exactly what this apply run reported touching — never the step-1 report's
@@ -78,7 +78,7 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
   staged, and a pathspec that matches nothing aborts `git add` as a whole.
 
 ```bash
-git add -- .claude/hitl.json <every path in the apply output's `written`>
+git add -- .hitl/manifest.json <every path in the apply output's `written`>
 # only when `deleted` is non-empty (the files are already gone from the tree):
 git rm -q --cached --ignore-unmatch -- <every path in `deleted`>
 # only when `readmeBumped` is true:

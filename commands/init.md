@@ -71,9 +71,9 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
    State `not installed` → "nothing to adopt: no hitl-owned file exists. Run `/hitl:init`."
    Stop. Any other state without a manifest → continue. Then ask exactly one thing, with a
    recommendation:
-   - `testing`: "Which of the testing rules does this repository's `HITL.md` carry under
+   - `testing`: "Which of the testing rules does this repository's `.hitl/HITL.md` carry under
      `## Testing and gates`: e2e, tiers, ci, hooks, effective-date?" → a list, possibly empty
-     (recommend what `HITL.md` shows).
+     (recommend what `.hitl/HITL.md` shows).
 5. Write the answers file `{ "provider": "<github|gitlab>", "testing": [...], "gates": [...] }`
    (`provider` from step 3) and run:
 
@@ -86,7 +86,7 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
      guard.)
    - exit `3`, `refused: "manifest-present"` → as step 2. Stop.
    - exit `3`, `refused: "unknown-provider"` → "no backend for <provider>". Stop.
-   - exit `0` → report: "manifest written to `.claude/hitl.json` at hitl <version>. It records
+   - exit `0` → report: "manifest written to `.hitl/manifest.json` at hitl <version>. It records
      the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
      else was touched. Never commit.
 
@@ -101,7 +101,8 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "$
 - exit `3`, `refused: "collision"` → list every path, then: "These files are owned by hitl and
   already exist. If this repository was ejected from an earlier hitl or from treasury-2, run
   `/hitl:init --adopt`. Otherwise remove them and re-run.
-  Nothing was written." Stop.
+  Nothing was written." When `paths` holds a path other than `scripts/hitl` that is not under
+  `.hitl/` or `.claude/`, or the reviewer context under `.claude/`, add: "A doctrine or reviewer context from the earlier layout is in the way: `/hitl:init --adopt` moves it." Stop.
 - exit `3`, `refused: "settings-unparsable"` → print the error and "fix
   `.claude/settings.json` and re-run; nothing was written." Stop.
 - exit `0` → continue.
@@ -159,7 +160,7 @@ Exit `3`, `refused: "unknown-provider"` → "no backend for <provider>". Stop. A
 write if the human created a file meanwhile). Exit `2` with a `wrote` list means a write
 failed midway. Print the error, then say "init is not transactional", and:
 
-- list the files in `wrote` and say "remove these files, and `.claude/hitl.json` if it
+- list the files in `wrote` and say "remove these files, and `.hitl/manifest.json` if it
   exists, then re-run" — these are the only files to remove;
 - list the files in `appended` (if any) and say "a hitl block was added to these files;
   leave them as they are — a re-run sees the block and skips them";
@@ -176,13 +177,13 @@ ones left alone because their block was already there; the repository's own file
 beside hitl's under `.claude/` and left alone (`foreign`), if any; whether the Stop hook was
 added to `.claude/settings.json` or already present; the `## Testing and gates` rules adopted
 and the ones skipped, one line each; the local gates written to `AGENTS.md`; the manifest
-path `.claude/hitl.json`; and, when step 3 found a `## Local gates` of the repository's own in
+path `.hitl/manifest.json`; and, when step 3 found a `## Local gates` of the repository's own in
 `AGENTS.md`, the reminder to reconcile the two lists; and, after a GitLab render
 (`provider` is `gitlab`): "Opening PRs needs `GITLAB_TOKEN` (and `GITLAB_URL` for a
 self-hosted GitLab) in every shell that runs the workflow — `/hitl:help` checks them." End
 with:
 
-> Review the changes and open a pull request. From now on `.claude/` and `HITL.md` are
+> Review the changes and open a pull request. From now on `.claude/` and `.hitl/` are
 > reviewed like code. Nothing was committed.
 
 Never commit. Never open a PR.

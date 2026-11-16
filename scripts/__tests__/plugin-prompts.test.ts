@@ -229,6 +229,15 @@ describe("the install prompts no longer ask about the CI wipe job", () => {
   }
 });
 
+describe("/hitl:init points an earlier-layout collision to --adopt", () => {
+  it("says adopt moves the doctrine or reviewer context in the way", () => {
+    const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
+    expect(text).toContain(
+      "A doctrine or reviewer context from the earlier layout is in the way: `/hitl:init --adopt` moves it.",
+    );
+  });
+});
+
 describe("/hitl:init accepts a GitLab repository", () => {
   it("checks the token, writes the provider and hints GITLAB_URL; no v1-only refusal", () => {
     const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
