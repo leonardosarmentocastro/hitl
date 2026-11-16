@@ -9,8 +9,10 @@
 //     mergeRequests: MR[], approvals: { [iid]: { approved_by: [{ user: { username } }] } },
 //     discussions: { [iid]: Discussion[] } }
 // with MR and Discussion in GitLab's REST shape. Every request appends one JSON line to the
-// log: { method, path, query, token, body }.
-import { appendFileSync, readFileSync } from "node:fs";
+// log: { method, path, query, token, body } (body parsed as JSON when it is). Writes —
+// POST merge_requests, PUT merge_requests/:iid, POST merge_requests/:iid/notes — rewrite the
+// state file. A POST for a source and target branch that already have an opened MR is 409.
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 
 const args = process.argv.slice(2);
@@ -23,6 +25,12 @@ const LOG = opt("--log");
 if (!STATE || !LOG) {
   process.stderr.write("usage: server.mjs --state <file> --log <file>\n");
   process.exit(1);
+}
+
+const DRAFT_MARKER = /^\s*(?:\[draft\]|\(draft\)|draft:|draft\s)\s*/i;
+
+function save(state) {
+  writeFileSync(STATE, JSON.stringify(state));
 }
 
 function send(res, status, json, headers = {}) {
@@ -91,6 +99,39 @@ function handle(req, res, bodyText) {
     return sendPage(res, items, query, state);
   }
 
+  if (req.method === "POST" && rest.length === 1 && rest[0] === "merge_requests") {
+    const b = body ?? {};
+    const existing = mrs.find(
+      (m) =>
+        m.state === "opened" &&
+        m.source_branch === b.source_branch &&
+        m.target_branch === b.target_branch,
+    );
+    if (existing) {
+      return send(res, 409, {
+        message: [
+          `Another open merge request already exists for this source branch: !${existing.iid}`,
+        ],
+      });
+    }
+    const iid = mrs.reduce((max, m) => Math.max(max, m.iid), 0) + 1;
+    const origin = `http://${req.headers.host}`;
+    const created = {
+      iid,
+      web_url: `${origin}/g/r/-/merge_requests/${iid}`,
+      source_branch: b.source_branch,
+      target_branch: b.target_branch,
+      state: "opened",
+      draft: DRAFT_MARKER.test(b.title ?? ""),
+      title: b.title,
+      description: b.description ?? null,
+      sha: `sha-${iid}`,
+      labels: b.labels ? String(b.labels).split(",").filter(Boolean) : [],
+    };
+    save({ ...state, mergeRequests: [...mrs, created] });
+    return send(res, 201, created);
+  }
+
   if (rest[0] === "merge_requests" && rest.length >= 2) {
     const iid = Number(rest[1]);
     const mr = mrs.find((m) => m.iid === iid);
@@ -101,6 +142,34 @@ function handle(req, res, bodyText) {
     }
     if (req.method === "GET" && rest[2] === "discussions" && rest.length === 3) {
       return sendPage(res, state.discussions?.[iid] ?? [], query, state);
+    }
+    if (req.method === "PUT" && rest.length === 2) {
+      const b = body ?? {};
+      if (b.description !== undefined) mr.description = b.description;
+      if (b.target_branch !== undefined) mr.target_branch = b.target_branch;
+      if (b.add_labels !== undefined) {
+        const labels = mr.labels ?? [];
+        for (const l of String(b.add_labels).split(",").filter(Boolean)) {
+          if (!labels.includes(l)) labels.push(l);
+        }
+        mr.labels = labels;
+      }
+      save(state);
+      return send(res, 200, mr);
+    }
+    if (req.method === "POST" && rest[2] === "notes" && rest.length === 3) {
+      const n = {
+        id: Date.now(),
+        body: body?.body ?? "",
+        author: { username: "hitl" },
+        created_at: new Date().toISOString(),
+        system: false,
+        resolvable: false,
+      };
+      const discussions = { ...(state.discussions ?? {}) };
+      discussions[iid] = [...(discussions[iid] ?? []), { id: `n${n.id}`, notes: [n] }];
+      save({ ...state, discussions });
+      return send(res, 201, n);
     }
   }
   return send(res, 404, { error: "404 Not Found" });
