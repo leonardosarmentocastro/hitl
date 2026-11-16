@@ -9,7 +9,7 @@ Spec(s): docs/superpowers/specs/2026-11-15-gitlab-mr-design.md
 
 | slice | plan | branch | parent | status | owns |
 |---|---|---|---|---|---|
-| 1 | docs/superpowers/plans/2026-11-15-gitlab-mr-slice-1-installed-wipe-pr.md | feat/gitlab-mr-slice-1-installed-wipe-pr | feat/gitlab-mr | todo | an installed repository's feature documents leave through the generated wipe PR built by `/umbrella-pr`. |
+| 1 | docs/superpowers/plans/2026-11-15-gitlab-mr-slice-1-installed-wipe-pr.md | feat/gitlab-mr-slice-1-installed-wipe-pr | feat/gitlab-mr | open #37 | an installed repository's feature documents leave through the generated wipe PR built by `/umbrella-pr`. |
 | 2 | docs/superpowers/plans/2026-11-15-gitlab-mr-slice-2-ci-wipe-removed.md | feat/gitlab-mr-slice-2-ci-wipe-removed | feat/gitlab-mr-slice-1-installed-wipe-pr | todo | the GitHub Actions wipe job, its script, its init question and the `ci` choice are gone; an upgrade removes them; the doctrine states that the last PR of every stack is the generated wipe PR. |
 | 3 | docs/superpowers/plans/2026-11-15-gitlab-mr-slice-3-gitlab-read.md | feat/gitlab-mr-slice-3-gitlab-read | feat/gitlab-mr-slice-2-ci-wipe-removed | todo | the PR shim's `list` and `view` answer from GitLab over REST — with the one host rule (`GITLAB_URL` matched against the remote), the token and host refusals, and `ref` on the record of both backends. |
 | 4 | docs/superpowers/plans/2026-11-15-gitlab-mr-slice-4-gitlab-write.md | feat/gitlab-mr-slice-4-gitlab-write | feat/gitlab-mr-slice-3-gitlab-read | todo | the PR shim's `create` (Draft, labelled, exit 3 when one exists), `edit`, `comment` and `retarget` work on GitLab; every text hitl posts or reports names a PR by its `ref`. |
