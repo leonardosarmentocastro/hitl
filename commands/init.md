@@ -81,6 +81,7 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
    - `testing`: "Which of the testing rules does this repository's `.hitl/HITL.md` carry under
      `## Testing and gates`: e2e, tiers, ci, hooks, effective-date?" → a list, possibly empty
      (recommend what `.hitl/HITL.md` shows).
+     If `.hitl/HITL.md` is absent, read `HITL.md` at the repository root instead: the move to `.hitl/` runs later, in step 5.
 5. Write the answers file `{ "provider": "<github|gitlab>", "testing": [...], "gates": [...] }`
    (`provider` from step 3) and run:
 

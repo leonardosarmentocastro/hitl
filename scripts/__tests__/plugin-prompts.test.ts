@@ -343,4 +343,11 @@ describe("/hitl:init --adopt and the move to .hitl/", () => {
       "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`.",
     );
   });
+  it("asks the testing question from the doctrine at its old place when it has not moved yet", () => {
+    const adopt = text.slice(text.indexOf("## `--adopt`"), text.indexOf("## 2. "));
+    const step4 = adopt.slice(adopt.indexOf("\n4. "), adopt.indexOf("\n5. "));
+    expect(step4).toContain(
+      "If `.hitl/HITL.md` is absent, read `HITL.md` at the repository root instead: the move to `.hitl/` runs later, in step 5.",
+    );
+  });
 });

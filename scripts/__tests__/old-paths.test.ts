@@ -23,6 +23,7 @@ const MOVE_SOURCE_ALLOWED: Record<string, string[]> = {
     "If `.hitl/manifest.json` is absent and `.claude/hitl.json` is present, print the message and stop.",
   ],
   "init.md": [
+    "If `.hitl/HITL.md` is absent, read `HITL.md` at the repository root instead: the move to `.hitl/` runs later, in step 5.",
     "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`.",
   ],
   "diff.md": [
