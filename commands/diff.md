@@ -41,9 +41,10 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
     into its feature branch first, then re-run `/umbrella-pr` there — it builds the wipe PR.
     Branches cut before this upgrade still carry the old command and would build nothing."
   - when `keptRemoved` is not empty: name each kept file, and say "hitl no longer ships
-    these. You edited them, so they were kept. Delete
-    `.github/workflows/wipe-superpowers-docs.yml` and `scripts/hitl/wipe-superpowers-docs.sh`
-    together, by hand: one without the other is a job that fails on every push."
+    these. You edited them, so they were kept; delete them by hand once you no longer need
+    them." Only if `.github/workflows/wipe-superpowers-docs.yml` or
+    `scripts/hitl/wipe-superpowers-docs.sh` is among them, add: "Delete the wipe workflow and
+    its script together: one without the other is a job that fails on every push."
 
 Without `--apply` in `$ARGUMENTS`, stop here.
 
