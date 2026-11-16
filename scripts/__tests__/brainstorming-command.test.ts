@@ -33,6 +33,7 @@ describe("/hitl:brainstorming", () => {
   it("requires the GitLab token on GitLab and names the missing backend elsewhere", () => {
     expect(text).toContain("GITLAB_TOKEN");
     expect(text).toContain("no PR backend");
+    expect(text).toContain("If the JSON also has a `hostProblem`, say it");
   });
 
   it("leaves the worktree procedure to the doctrine", () => {

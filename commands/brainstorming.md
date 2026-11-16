@@ -68,7 +68,8 @@ failure here — step 4 resolves the base and stops there if it cannot:
   Design session only here: there is no PR backend for this repository's host (<host>). A self-hosted GitLab needs GITLAB_URL set to its address.
   ```
 
-  and continue; neither `gh` nor the token is required here.
+  If the JSON also has a `hostProblem`, say it on the next line: it names what is wrong with
+  the `GITLAB_URL` that is set. Then continue; neither `gh` nor the token is required here.
 
 ## 3. Doctrine
 

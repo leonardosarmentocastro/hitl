@@ -280,5 +280,6 @@ describe("the plugin runs on GitLab without an install", () => {
       expect(text).toContain("--require no-install,host,gates");
       expect(text).toContain('refused: "no-backend"');
       expect(text).toContain(REFUSAL);
+      expect(text).toContain("If the output also has a `problem`, print it");
     });
 });

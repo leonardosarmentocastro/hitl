@@ -7,7 +7,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { resolveHost } from "./host.mjs";
+import { problemMessage, resolveHost } from "./host.mjs";
 
 /** Print `message` on stderr and exit 2. */
 function fail(message) {
@@ -35,12 +35,8 @@ function context(env) {
   }
   const resolved = resolveHost(originUrl(), env);
   if (resolved.host !== "gitlab") {
-    if (resolved.problem === "bad-gitlab-url") {
-      fail("GITLAB_URL is not a URL (it needs a scheme, e.g. https://gitlab.example.com).");
-    }
-    if (resolved.problem === "gitlab-url-has-api-path") {
-      fail("GITLAB_URL must be the instance's address, without /api/v4.");
-    }
+    const named = problemMessage(resolved.problem);
+    if (named) fail(named);
     fail(
       "the origin remote is not gitlab.com and does not match GITLAB_URL. For a self-hosted " +
         "GitLab, set GITLAB_URL to its address; an instance whose ssh hostname differs from its " +

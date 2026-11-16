@@ -9,7 +9,8 @@
 // ends in /api/v4, is a `problem` and is otherwise treated as unset.
 //
 // Run as a program (`node host.mjs`), it prints the host word of the current directory's origin
-// remote — `unknown` when there is no origin or no repository — and exits 0.
+// remote — `unknown` when there is no origin or no repository — and exits 0. When the word is
+// `unknown` because GITLAB_URL is set but invalid, a second line names the problem.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
@@ -80,6 +81,17 @@ export function resolveHost(remote, env = process.env) {
   return result({ host: "unknown" });
 }
 
+/** The sentence that names a GITLAB_URL `problem` for a person, or null when there is none. */
+export function problemMessage(problem) {
+  if (problem === "bad-gitlab-url") {
+    return "GITLAB_URL is not a URL (it needs a scheme, e.g. https://gitlab.example.com).";
+  }
+  if (problem === "gitlab-url-has-api-path") {
+    return "GITLAB_URL must be the instance's address, without /api/v4.";
+  }
+  return null;
+}
+
 /** github | gitlab | bitbucket | unknown, from an https, ssh:// or scp-style remote url. */
 export function hostOf(remote, env = process.env) {
   return resolveHost(remote, env).host;
@@ -104,6 +116,8 @@ const isMain =
   realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
 
 if (isMain) {
-  process.stdout.write(`${hostOf(originOfCwd())}\n`);
+  const { host, problem } = resolveHost(originOfCwd());
+  const named = host === "unknown" ? problemMessage(problem) : null;
+  process.stdout.write(named ? `${host}\n${named}\n` : `${host}\n`);
   process.exit(0);
 }

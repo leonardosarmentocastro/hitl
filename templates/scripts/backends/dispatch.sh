@@ -6,13 +6,24 @@
 # Resolving lazily keeps a usage error free of any git or host lookup.
 
 hitl_load_backend() {
-  local host
-  host=$(node "$HERE/host.mjs") || host=unknown
+  local out host problem
+  # host.mjs's own stderr (or the shell's "node: command not found") reaches the caller as is.
+  if ! out=$(node "$HERE/host.mjs"); then
+    echo "pr.sh: could not work out this repository's host: node $HERE/host.mjs failed (its error is above)." >&2
+    exit 2
+  fi
+  host=${out%%$'\n'*}
+  problem=
+  [ "$out" = "$host" ] || problem=${out#*$'\n'}
   case "$host" in
     github) . "$HERE/backend-github.sh" ;;
     gitlab) . "$HERE/backend-gitlab.sh" ;;
     *)
-      echo "pr.sh: no PR backend for this repository's host (${host:-unknown}): hitl opens PRs on GitHub and GitLab. A self-hosted GitLab needs GITLAB_URL set to its address." >&2
+      if [ -n "$problem" ]; then
+        echo "pr.sh: no PR backend for this repository's host (${host:-unknown}): $problem" >&2
+      else
+        echo "pr.sh: no PR backend for this repository's host (${host:-unknown}): hitl opens PRs on GitHub and GitLab. A self-hosted GitLab needs GITLAB_URL set to its address." >&2
+      fi
       exit 2
       ;;
   esac

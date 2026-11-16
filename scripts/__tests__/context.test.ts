@@ -150,6 +150,18 @@ describe("context.mjs JSON", () => {
     });
   });
 
+  it("names an invalid GITLAB_URL in the host refusal and the context", () => {
+    const r = clone("git@gitlab.corp:acme/api.git");
+    const env = { GITLAB_URL: "https://gitlab.corp/api/v4" };
+    const message = "GITLAB_URL must be the instance's address, without /api/v4.";
+    expect(contextWith(env, r, "--require", "host")).toEqual({
+      status: 3,
+      out: { refused: "no-backend", host: "unknown", problem: message },
+    });
+    expect(contextWith(env, r).out.hostProblem).toBe(message);
+    expect(context(r).out.hostProblem).toBeUndefined();
+  });
+
   it("refuses a host with no backend when a host is required", () => {
     const r = clone("git@bitbucket.org:acme/api.git");
     expect(context(r, "--require", "host")).toEqual({

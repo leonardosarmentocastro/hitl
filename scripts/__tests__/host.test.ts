@@ -164,4 +164,20 @@ describe("node host.mjs (the CLI)", () => {
     expect(r.status).toBe(0);
     expect(r.stdout).toBe("unknown\n");
   });
+
+  it("prints unknown and names an invalid GITLAB_URL on a second line", () => {
+    const dir = dirWith("git@gitlab.corp:g/r.git");
+    const api = run(dir, { GITLAB_URL: "https://gitlab.corp/api/v4" });
+    expect(api.status).toBe(0);
+    expect(api.stdout).toBe(
+      "unknown\nGITLAB_URL must be the instance's address, without /api/v4.\n",
+    );
+    const bad = run(dir, { GITLAB_URL: "gitlab.corp" });
+    expect(bad.stdout).toMatch(/^unknown\nGITLAB_URL is not a URL/);
+  });
+
+  it("prints only the host when an invalid GITLAB_URL does not matter", () => {
+    const r = run(dirWith("git@github.com:o/r.git"), { GITLAB_URL: "gitlab.corp" });
+    expect(r.stdout).toBe("github\n");
+  });
 });

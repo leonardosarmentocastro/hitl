@@ -8,8 +8,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { hostOf } from "../installer/discover.mjs";
 import { emit, parseArgs } from "../installer/lib.mjs";
+import { problemMessage, resolveHost } from "../templates/scripts/host.mjs";
 import { gatesOf, hitlHome, projectKey, readFacts } from "./memory.mjs";
 import { defaultBase, getRecord } from "./session.mjs";
 
@@ -48,9 +48,13 @@ export function readContext(repo, pluginRoot) {
   const dir = join(hitlHome(), "projects", key);
   const { facts, skipped } = readFacts(dir);
   const record = getRecord(top);
+  const { host, problem } = resolveHost(originOf(repo));
+  // Only when GITLAB_URL is why the host is unknown: a sentence naming what is wrong with it.
+  const hostProblem = host === "unknown" ? problemMessage(problem) : null;
   return {
     mode: existsSync(join(top, ".claude/hitl.json")) ? "installed" : "no-install",
-    host: hostOf(originOf(repo)),
+    host,
+    ...(hostProblem ? { hostProblem } : {}),
     key,
     memoryDir: dir,
     doctrine: join(root, "doctrine/HITL.md"),
@@ -66,7 +70,9 @@ export function readContext(repo, pluginRoot) {
 function refusal(ctx, required) {
   if (required.includes("no-install") && ctx.mode === "installed") return { refused: "installed" };
   if (required.includes("host") && !BACKEND_HOSTS.includes(ctx.host))
-    return { refused: "no-backend", host: ctx.host };
+    return ctx.hostProblem
+      ? { refused: "no-backend", host: ctx.host, problem: ctx.hostProblem }
+      : { refused: "no-backend", host: ctx.host };
   if (required.includes("gates") && ctx.gates === null) return { refused: "no-gates" };
   return null;
 }

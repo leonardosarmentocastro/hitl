@@ -2,7 +2,7 @@
 // The plugin's shim (runtime/pr/) ships both backends and picks one per call from the origin
 // remote, by the host rule. The token only goes to the backend the remote selected.
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -117,5 +117,61 @@ describe("the plugin shim picks the backend from the origin remote", () => {
     expect(r.stderr).toContain("no PR backend");
     expect(r.gh).toHaveLength(0);
     expect(fake.requests()).toHaveLength(0);
+  });
+
+  it("create on a GitLab remote whose MR already exists exits 3 with the record", () => {
+    const body = join(mkdtempSync(join(tmpdir(), "hitl-dispatch-body-")), "body.md");
+    writeFileSync(body, "the body");
+    const r = run(
+      repoWithOrigin(`${fake.url}/g/r.git`),
+      [
+        "create",
+        "--base",
+        "feat/x",
+        "--head",
+        "feat/x-slice-1",
+        "--title",
+        "t",
+        "--body-file",
+        body,
+        "--draft",
+      ],
+      { GITLAB_URL: fake.url, GITLAB_TOKEN: TOKEN },
+    );
+    expect(r.status, r.stderr).toBe(3);
+    expect(r.json).toEqual(expect.objectContaining({ number: 5, ref: "!5" }));
+    expect(r.gh).toHaveLength(0);
+    expect(fake.state().mergeRequests).toHaveLength(1);
+  });
+
+  it.each([
+    ["ends in /api/v4", (u: string) => `${u}/api/v4`, "without /api/v4"],
+    ["is not a URL", () => "gitlab.corp", "GITLAB_URL is not a URL"],
+  ])("a GITLAB_URL that %s is named, not asked for", (_name, url, says) => {
+    const r = run(repoWithOrigin(`${fake.url}/g/r.git`), LIST, {
+      GITLAB_URL: url(fake.url),
+      GITLAB_TOKEN: TOKEN,
+    });
+    expect(r.status).toBe(2);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toContain(says);
+    expect(r.stderr).not.toContain("needs GITLAB_URL set");
+    expect(r.gh).toHaveLength(0);
+    expect(fake.requests()).toHaveLength(0);
+  });
+
+  it("a failing host lookup is reported as such, with its error", () => {
+    const bin = mkdtempSync(join(tmpdir(), "hitl-dispatch-node-"));
+    writeFileSync(join(bin, "node"), "#!/bin/sh\necho 'host lookup exploded' >&2\nexit 1\n");
+    chmodSync(join(bin, "node"), 0o755);
+    const r = run(repoWithOrigin("git@github.com:o/r.git"), LIST, {
+      PATH: `${bin}:${FAKE_GH_DIR}:${process.env.PATH}`,
+    });
+    expect(r.status).toBe(2);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toContain("host lookup exploded");
+    expect(r.stderr).toContain("could not work out");
+    expect(r.stderr).not.toContain("no PR backend");
+    expect(r.gh).toHaveLength(0);
   });
 });
