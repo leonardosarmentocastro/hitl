@@ -1,4 +1,7 @@
 // scripts/__tests__/pr-shim-gitlab.test.ts
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   type FakeGitlab,
@@ -405,6 +408,135 @@ describe("pr.sh view on GitLab", () => {
     const r = view("99");
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("GitLab 404: 404 Not found");
+    expect(r.stdout).toBe("");
+  });
+});
+
+/** A temp body file holding `text`. */
+function bodyFile(text: string): string {
+  const dir = mkdtempSync(join(tmpdir(), "hitl-gitlab-body-"));
+  const f = join(dir, "body.md");
+  writeFileSync(f, text);
+  return f;
+}
+
+describe("pr.sh create on GitLab", () => {
+  const create = (args: string[]) =>
+    runGitlabShim(shim, repoWithOrigin(`${fake.url}/g/r.git`), ["create", ...args], {
+      GITLAB_URL: fake.url,
+      GITLAB_TOKEN: TOKEN,
+    });
+  const base = (title: string, body = bodyFile("the body")) => [
+    "--base",
+    "feat/x",
+    "--head",
+    "feat/x-slice-1-api",
+    "--title",
+    title,
+    "--body-file",
+    body,
+  ];
+
+  it("--draft creates a Draft MR labelled hitl, with no reviewers or assignees", () => {
+    const r = create([...base("Slice 1: api", bodyFile("plan text")), "--draft"]);
+    expect(r.status, r.stderr).toBe(0);
+    const post = fake.requests().find((q) => q.method === "POST");
+    expect(post?.path).toBe("/api/v4/projects/g%2Fr/merge_requests");
+    const sent = post?.body as Record<string, unknown>;
+    expect(sent.title).toBe("Draft: Slice 1: api");
+    expect(sent.labels).toBe("hitl");
+    expect(sent.description).toBe("plan text");
+    expect(sent.source_branch).toBe("feat/x-slice-1-api");
+    expect(sent.target_branch).toBe("feat/x");
+    for (const k of ["reviewer_ids", "assignee_ids", "assignee_id"])
+      expect(sent).not.toHaveProperty(k);
+    const rec = r.json as Record<string, unknown>;
+    expect(rec.draft).toBe(true);
+    expect(rec.ref).toBe("!1");
+    expect(rec.title).toBe("Slice 1: api");
+    expectNoToken(r);
+  });
+
+  it("without --draft sends the title as given", () => {
+    const r = create(base("Slice 1: api"));
+    expect(r.status, r.stderr).toBe(0);
+    const post = fake.requests().find((q) => q.method === "POST");
+    expect((post?.body as { title: string }).title).toBe("Slice 1: api");
+    expect((r.json as { draft: boolean }).draft).toBe(false);
+  });
+
+  it("--draft on a title that already has a draft marker adds no second one", () => {
+    const r = create([...base("Draft: x"), "--draft"]);
+    expect(r.status, r.stderr).toBe(0);
+    const post = fake.requests().find((q) => q.method === "POST");
+    expect((post?.body as { title: string }).title).toBe("Draft: x");
+  });
+
+  it("sends a body with non-ASCII text, quotes and newlines byte-exact", () => {
+    const text = '"é"\n— end';
+    const r = create(base("t", bodyFile(text)));
+    expect(r.status, r.stderr).toBe(0);
+    const post = fake.requests().find((q) => q.method === "POST");
+    expect((post?.body as { description: string }).description).toBe(text);
+    expect((r.json as { body: string }).body).toBe(text);
+  });
+
+  it("exits 3 with the existing MR's record, adding the hitl label and keeping the others", () => {
+    fake.setState({
+      ...EMPTY,
+      mergeRequests: [mr(4, { source_branch: "feat/x-slice-1-api", labels: ["team"] })],
+    });
+    const r = create(base("Slice 1: api"));
+    expect(r.status, r.stderr).toBe(3);
+    expect(r.stdout.trim().split("\n")).toHaveLength(1);
+    expect((r.json as { number: number; ref: string }).number).toBe(4);
+    expect((r.json as { ref: string }).ref).toBe("!4");
+    const lookup = fake.requests().find((q) => q.method === "GET");
+    expect(lookup?.query).toMatchObject({
+      source_branch: "feat/x-slice-1-api",
+      target_branch: "feat/x",
+      state: "opened",
+    });
+    expect(lookup?.query.labels).toBeUndefined();
+    const after = fake.state().mergeRequests.find((m) => m.iid === 4) as { labels: string[] };
+    expect(after.labels).toEqual(["team", "hitl"]);
+    expect(fake.state().mergeRequests).toHaveLength(1);
+    expectNoToken(r);
+  });
+
+  it("exits 3 without a PUT when the existing MR already carries hitl", () => {
+    fake.setState({ ...EMPTY, mergeRequests: [mr(4, { source_branch: "feat/x-slice-1-api" })] });
+    const r = create(base("Slice 1: api"));
+    expect(r.status, r.stderr).toBe(3);
+    expect(fake.requests().filter((q) => q.method === "PUT")).toHaveLength(0);
+  });
+
+  it("creates a new MR when the head's open MR targets another base", () => {
+    fake.setState({
+      ...EMPTY,
+      mergeRequests: [mr(4, { source_branch: "feat/x-slice-1-api", target_branch: "main" })],
+    });
+    const r = create(base("Slice 1: api"));
+    expect(r.status, r.stderr).toBe(0);
+    expect((r.json as { number: number }).number).toBe(5);
+    expect(fake.state().mergeRequests).toHaveLength(2);
+  });
+
+  it("does not follow a redirect on the POST: exit 2, one request, no MR", () => {
+    fake.setState({ ...EMPTY, mode: "redirect" });
+    const r = create(base("Slice 1: api"));
+    expect(r.status).toBe(2);
+    expect(r.stdout).toBe("");
+    expect(fake.requests()).toHaveLength(1);
+    expect(fake.state().mergeRequests).toHaveLength(0);
+    expectNoToken(r);
+  });
+
+  it("exits 2 with GitLab's message when GitLab fails", () => {
+    fake.setState({ ...EMPTY, mode: "fail" });
+    const r = create(base("Slice 1: api"));
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("GitLab 500: boom");
     expect(r.stdout).toBe("");
   });
 });

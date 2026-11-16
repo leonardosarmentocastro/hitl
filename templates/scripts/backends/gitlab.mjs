@@ -5,7 +5,7 @@
 // on any failure. The token goes only in the PRIVATE-TOKEN header, only to the API base the
 // host rule resolved from the origin remote, and is never printed.
 import { execFileSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveHost } from "./host.mjs";
 
@@ -172,7 +172,47 @@ async function view(ctx, [number]) {
   return { ...toRecord(mr), reviews, comments };
 }
 
-const VERBS = { list, view };
+/** GitLab's `message`/`error` text of an answer, as one string. */
+function detailOf(json) {
+  const detail = json?.message ?? json?.error ?? "";
+  return typeof detail === "string" ? detail : JSON.stringify(detail);
+}
+
+/**
+ * A Draft (when `draft` is "1") MR labelled hitl, with no reviewers or assignees. When GitLab
+ * answers 409 because an open MR for this head and base exists, that MR gains the hitl label
+ * if it lacks it, its record is printed and the shim exits 3.
+ */
+async function create(ctx, [base, head, title, bodyFile, draft]) {
+  const sentTitle = draft === "1" && !DRAFT_MARKER.test(title) ? `Draft: ${title}` : title;
+  const { status, json } = await api(ctx, "POST", "/merge_requests", {
+    body: {
+      source_branch: head,
+      target_branch: base,
+      title: sentTitle,
+      description: readFileSync(bodyFile, "utf8"),
+      labels: "hitl",
+    },
+    allow: [409],
+  });
+  if (status !== 409) return toRecord(json);
+  const [existing] = await paged(ctx, "/merge_requests", {
+    source_branch: head,
+    target_branch: base,
+    state: "opened",
+  });
+  if (!existing) fail(`GitLab 409: ${detailOf(json)}`);
+  let mr = existing;
+  if (!(mr.labels ?? []).includes("hitl")) {
+    ({ json: mr } = await api(ctx, "PUT", `/merge_requests/${mr.iid}`, {
+      body: { add_labels: "hitl" },
+    }));
+  }
+  process.stdout.write(`${JSON.stringify(toRecord(mr))}\n`);
+  process.exit(3);
+}
+
+const VERBS = { list, view, create };
 
 async function main(argv) {
   const [verb, ...args] = argv;

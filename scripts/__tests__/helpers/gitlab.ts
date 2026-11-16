@@ -29,6 +29,8 @@ export type Req = {
 export type FakeGitlab = {
   url: string;
   setState(s: GitlabState): void;
+  /** The state file as the fake left it (writes rewrite it). */
+  state(): GitlabState;
   requests(): Req[];
   stop(): void;
 };
@@ -58,6 +60,9 @@ export function startFakeGitlab(state: GitlabState): Promise<FakeGitlab> {
         setState(s) {
           writeFileSync(stateFile, JSON.stringify(s));
           writeFileSync(log, "");
+        },
+        state() {
+          return JSON.parse(readFileSync(stateFile, "utf8"));
         },
         requests() {
           return readFileSync(log, "utf8")
