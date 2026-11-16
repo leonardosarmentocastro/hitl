@@ -58,6 +58,20 @@ function ejectedRepo() {
   return repo;
 }
 
+/** A repository holding exactly these files; a value of null makes a directory instead. */
+function repoWith(files: Record<string, string | null>) {
+  const repo = mkdtempSync(join(tmpdir(), "hitl-adopt-"));
+  for (const [rel, content] of Object.entries(files)) {
+    if (content === null) {
+      mkdirSync(join(repo, rel), { recursive: true });
+      continue;
+    }
+    mkdirSync(join(repo, rel, ".."), { recursive: true });
+    writeFileSync(join(repo, rel), content);
+  }
+  return repo;
+}
+
 function tree(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" })
     .filter((p) => p !== ".git" && !p.startsWith(".git/"))
@@ -65,7 +79,7 @@ function tree(dir: string): string[] {
 }
 
 describe("adopt.mjs", () => {
-  it("writes only the manifest, with the template's hash even where the repo file was edited", () => {
+  it("writes only the manifest when nothing needs moving, with the template's hash even where the repo file was edited", () => {
     const repo = ejectedRepo();
     const before = tree(repo);
     const editedHash = sha256(readFileSync(join(repo, ".claude/agents/handover.md"), "utf8"));
@@ -76,6 +90,7 @@ describe("adopt.mjs", () => {
     const r = run(ADOPT, repo);
     expect(r.status).toBe(0);
     expect(r.json.wrote).toEqual([MANIFEST_PATH]);
+    expect(r.json.moved).toEqual([]);
     const manifest = JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
     expect(manifest.version).toBe(CURRENT);
     expect(manifest).not.toHaveProperty("ci");
@@ -159,6 +174,85 @@ describe("adopt.mjs", () => {
     expect(r.status).toBe(3);
     expect(r.json).toEqual({ refused: "nothing-to-adopt" });
     expect(existsSync(join(repo, MANIFEST_PATH))).toBe(false);
+  });
+
+  it("moves a root doctrine and the reviewer context, rewrites the import line, then records", () => {
+    const repo = repoWith({
+      "HITL.md": "mine\n",
+      ".claude/review-context.md": "ctx\n",
+      ".claude/agents/fixer.md": "x\n",
+      "CLAUDE.md": "@HITL.md\n",
+    });
+    const r = run(ADOPT, repo);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.json.moved).toEqual([
+      { from: "HITL.md", to: ".hitl/HITL.md" },
+      { from: ".claude/review-context.md", to: ".hitl/review-context.md" },
+    ]);
+    expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe("mine\n");
+    expect(readFileSync(join(repo, ".hitl/review-context.md"), "utf8")).toBe("ctx\n");
+    expect(existsSync(join(repo, "HITL.md"))).toBe(false);
+    expect(existsSync(join(repo, ".claude/review-context.md"))).toBe(false);
+    expect(readFileSync(join(repo, "CLAUDE.md"), "utf8")).toBe("@.hitl/HITL.md\n");
+    expect(readFileSync(join(repo, ".claude/agents/fixer.md"), "utf8")).toBe("x\n");
+    expect(r.json.claudeLine).toBe("rewritten");
+    expect(r.json.wrote).toEqual([".hitl/manifest.json"]);
+    expect(existsSync(join(repo, ".hitl/manifest.json"))).toBe(true);
+  });
+
+  it("adopts a repository whose only hitl file is a root HITL.md", () => {
+    const repo = repoWith({ "HITL.md": "mine\n" });
+    const r = run(ADOPT, repo);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.json.moved).toEqual([{ from: "HITL.md", to: ".hitl/HITL.md" }]);
+    expect(r.json.claudeLine).toBe("absent");
+    expect(existsSync(join(repo, "CLAUDE.md"))).toBe(false);
+    expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe("mine\n");
+    expect(existsSync(join(repo, ".hitl/manifest.json"))).toBe(true);
+  });
+
+  it("refuses when a file exists at both the old and the new path, touching nothing", () => {
+    const repo = repoWith({
+      "HITL.md": "old\n",
+      ".hitl/HITL.md": "new\n",
+      ".claude/review-context.md": "ctx\n",
+      "CLAUDE.md": "@HITL.md\n",
+    });
+    const before = tree(repo);
+    const r = run(ADOPT, repo);
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "move-collision", paths: ["HITL.md", ".hitl/HITL.md"] });
+    expect(existsSync(join(repo, ".hitl/manifest.json"))).toBe(false);
+    expect(readFileSync(join(repo, "HITL.md"), "utf8")).toBe("old\n");
+    expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe("new\n");
+    expect(readFileSync(join(repo, "CLAUDE.md"), "utf8")).toBe("@HITL.md\n");
+    expect(tree(repo)).toEqual(before);
+  });
+
+  it("moves nothing in a repository already on the new paths", () => {
+    const repo = ejectedRepo();
+    writeFileSync(join(repo, "CLAUDE.md"), "@.hitl/HITL.md\n");
+    const r = run(ADOPT, repo);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.json.moved).toEqual([]);
+    expect(r.json.claudeLine).toBe("current");
+    expect(r.json.wrote).toEqual([MANIFEST_PATH]);
+  });
+
+  it("names what already moved when a later step fails", () => {
+    const repo = repoWith({
+      "HITL.md": "mine\n",
+      ".claude/agents/fixer.md": "x\n",
+      "CLAUDE.md": null,
+    });
+    const r = run(ADOPT, repo);
+    expect(r.status).toBe(2);
+    expect(r.json.error).toBeTruthy();
+    expect(r.json.moved).toEqual([{ from: "HITL.md", to: ".hitl/HITL.md" }]);
+    expect(r.json.claudeLine).toBeNull();
+    expect(r.json.manifest).toBe("untouched");
+    expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe("mine\n");
+    expect(existsSync(join(repo, ".hitl/manifest.json"))).toBe(false);
   });
 
   it("exits 1 on a missing flag", () => {
