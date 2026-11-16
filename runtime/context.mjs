@@ -2,7 +2,7 @@
 // The one reader every no-install command calls first: the mode (installed or not), the code
 // host, the project's memory and gates, the active-feature record and the base branch, plus
 // the plugin paths the doctrine and the PR shim live at. `--require` refuses, in a fixed order
-// (no-install, github, gates), before anything else is reported; `--format brief` prints the
+// (no-install, host, gates), before anything else is reported; `--format brief` prints the
 // "hitl context" block prompts read. Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync, statSync } from "node:fs";
@@ -13,9 +13,11 @@ import { emit, parseArgs } from "../installer/lib.mjs";
 import { gatesOf, hitlHome, projectKey, readFacts } from "./memory.mjs";
 import { defaultBase, getRecord } from "./session.mjs";
 
-const REQUIREMENTS = ["no-install", "github", "gates"];
+const REQUIREMENTS = ["no-install", "host", "gates"];
+// The hosts the PR shim has a backend for; `host` is met by any of them.
+const BACKEND_HOSTS = ["github", "gitlab"];
 const USAGE =
-  "usage: --repo <dir> --plugin-root <dir> [--require <no-install,github,gates>] [--format json|brief]";
+  "usage: --repo <dir> --plugin-root <dir> [--require <no-install,host,gates>] [--format json|brief]";
 
 function git(cwd, ...args) {
   return execFileSync("git", args, {
@@ -63,8 +65,8 @@ export function readContext(repo, pluginRoot) {
 /** The first unmet requirement, as a refusal, or null. */
 function refusal(ctx, required) {
   if (required.includes("no-install") && ctx.mode === "installed") return { refused: "installed" };
-  if (required.includes("github") && ctx.host !== "github")
-    return { refused: "not-github", host: ctx.host };
+  if (required.includes("host") && !BACKEND_HOSTS.includes(ctx.host))
+    return { refused: "no-backend", host: ctx.host };
   if (required.includes("gates") && ctx.gates === null) return { refused: "no-gates" };
   return null;
 }
