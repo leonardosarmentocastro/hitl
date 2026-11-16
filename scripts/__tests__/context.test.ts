@@ -322,13 +322,17 @@ describe("context.mjs --format brief", () => {
   it("prints a Layout line only on an old-layout repository", () => {
     const r = clone();
     fact(r, "gates", "gates", "none\n");
-    expect(brief(r).stdout).not.toContain("Layout:");
+    const before = brief(r);
+    expect(before.status).toBe(0);
+    expect(before.stdout).not.toContain("Layout:");
     oldInstalled(r);
     const b = brief(r);
     expect(b.status).toBe(0);
     expect(b.stdout).toContain("\nLayout: old\n");
     installed(r);
-    expect(brief(r).stdout).not.toContain("Layout:");
+    const after = brief(r);
+    expect(after.status).toBe(0);
+    expect(after.stdout).not.toContain("Layout:");
   });
 
   it("refuses without a gates fact even when gates are not required", () => {
