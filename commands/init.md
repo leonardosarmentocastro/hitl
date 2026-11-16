@@ -94,9 +94,19 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
    - exit `3`, `refused: "manifest-present"` → with `layout: "old"`, the upgrade message as in
      § 2; otherwise as step 2. Stop.
    - exit `3`, `refused: "unknown-provider"` → "no backend for <provider>". Stop.
+   - exit `3`, `refused: "move-collision"` → with `paths` as `[<from>, <to>]`: "both <from> and
+     <to> exist; hitl will not choose. Keep the one you want at <to>, delete the other, and
+     re-run. Nothing was written." Stop.
+   - exit `2` → print `error`; list each entry of `moved` as "already moved: <from> → <to>";
+     then "no manifest was written. Fix the error and re-run `/hitl:init --adopt`: it continues
+     from here." Stop.
    - exit `0` → report: "manifest written to `.hitl/manifest.json` at hitl <version>. It records
-     the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
-     else was touched. Never commit.
+     the templates, not this repository's files: run `/hitl:diff` to see the drift." Then one
+     line per entry of `moved`: "moved <from> → <to>". When `claudeLine` is `rewritten`:
+     "`CLAUDE.md` now imports `@.hitl/HITL.md`". When `claudeLine` is `absent`:
+     "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`."
+     When `moved` is not empty: "The agents and commands in `.claude/` still name the old paths. `/hitl:diff` shows them as locally edited: take the upstream text for those lines."
+     Nothing else was touched. Never commit.
 
 ## 2. Refuse early, then discover
 

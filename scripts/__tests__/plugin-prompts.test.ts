@@ -330,3 +330,17 @@ describe("the old layout is refused with one message", () => {
     expect(readFileSync(join(ROOT, "commands/diff.md"), "utf8")).not.toContain(UPGRADE);
   });
 });
+
+describe("/hitl:init --adopt and the move to .hitl/", () => {
+  const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
+  it("carries the fixed copy", () => {
+    expect(text).toContain('refused: "move-collision"');
+    expect(text).toContain("moved <from> → <to>");
+    expect(text).toContain(
+      "The agents and commands in `.claude/` still name the old paths. `/hitl:diff` shows them as locally edited: take the upstream text for those lines.",
+    );
+    expect(text).toContain(
+      "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`.",
+    );
+  });
+});
