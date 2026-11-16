@@ -14,7 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pluginVersion } from "../../installer/lib.mjs";
+import { pluginVersion, renderPlugin } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
 const CURRENT = pluginVersion(PLUGIN_ROOT);
@@ -114,6 +114,13 @@ describe("render.mjs on an empty repository", () => {
     for (const text of [implement, umbrella, handover]) {
       for (const m of text.matchAll(/(?:\w+ )?#(?:<[^>]*>|[KN]\b)/g)) {
         expect(allowed, `found "${m[0]}"`).toContain(m[0]);
+      }
+    }
+    // The no-install copies the plugin ships hold the same rule.
+    for (const [path, { content }] of renderPlugin(PLUGIN_ROOT)) {
+      if (!/^(?:commands|agents)\//.test(path)) continue;
+      for (const m of content.matchAll(/(?:\w+ )?#(?:<[^>]*>|[KN]\b)/g)) {
+        expect(allowed, `found "${m[0]}" in ${path}`).toContain(m[0]);
       }
     }
   });

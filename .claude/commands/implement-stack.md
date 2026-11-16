@@ -126,7 +126,8 @@ In elaborate mode the second fixer's commits ship as they are; there is no third
 
 **e. Push and open the PR.** Every record the shim returns carries `ref` — how this host
 writes a reference to the PR (`#12` on GitHub, `!12` on GitLab). Use `<ref>` in anything you
-post or report; `<number>` only goes to the shim and into the stack table.
+post or report; `<number>` only goes to the shim, to `/review-slice --pr <number>` (§ Fix-up
+step 2) and into the stack table.
 
 ```bash
 git push -u origin "<branch>"
