@@ -3,8 +3,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import {
+  PROVIDERS,
   manifestFor,
   ownedFiles,
+  readmeBlock,
   pluginFiles,
   pluginVersion,
   renderMode,
@@ -102,6 +104,43 @@ describe("installer/lib primitives", () => {
     expect(byPath["scripts/hitl/backend.sh"].template).toBe("scripts/backends/github.sh");
     expect(byPath["HITL.md"].template).toBeNull();
     expect(byPath[".claude/agents/fixer.md"].template).toBe("claude/agents/fixer.md");
+  });
+
+  it("owns the GitLab wrapper, its Node module and the host rule for provider gitlab only", () => {
+    const gitlab = ownedFiles({ provider: "gitlab", testing: [], gates: [] });
+    expect(gitlab).toContainEqual({
+      repoPath: "scripts/hitl/backend.sh",
+      template: "scripts/backends/gitlab.sh",
+      executable: true,
+    });
+    expect(gitlab).toContainEqual({
+      repoPath: "scripts/hitl/gitlab.mjs",
+      template: "scripts/backends/gitlab.mjs",
+      executable: true,
+    });
+    expect(gitlab).toContainEqual({
+      repoPath: "scripts/hitl/host.mjs",
+      template: "scripts/host.mjs",
+      executable: false,
+    });
+    const github = ownedFiles({ provider: "github", testing: [], gates: [] }).map(
+      (f) => f.repoPath,
+    );
+    expect(github).not.toContain("scripts/hitl/gitlab.mjs");
+    expect(github).not.toContain("scripts/hitl/host.mjs");
+  });
+
+  it("lists the providers that have a backend", () => {
+    expect(PROVIDERS).toEqual(["github", "gitlab"]);
+  });
+
+  it("names the host's prerequisite in the README block", () => {
+    expect(readmeBlock("1.0.0")).toContain("`gh`");
+    expect(readmeBlock("1.0.0", "github")).toContain("`gh`");
+    const gitlab = readmeBlock("1.0.0", "gitlab");
+    expect(gitlab).toContain("a `GITLAB_TOKEN` with the `api` scope");
+    expect(gitlab).toContain("`GITLAB_URL` for a self-hosted GitLab");
+    expect(gitlab).not.toContain("`gh`");
   });
 });
 

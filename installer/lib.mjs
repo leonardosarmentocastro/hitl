@@ -7,6 +7,8 @@ export const TESTING_ORDER = ["e2e", "tiers", "ci", "hooks", "effective-date"];
 export const OWNED_DIRS = ["scripts/hitl", ".claude/fixtures"];
 export const MANIFEST_PATH = ".claude/hitl.json";
 export const DEFAULT_CHOICES = { provider: "github", testing: [], gates: [] };
+/** The code hosts hitl has a backend for: the only values `provider` may take. */
+export const PROVIDERS = ["github", "gitlab"];
 
 // Argument parsing and output shared by the installer CLIs. `--name value` pairs; names in
 // `booleans` take no value. Returns null on any malformed argv so the caller prints usage.
@@ -103,6 +105,16 @@ export function ownedFiles(choices) {
       executable: true,
     },
   ];
+  if (choices.provider === "gitlab") {
+    files.push(
+      {
+        repoPath: "scripts/hitl/gitlab.mjs",
+        template: "scripts/backends/gitlab.mjs",
+        executable: true,
+      },
+      { repoPath: "scripts/hitl/host.mjs", template: "scripts/host.mjs", executable: false },
+    );
+  }
   return files;
 }
 
@@ -316,7 +328,11 @@ export function mergeSettings(existingText, hookEntry) {
   return { text: `${JSON.stringify(settings, null, 2)}\n`, added: !present };
 }
 
-export function readmeBlock(version) {
+export function readmeBlock(version, provider = "github") {
+  const hostPrerequisite =
+    provider === "gitlab"
+      ? "a `GITLAB_TOKEN` with the `api` scope (and `GITLAB_URL` for a self-hosted GitLab)"
+      : "`gh`";
   return `## How changes land here
 
 Every feature and bugfix follows a human-in-the-loop chain: brainstorm → spec → cold spec
@@ -329,7 +345,7 @@ and fixed by subagents, with a human deciding at every gate. The doctrine is \`H
   pull request.
 - Installed by hitl ${version}. \`/hitl:diff\` shows what changed upstream since;
   \`/hitl:help\` explains the state of this install.
-- Prerequisites: Claude Code with the superpowers plugin, \`git\`, \`gh\`; \`/grill-me\` from
+- Prerequisites: Claude Code with the superpowers plugin, \`git\`, ${hostPrerequisite}; \`/grill-me\` from
   Matt Pocock's skills is the recommended start for a feature whose shape is unclear.`;
 }
 

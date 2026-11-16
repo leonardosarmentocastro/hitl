@@ -317,6 +317,33 @@ describe("diff.mjs at the same version reads the plugin root, not the tag", () =
   });
 });
 
+describe("diff.mjs and the GitLab backend", () => {
+  const GITLAB_FILES = [
+    "scripts/hitl/backend.sh",
+    "scripts/hitl/gitlab.mjs",
+    "scripts/hitl/host.mjs",
+  ];
+
+  it("diffs a provider gitlab install clean at the same version", () => {
+    const repo = installedRepo(mk, { provider: "gitlab", testing: [], gates: [] });
+    const notAClone = mkdtempSync(join(tmpdir(), "hitl-notaclone-"));
+    const r = diff(repo, mk, notAClone);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    for (const p of GITLAB_FILES) expect(stateOf(r.json, p)?.state, p).toBe("unchanged");
+    expect(r.json.files.filter((f: any) => f.state === "removed upstream")).toEqual([]);
+  });
+
+  it("never adds the GitLab files when a github install is upgraded", () => {
+    const repo = installedRepo(mk);
+    const r = diff(repo, plugin, mk, true);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    for (const p of ["scripts/hitl/gitlab.mjs", "scripts/hitl/host.mjs"]) {
+      expect(stateOf(r.json, p), p).toBeUndefined();
+      expect(existsSync(join(repo, p)), p).toBe(false);
+    }
+  });
+});
+
 describe("diff.mjs absent cases", () => {
   it("reports a deleted owned file as missing locally", () => {
     const repo = installedRepo(mk);

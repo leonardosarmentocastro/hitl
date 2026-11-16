@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { emit, parseArgs } from "./lib.mjs";
 import {
   MANIFEST_PATH,
+  PROVIDERS,
   collisions,
   manifestFor,
   pluginVersion,
@@ -20,6 +21,12 @@ export function run(args) {
   const { repo, "plugin-root": pluginRoot, answers: answersPath } = args;
   if (!repo || !pluginRoot || !answersPath) return { code: 1, out: { error: USAGE } };
   const choices = JSON.parse(readFileSync(answersPath, "utf8"));
+  if (!PROVIDERS.includes(choices.provider)) {
+    return {
+      code: 3,
+      out: { refused: "unknown-provider", provider: choices.provider, allowed: PROVIDERS },
+    };
+  }
 
   const existing = readManifest(repo);
   if (existing) return { code: 3, out: { refused: "manifest-present", version: existing.version } };

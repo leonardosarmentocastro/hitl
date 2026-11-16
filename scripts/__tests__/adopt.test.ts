@@ -88,6 +88,38 @@ describe("adopt.mjs", () => {
     }
   });
 
+  it("refuses an unknown provider before writing anything", () => {
+    const repo = ejectedRepo();
+    const before = tree(repo);
+    const r = run(ADOPT, repo, { provider: "bitbucket", testing: [], gates: [] });
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({
+      refused: "unknown-provider",
+      provider: "bitbucket",
+      allowed: ["github", "gitlab"],
+    });
+    expect(tree(repo)).toEqual(before);
+  });
+
+  it("adopts a tree carrying the GitLab backend with provider gitlab", () => {
+    const gitlab = { provider: "gitlab", testing: [], gates: [] };
+    const repo = mkdtempSync(join(tmpdir(), "hitl-ejected-gitlab-"));
+    spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+    expect(run(RENDER, repo, gitlab).status).toBe(0);
+    rmSync(join(repo, ".claude/hitl.json"));
+    const r = run(ADOPT, repo, gitlab);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    expect(manifest.provider).toBe("gitlab");
+    for (const p of [
+      "scripts/hitl/backend.sh",
+      "scripts/hitl/gitlab.mjs",
+      "scripts/hitl/host.mjs",
+    ]) {
+      expect(manifest.files[p], p).toBe(sha256(readFileSync(join(repo, p), "utf8")));
+    }
+  });
+
   it("refuses when nothing owned exists", () => {
     const repo = mkdtempSync(join(tmpdir(), "hitl-empty-"));
     const r = run(ADOPT, repo);

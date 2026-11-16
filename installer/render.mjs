@@ -8,6 +8,7 @@ import { basename, dirname, join } from "node:path";
 import {
   DEFAULT_CHOICES,
   MANIFEST_PATH,
+  PROVIDERS,
   agentsBlock,
   collisions,
   foreignFiles,
@@ -43,6 +44,12 @@ export function run(args) {
     return { code: 1, out: { error: USAGE } };
   if (mode === "write" && !answersPath) return { code: 1, out: { error: USAGE } };
   const choices = answersPath ? JSON.parse(readFileSync(answersPath, "utf8")) : DEFAULT_CHOICES;
+  if (!PROVIDERS.includes(choices.provider)) {
+    return {
+      code: 3,
+      out: { refused: "unknown-provider", provider: choices.provider, allowed: PROVIDERS },
+    };
+  }
   const version = pluginVersion(pluginRoot);
 
   const manifest = readManifest(repo);
@@ -82,7 +89,10 @@ export function run(args) {
     append("CLAUDE.md", withClaudeLine(readIfPresent(join(repo, "CLAUDE.md"))));
     append(
       "README.md",
-      withMarkerBlock(readIfPresent(join(repo, "README.md")), readmeBlock(version)),
+      withMarkerBlock(
+        readIfPresent(join(repo, "README.md")),
+        readmeBlock(version, choices.provider),
+      ),
     );
     append(
       ".gitignore",

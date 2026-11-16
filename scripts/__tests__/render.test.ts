@@ -204,7 +204,45 @@ function tree(dir: string): string[] {
     .sort();
 }
 
+describe("render.mjs for provider gitlab", () => {
+  it("writes the GitLab backend byte for byte, hashes it and names GITLAB_TOKEN in the README", () => {
+    const repo = tempRepo();
+    const r = render(repo, { provider: "gitlab", testing: [], gates: [] });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    const pairs: [string, string][] = [
+      ["scripts/hitl/backend.sh", "templates/scripts/backends/gitlab.sh"],
+      ["scripts/hitl/gitlab.mjs", "templates/scripts/backends/gitlab.mjs"],
+      ["scripts/hitl/host.mjs", "templates/scripts/host.mjs"],
+    ];
+    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    expect(manifest.provider).toBe("gitlab");
+    for (const [installed, template] of pairs) {
+      expect(readFileSync(join(repo, installed)), installed).toEqual(
+        readFileSync(join(PLUGIN_ROOT, template)),
+      );
+      expect(manifest.files[installed], installed).toMatch(/^[0-9a-f]{64}$/);
+    }
+    expect(statSync(join(repo, "scripts/hitl/gitlab.mjs")).mode & 0o111).not.toBe(0);
+    const readme = readFileSync(join(repo, "README.md"), "utf8");
+    expect(readme).toContain("GITLAB_TOKEN");
+    expect(readme).not.toContain("`gh`");
+  });
+});
+
 describe("render.mjs refusals", () => {
+  it("refuses an unknown provider before writing anything", () => {
+    const repo = tempRepo();
+    const before = tree(repo);
+    const r = render(repo, { provider: "bitbucket", testing: [], gates: [] });
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({
+      refused: "unknown-provider",
+      provider: "bitbucket",
+      allowed: ["github", "gitlab"],
+    });
+    expect(tree(repo)).toEqual(before);
+  });
+
   it("refuses a second run with the installed version and writes nothing", () => {
     const repo = tempRepo();
     render(repo);
