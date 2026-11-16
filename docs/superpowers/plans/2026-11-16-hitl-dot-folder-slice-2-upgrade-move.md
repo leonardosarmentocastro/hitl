@@ -1,6 +1,6 @@
 # The `.hitl/` folder — slice 2: the upgrade moves the files — Implementation Plan
 
-**Reviewed:** round 1 (2026-11-16).
+**Reviewed:** round 1 (2026-11-16) · round 2 (2026-11-16).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -228,6 +228,7 @@ it("writes a conflicted moved file at the new path and removes the old one", () 
 });
 
 it("resumes when a pair's write landed and its removal did not", () => {
+  // starts from the customized doctrine ("A local rule."), so outcomeText is the merge
   // run --apply on a copy to learn the outcome text; in the real repo write that text at
   // .hitl/HITL.md (call it outcomeText) and leave HITL.md in place; then --apply
   expect(status).toBe(0);
@@ -369,6 +370,7 @@ Expected: FAIL.
 - After the report and again after an apply, when any entry has `movedFrom`: the "hitl's files now live in `.hitl/`…" sentence; when `claudeLine` is `absent`: the `CLAUDE.md` sentence.
 - `--apply` staging: `git add -- .hitl/manifest.json <written>`; `git add -- CLAUDE.md` only when `claudeLine` is `rewritten`; the `git rm --cached --ignore-unmatch` line already covers `deleted`, which now holds the old paths and `.claude/hitl.json`.
 - The part-way undo recipe names `.hitl/manifest.json`, `.claude/hitl.json`, `CLAUDE.md`, `README.md` and `.gitignore`, and adds: "or simply re-run `/hitl:diff --apply`: the move resumes."
+- "Conflicts to resolve by hand" needs no edit: it lists files with `merged: conflict` by their `path`, which for a moved file is already the new path.
 - The PR body: the table row for a moved file reads `<to> | <state>, moved from <from>`; the two sentences above are added under **How** when they apply.
 
 - [ ] **Step 4: Run both gates**
@@ -385,4 +387,4 @@ git commit -m "docs(diff): report the move to .hitl/, stage it and say who must 
 
 ## Review decisions
 
-- None declined in round 1.
+- None declined in round 1 or round 2.

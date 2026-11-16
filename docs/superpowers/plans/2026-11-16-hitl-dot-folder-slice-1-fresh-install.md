@@ -1,6 +1,6 @@
 # The `.hitl/` folder — slice 1: fresh install in the new layout — Implementation Plan
 
-**Reviewed:** round 1 (2026-11-16).
+**Reviewed:** round 1 (2026-11-16) · round 2 (2026-11-16).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -249,12 +249,12 @@ Expected: FAIL, naming each file that still holds an old path.
 - [ ] **Step 3: Edit the text**
 
 - Agents: `` `HITL.md` at the repo root (the workflow doctrine) `` → `` `.hitl/HITL.md` (the workflow doctrine) ``; `.claude/review-context.md` → `.hitl/review-context.md`.
-- `templates/HITL.md`, *Where things live*: `.hitl/` (`HITL.md`, this doctrine; `review-context.md`, repo-specific reviewer context; `manifest.json`, install metadata written by `/hitl:init` — its presence tells the hitl plugin's commands and Stop hook that this repository is installed). Remove the two old entries. *Review gates*: `.hitl/review-context.md`. Leave every `hitl:mode no-install` branch as it is.
+- `templates/HITL.md`, *Where things live*, each entry by its full path, since the scan rejects a bare `HITL.md` and its pattern is not to be relaxed: `.hitl/HITL.md` (this doctrine) · `.hitl/review-context.md` (repo-specific reviewer context) · `.hitl/manifest.json` (install metadata written by `/hitl:init`; its presence tells the hitl plugin's commands and Stop hook that this repository is installed). Remove the two old entries. *Review gates*: `.hitl/review-context.md`. Leave every `hitl:mode no-install` branch as it is.
 - `templates/claude/review-context.md:3`: "after `.hitl/HITL.md`, `AGENTS.md` and `CONTEXT.md`".
 - `commands/brainstorming.md:52`: "Read the repository's `.hitl/HITL.md`".
 - `commands/customize.md`: description, the knob table, both `grep` lines (`grep -rn --exclude-dir=worktrees "hitl:knob <id>" .hitl/ AGENTS.md .claude/`), the `diff`/`cp`/`patch` recipe and `.rej` name, and the manifest path.
 - `commands/help.md:39`: "edit .hitl/HITL.md or .claude/ by pull request".
-- `commands/init.md`: every `HITL.md` and `.claude/hitl.json`; in the `collision` branch add, naming no old path (the refusal's `paths` already lists them): "A doctrine or reviewer context from the earlier layout is in the way: `/hitl:init --adopt` moves it."
+- `commands/init.md`: every `HITL.md` and `.claude/hitl.json`; in the `collision` branch add, shown only when `paths` holds a file outside `.hitl/` and `.claude/` or the reviewer context under `.claude/`, and naming no old path itself (the refusal's `paths` already lists them): "A doctrine or reviewer context from the earlier layout is in the way: `/hitl:init --adopt` moves it." Pin that sentence in `scripts/__tests__/plugin-prompts.test.ts` (`commands/init.md` contains it).
 - `commands/diff.md`: `.claude/hitl.json` → `.hitl/manifest.json` (refusal texts, the staging line, the undo recipe). The move itself is slice 2.
 - `README.md`: the table rows and the prose.
 
@@ -325,4 +325,4 @@ git commit -m "chore(hitl): move this repository to the .hitl/ layout at 0.3.0"
 
 ## Review decisions
 
-- None declined in round 1.
+- None declined in round 1 or round 2.

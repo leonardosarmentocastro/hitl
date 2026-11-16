@@ -1,6 +1,6 @@
 # The `.hitl/` folder — slice 3: the old layout is refused — Implementation Plan
 
-**Reviewed:** round 1 (2026-11-16).
+**Reviewed:** round 1 (2026-11-16) · round 2 (2026-11-16).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -25,6 +25,7 @@
 - What proves what (forwarded from the spec review): script tests prove the `layout` and `mode` values, the engines' refusals, the hook's silence and the session refusal; text tests guard each command's wording against regression. The behaviour of the prompt itself — the spec's third Acceptance bullet — is proved by one dry run, described in Task 3 and recorded in the PR body.
 - The one sentence in `commands/customize.md` that tests for `.claude/hitl.json` is the only old-path text this slice adds; it is allowed by exact sentence in `old-paths.test.ts`.
 - Local gates: `pnpm test`, `pnpm format:check`.
+- File tripwire: about 24 files (3 runtime scripts, 5 installer engines, 5 commands, their tests). One capability — every plugin entry point answers the same question the same way — so it is not split; a refusal in the engines without the commands' message would have nothing a human could see.
 
 ## Review Focus
 
@@ -137,7 +138,9 @@ it("refuses an old-layout repository", () => {
 });
 ```
 
-Each fixture is a temp repository holding `.claude/hitl.json` with `{ "version": "0.2.1", "provider": "github", "testing": [], "files": {} }` and no `.hitl/`.
+Each fixture is a temp repository shaped like a real old install, so a wrong check order fails: `.claude/hitl.json` with `{ "version": "0.2.1", "provider": "github", "testing": [], "files": {} }`, `.claude/agents/fixer.md`, a root `HITL.md`, `.claude/review-context.md`, and no `.hitl/`. With those files present, `help` must still say `old layout` (not `ejected`), and `render` and `adopt` must still refuse `manifest-present` (not `collision`, not `nothing-to-adopt`).
+
+Adding `layout: "current"` to the existing `manifest-present` refusal changes its shape: update the existing exact-equality assertions on it in `render.test.ts` and `adopt.test.ts`.
 
 - [ ] **Step 2: Run to see them fail**
 
@@ -202,7 +205,7 @@ Expected: PASS.
 
 - [ ] **Step 5: Dry run of `/hitl:brainstorming` on an old-layout repository**
 
-In a temp git repository holding one commit and only `.claude/hitl.json` (`{ "version": "0.2.1", "provider": "github", "testing": [], "files": {} }`), with the plugin loaded from this branch (`claude --plugin-dir <this worktree>`), run `/hitl:brainstorming anything`. Expected: the output is the upgrade message and nothing else; `git worktree list` shows one entry; `git branch` shows no new branch; nothing was written under `~/.hitl/projects/` for that repository. If the implementer cannot launch a nested Claude Code session, it reports this step as *not run* and the PR body lists it, with these expected results, as a check for the human.
+In a temp git repository holding one commit and only `.claude/hitl.json` (`{ "version": "0.2.1", "provider": "github", "testing": [], "files": {} }`), with the plugin loaded from this branch (`claude --plugin-dir <this worktree>`), run `/hitl:brainstorming anything`. Expected: the output is the upgrade message and nothing else; `git worktree list` shows one entry; `git branch` shows no new branch; nothing was written under `~/.hitl/projects/` for that repository. If the implementer cannot launch a nested Claude Code session, it reports this step as *not run* and the PR body lists it, with these expected results, as an open check for the human — it is then the only proof of the spec's third Acceptance bullet, so the PR must not present that bullet as verified.
 
 - [ ] **Step 6: Commit**
 
@@ -213,4 +216,4 @@ git commit -m "feat(commands): stop with the upgrade message on an old-layout re
 
 ## Review decisions
 
-- None declined in round 1.
+- Keeping the dry run's repository under `.claude/fixtures/` — declined, not worth it: the whole fixture is one JSON file and a commit, and it must be a separate git repository, which a folder inside this one is not.
