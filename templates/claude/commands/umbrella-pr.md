@@ -63,7 +63,7 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
    `--dry-run`, add `--no-push` to the same call: nothing is archived, pushed or opened. A
 <!-- hitl:mode end -->
    `refused` or `error` in the output → stop and report it verbatim. Keep its `status` and
-   `pr` for the stack block in step 2. The wipe branch is never a stack-table row.
+   `ref` for the stack block in step 2. The wipe branch is never a stack-table row.
 2. Build the body: everything from `Plan:` under `## Umbrella PR body` through the `## Notes`
    section, with the `<!-- stack -->` table's PR column refreshed from
 <!-- hitl:mode installed -->
@@ -71,10 +71,11 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
 <!-- hitl:mode no-install -->
    `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" list --head-prefix "<feature-branch>-slice-"` (every state; read
 <!-- hitl:mode end -->
-   `number`, `head` and `state` from each record).
+   `number`, `ref`, `head` and `state` from each record; a PR cell shows the record's `ref` —
+   `#12` on GitHub, `!12` on GitLab).
    Inside the `<!-- stack -->` markers, after the table, one line by the wipe's `status`:
-   - `built`: `Required before merge: #<pr> removes the transient docs — merge it last. Fix-ups happen before it merges.`
-   - `merged`: `Transient docs removed by #<pr>.`
+   - `built`: `Required before merge: <ref> removes the transient docs — merge it last. Fix-ups happen before it merges.`
+   - `merged`: `Transient docs removed by <ref>.`
    - `would-build` (a dry run): `Required before merge: the wipe PR (not built in a dry run).`
    - `nothing-to-wipe`: no line.
 3. If `$ARGUMENTS` contains `--dry-run`: print the body in a fenced block and stop.
@@ -89,12 +90,12 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
    `base` is `main`; there is none if no such record.
    - No PR: write the body to a temp file and
      `scripts/hitl/pr.sh create --draft --base main --head <feature-branch> --title "<feature title from the spec's H1>" --body-file <tmp>`.
-     Report `created: #N (draft)` with `N` from the returned record.
+     Report `created: <ref> (draft)` with `<ref>` from the returned record.
    - PR exists: fetch its body (`scripts/hitl/pr.sh view N`, the `body` field). Replace ONLY
      the text between `<!-- stack -->` and `<!-- /stack -->` with the refreshed table and its wipe line; leave
      every other byte untouched. If the markers are absent, report
-     `refused: #N has a hand-written body without stack markers` and stop. Otherwise
-     `scripts/hitl/pr.sh edit N --body-file <tmp>` and report `updated: #N`.
+     `refused: <ref> has a hand-written body without stack markers` and stop. Otherwise
+     `scripts/hitl/pr.sh edit N --body-file <tmp>` and report `updated: <ref>`, `<ref>` being that record's `ref`.
 <!-- hitl:mode no-install -->
 4. Otherwise:
    ```bash
@@ -106,11 +107,11 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
    `base` is the branch on the hitl context block's `Base:` line (`<Base>`); there is none if no such record.
    - No PR: write the body to a temp file and
      `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" create --draft --base "<Base>" --head <feature-branch> --title "<feature title from the spec's H1>" --body-file <tmp>`.
-     Report `created: #N (draft)` with `N` from the returned record.
+     Report `created: <ref> (draft)` with `<ref>` from the returned record.
    - PR exists: fetch its body (`"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" view N`, the `body` field). Replace ONLY
      the text between `<!-- stack -->` and `<!-- /stack -->` with the refreshed table and its wipe line; leave
      every other byte untouched. If the markers are absent, report
-     `refused: #N has a hand-written body without stack markers` and stop. Otherwise
-     `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" edit N --body-file <tmp>` and report `updated: #N`.
+     `refused: <ref> has a hand-written body without stack markers` and stop. Otherwise
+     `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" edit N --body-file <tmp>` and report `updated: <ref>`, `<ref>` being that record's `ref`.
 <!-- hitl:mode end -->
 5. Never mark the PR ready for review; never merge.

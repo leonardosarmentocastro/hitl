@@ -28,8 +28,8 @@ If your brief carries no hitl context block, reply "blocked: no hitl context" an
   When the repository has no `origin` remote (`git remote get-url origin` fails), skip the
   fetch and list local branches only.
 - PRs, only when the block's `Host:` line says `github`: `<PR shim> list --head-prefix
-  "<feature-branch>"` (every state; each record carries `number`, `head`, `base`, `state`,
-  `draft`, `title`) and `<PR shim> view <number>` on any that need reviews and comments
+  "<feature-branch>"` (every state; each record carries `number`, `ref`, `head`, `base`,
+  `state`, `draft`, `title`) and `<PR shim> view <number>` on any that need reviews and comments
   (fix-up mode), where `<PR shim>` is the path on the block's `PR shim:` line.
   If the hitl context block's "Host:" is not github, do not run the PR shim: list no PRs,
   and derive every row's status from git alone, as if no PR exists.
@@ -103,7 +103,7 @@ reconstruct. No file, function or test names.>
 <!-- stack -->
 | slice | title | PR |
 |---|---|---|
-| 1 | <slice title: the plan's H1 with its `<feature> — slice <N>:` prefix removed> | <#K or —> |
+| 1 | <slice title: the plan's H1 with its `<feature> — slice <N>:` prefix removed> | <the PR record's ref, or —> |
 <!-- /stack -->
 
 ## Notes
@@ -114,7 +114,7 @@ record.
 
 ## Fix-up
 <only in fix-up mode; otherwise omit the section>
-### Slice <N> — <branch> — PR #<K>
+### Slice <N> — <branch> — PR <ref>
 <the human's requested changes, restated in plain words, one bullet each>
 ### Restack order
 <branch A> onto <feature branch> (old parent tip: <sha of the feature branch as A currently sees it>);

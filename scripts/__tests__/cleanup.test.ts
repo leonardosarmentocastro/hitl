@@ -31,7 +31,13 @@ function git(cwd: string, ...args: string[]): string {
   return execFileSync("git", args, { cwd, env: ENV, encoding: "utf8" }).trim();
 }
 
-type Pr = { number: number; head: string; state: "open" | "merged" | "closed"; head_sha?: string };
+type Pr = {
+  number: number;
+  head: string;
+  state: "open" | "merged" | "closed";
+  head_sha?: string;
+  ref?: string;
+};
 
 /** A shim at `path` that fails like a host error. */
 function failingShim(path: string) {
@@ -157,6 +163,17 @@ describe("cleanup.mjs — classes", () => {
     w.setPrs([{ number: 7, head: branch, state: "merged", head_sha: tip }]);
     const e = at(cleanup(w).json, path);
     expect(e).toMatchObject({ class: "merged", offered: true, umbrella: { number: 7 } });
+    expect(e.umbrella).toEqual({ number: 7, ref: "#7", url: "https://host/pr/7" });
+  });
+
+  it("reports the umbrella PR with the shim record's ref, as the host writes it", () => {
+    const w = world();
+    const { path, branch } = designWorktree(w, "m");
+    const tip = commit(path, "spec.md");
+    git(path, "push", "-q", "origin", branch);
+    w.setPrs([{ number: 7, ref: "!7", head: branch, state: "merged", head_sha: tip }]);
+    const e = at(cleanup(w).json, path);
+    expect(e.umbrella).toEqual({ number: 7, ref: "!7", url: "https://host/pr/7" });
   });
 
   it("has unsaved work: a local commit on no remote and in no merged PR", () => {

@@ -174,7 +174,7 @@ function classify(ctx, here, wt) {
     class: cls,
     offered: (cls === "merged" || cls === "abandoned") && !isHere && present,
     here: isHere,
-    umbrella: shown ? { number: shown.number, url: shown.url } : null,
+    umbrella: shown ? { number: shown.number, ref: shown.ref, url: shown.url } : null,
     branches,
     unsaved,
     sizeKb: present ? sizeKb(wt.path) : null,

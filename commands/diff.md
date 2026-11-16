@@ -116,5 +116,5 @@ latest template). Files this repository edited were kept; files both changed wer
 `<<<<<<<` / `>>>>>>>` hunks as committed.
 ```
 
-Report `created: #N <url>`; the shim's exit `3` means the PR already exists — report its
-number instead. Never merge, never mark ready for review.
+Report `created: <ref> <url>`, with `<ref>` and `<url>` from the shim's record; the shim's exit
+`3` means the PR already exists — report its `ref` instead. Never merge, never mark ready for review.

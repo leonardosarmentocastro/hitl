@@ -171,7 +171,9 @@ human. `done` → fold its "not reproduced" items into the Review decisions bloc
 
 In elaborate mode the second fixer's commits ship as they are; there is no third review.
 
-**e. Push and open the PR.**
+**e. Push and open the PR.** Every record the shim returns carries `ref` — how this host
+writes a reference to the PR (`#12` on GitHub, `!12` on GitLab). Use `<ref>` in anything you
+post or report; `<number>` only goes to the shim and into the stack table.
 
 <!-- hitl:mode installed -->
 ```bash
@@ -225,7 +227,7 @@ not be taken) is written as `_not captured_ — <why>`, never invented.
 <!-- hitl:mode end -->
 
 Update the row in the handover document on this branch: status `open #<number>`, and — if a
-plan header changed — its `owns`. Commit `docs(handover): slice <N> open #<number>` and push.
+plan header changed — its `owns`. Commit `docs(handover): slice <N> open <ref>` and push.
 
 **f. Next slice.** Continue with the next `todo` row. Its parent is what the table says.
 Because slices stack, the next branch is cut from this one and inherits the updated table;
@@ -237,12 +239,12 @@ rather than as a change it cannot explain.
 
 ## 2. After the last slice
 
-Run `/umbrella-pr` (no `--dry-run`). Report `created: #N (draft)` or `updated: #N`. Then
-**STOP** with the final report: one line per slice (`slice N — <branch> — PR #K`), the
+Run `/umbrella-pr` (no `--dry-run`). Report `created: <ref> (draft)` or `updated: <ref>`. Then
+**STOP** with the final report: one line per slice (`slice N — <branch> — PR <ref>`), the
 umbrella PR, and the sentence "Nothing is merged. The stack is yours to review." Do not mark
 anything ready for review. Do not merge.
 `/umbrella-pr` also builds the wipe PR; when it reports one, add to the final report:
-`The wipe PR #<pr> is generated; merge it last.`
+`The wipe PR <ref> is generated; merge it last.` (`<ref>` is the wipe output's `ref`.)
 
 End the report with this block, in plain words, `<abs path>` being `git rev-parse
 --show-toplevel` and the branches being the feature branch and its local slice branches:

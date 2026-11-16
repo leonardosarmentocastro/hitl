@@ -84,11 +84,38 @@ describe("render.mjs on an empty repository", () => {
     );
     expect(umbrella).not.toContain("archived");
     expect(umbrella).toContain(
-      "Required before merge: #<pr> removes the transient docs — merge it last.",
+      "Required before merge: <ref> removes the transient docs — merge it last.",
     );
     const implement = readFileSync(join(repo, ".claude/commands/implement-stack.md"), "utf8");
-    expect(implement).toContain("The wipe PR #<pr> is generated; merge it last.");
+    expect(implement).toContain("The wipe PR <ref> is generated; merge it last.");
     expect(implement).toContain("only the wipe builder pushes it");
+  });
+
+  it("names PRs by their ref in everything posted or reported; the stack table keeps #<number>", () => {
+    const repo = tempRepo();
+    expect(render(repo).status).toBe(0);
+    const read = (p: string) => readFileSync(join(repo, p), "utf8");
+    const implement = read(".claude/commands/implement-stack.md");
+    expect(implement).toContain("docs(handover): slice <N> open <ref>");
+    expect(implement).toContain("slice N — <branch> — PR <ref>");
+    expect(implement).toContain("The wipe PR <ref> is generated; merge it last.");
+    expect(implement).toContain("status `open #<number>`");
+    const umbrella = read(".claude/commands/umbrella-pr.md");
+    for (const s of [
+      "created: <ref> (draft)",
+      "updated: <ref>",
+      "Required before merge: <ref> removes the transient docs",
+      "Transient docs removed by <ref>.",
+      "refused: <ref> has a hand-written body",
+    ])
+      expect(umbrella).toContain(s);
+    const handover = read(".claude/agents/handover.md");
+    const allowed = new Set(["open #<number>", "merged #<number>", "open #K", "merged #K"]);
+    for (const text of [implement, umbrella, handover]) {
+      for (const m of text.matchAll(/(?:\w+ )?#(?:<[^>]*>|[KN]\b)/g)) {
+        expect(allowed, `found "${m[0]}"`).toContain(m[0]);
+      }
+    }
   });
 
   it("creates CLAUDE.md with the @HITL.md line and appends it to an existing one", () => {

@@ -159,7 +159,7 @@ describe("the plugin's no-install prompts", () => {
   it("the umbrella and stack commands archive the documents and build the wipe PR", () => {
     const u = rendered.get("commands/umbrella-pr.md")!.content;
     expect(u).toContain('runtime/wipe.mjs" build --repo "$PWD" --feature-branch');
-    expect(u).toContain("Required before merge: #<pr>");
+    expect(u).toContain("Required before merge: <ref>");
     expect(u.indexOf("runtime/wipe.mjs")).toBeGreaterThan(
       u.indexOf("--require no-install,github,gates"),
     );

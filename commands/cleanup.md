@@ -15,7 +15,7 @@ For each entry with `offered: true`, one block in plain words (sizes as MB or GB
 
 ```
 <path>  —  <branch>, <size>
-  Safe to remove because: <merged: "its umbrella PR #<umbrella.number> is merged and nothing in it is unsaved"; abandoned: "nothing was ever committed or saved in it">
+  Safe to remove because: <merged: "its umbrella PR <umbrella.ref> is merged and nothing in it is unsaved"; abandoned: "nothing was ever committed or saved in it">
   Also deleted (gitignored): <each ignored entry with its size, or "nothing">
   Local branches deleted with it: <branches>
 ```
