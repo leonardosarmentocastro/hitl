@@ -27,11 +27,11 @@ If your brief carries no hitl context block, reply "blocked: no hitl context" an
   `git branch -a --list '<feature-branch>-slice-*' --list 'origin/<feature-branch>-slice-*'`.
   When the repository has no `origin` remote (`git remote get-url origin` fails), skip the
   fetch and list local branches only.
-- PRs, only when the block's `Host:` line says `github`: `<PR shim> list --head-prefix
+- PRs, only when the block's `Host:` line says `github` or `gitlab`: `<PR shim> list --head-prefix
   "<feature-branch>"` (every state; each record carries `number`, `ref`, `head`, `base`,
   `state`, `draft`, `title`) and `<PR shim> view <number>` on any that need reviews and comments
   (fix-up mode), where `<PR shim>` is the path on the block's `PR shim:` line.
-  If the hitl context block's "Host:" is not github, do not run the PR shim: list no PRs,
+  If the hitl context block's "Host:" is neither, do not run the PR shim: list no PRs,
   and derive every row's status from git alone, as if no PR exists.
 
 ## Derive the stack table

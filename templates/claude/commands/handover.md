@@ -55,6 +55,6 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
    `git rev-parse --show-toplevel`, so it can be pasted from any folder. The document keeps the
    relative line. Do not push; the human decides when the feature branch goes to the remote.
 <!-- hitl:mode no-install -->
-   When the block's `Host:` is not `github`, print after the launch line, exactly:
-   `This repository is not on GitHub: /implement-stack will refuse until issue #19 lands. Implement from the handover by hand.`
+   When the block's `Host:` is neither `github` nor `gitlab`, print after the launch line, exactly:
+   `/implement-stack will refuse: No PR backend for this repository's host (<host>): hitl opens PRs on GitHub and GitLab. A self-hosted GitLab needs GITLAB_URL set to its address. Implement from the handover by hand.`
 <!-- hitl:mode end -->

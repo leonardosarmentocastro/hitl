@@ -10,7 +10,7 @@ PR numbers, and each agent's few-line reply.
 ## Before anything: the hitl context
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,github,gates --format brief
+node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,host,gates --format brief
 ```
 
 - Exit 3 with `refused: "installed"` → print exactly the line below and stop:
@@ -19,11 +19,11 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
   hitl is installed in this repository — run this repository's own implement-stack command (no hitl: prefix) instead.
   ```
 
-- Exit 3 with `refused: "not-github"` → print exactly the line below and stop, before any
-  fetch, checkout or branch:
+- Exit 3 with `refused: "no-backend"` → print exactly the line below, with `<host>` the
+  output's `host`, and stop, before any fetch, checkout or branch:
 
   ```
-  This repository is not on GitHub: opening PRs needs https://github.com/leonardosarmentocastro/hitl/issues/19. Implement from the handover by hand until then.
+  No PR backend for this repository's host (<host>): hitl opens PRs on GitHub and GitLab. A self-hosted GitLab needs GITLAB_URL set to its address. Implement from the handover by hand.
   ```
 
 - Exit 3 with `refused: "no-gates"` → print `This project has no confirmed gates on this machine — confirm them now.`,

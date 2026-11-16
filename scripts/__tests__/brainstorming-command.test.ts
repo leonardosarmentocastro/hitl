@@ -26,8 +26,13 @@ describe("/hitl:brainstorming", () => {
 
   it("carries the fixed copy", () => {
     expect(text).toContain("hitl is installed here — following this repository's rules.");
-    expect(text).toContain("issues/19");
+    expect(text).not.toContain("issues/19");
     expect(text).toContain("Remember this for this project?");
+  });
+
+  it("requires the GitLab token on GitLab and names the missing backend elsewhere", () => {
+    expect(text).toContain("GITLAB_TOKEN");
+    expect(text).toContain("no PR backend");
   });
 
   it("leaves the worktree procedure to the doctrine", () => {
