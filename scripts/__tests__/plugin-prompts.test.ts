@@ -315,6 +315,17 @@ describe("the old layout is refused with one message", () => {
     it(`/hitl:${c} carries it`, () => {
       expect(readFileSync(join(ROOT, `commands/${c}.md`), "utf8")).toContain(UPGRADE);
     });
+  it("/hitl:init --adopt stops on state `old layout` with it, before asking", () => {
+    const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
+    const adopt = text.slice(text.indexOf("## `--adopt`"), text.indexOf("## 2. "));
+    const step4 = adopt.slice(adopt.indexOf("\n4. "), adopt.indexOf("\n5. "));
+    expect(step4).toContain("State `old layout`");
+    expect(step4).toContain(UPGRADE);
+    expect(step4.indexOf("State `old layout`")).toBeLessThan(step4.indexOf("Any other state"));
+    const refusal = adopt.slice(adopt.indexOf('refused: "manifest-present"'));
+    expect(refusal.slice(0, refusal.indexOf("\n   - exit"))).toContain('`layout: "old"`');
+    expect(refusal.slice(0, refusal.indexOf("\n   - exit"))).toContain("the upgrade message");
+  });
   it("/hitl:diff does not refuse", () => {
     expect(readFileSync(join(ROOT, "commands/diff.md"), "utf8")).not.toContain(UPGRADE);
   });

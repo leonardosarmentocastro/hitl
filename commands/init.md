@@ -63,13 +63,20 @@ Nothing else is written or asked.
 If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
 
 1. Run the prerequisite check above.
-2. Manifest present → "hitl is already initialised at <version>; run `/hitl:diff`." Stop.
+2. `.hitl/manifest.json` present → "hitl is already initialised at <version>; run `/hitl:diff`."
+   Stop. (A manifest from the earlier layout is step 4's `old layout` state.)
 3. Host only: `node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"`. Apply
    "Refusing a host without a backend" above: `github` or `gitlab` → continue with
    `provider = <host>`; any other host → stop with its message.
 4. Before asking anything, run `help.mjs` (`--repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}"`).
    State `not installed` → "nothing to adopt: no hitl-owned file exists. Run `/hitl:init`."
-   Stop. Any other state without a manifest → continue. Then ask exactly one thing, with a
+   Stop. State `old layout` → print exactly, and stop:
+
+   ```
+   This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.
+   ```
+
+   Any other state without a manifest → continue. Then ask exactly one thing, with a
    recommendation:
    - `testing`: "Which of the testing rules does this repository's `.hitl/HITL.md` carry under
      `## Testing and gates`: e2e, tiers, ci, hooks, effective-date?" → a list, possibly empty
@@ -84,8 +91,8 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
    - exit `3`, `refused: "nothing-to-adopt"` → "nothing to adopt: no hitl-owned file exists.
      Run `/hitl:init`." Stop. (Unreachable after step 4's check; kept as the script's own
      guard.)
-   - exit `3`, `refused: "manifest-present"` → as step 2, the `layout: "old"` case included.
-     Stop.
+   - exit `3`, `refused: "manifest-present"` → with `layout: "old"`, the upgrade message as in
+     § 2; otherwise as step 2. Stop.
    - exit `3`, `refused: "unknown-provider"` → "no backend for <provider>". Stop.
    - exit `0` → report: "manifest written to `.hitl/manifest.json` at hitl <version>. It records
      the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
