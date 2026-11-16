@@ -36,21 +36,30 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
 
 <!-- hitl:mode end -->
 1. Feature branch and handover document as in `/handover` (step 1). Read the document.
+<!-- hitl:mode installed -->
+1b. The wipe PR — rebuild `<feature-branch>-wipe`, the one
 <!-- hitl:mode no-install -->
 1b. The wipe PR — archive the feature's documents and rebuild `<feature-branch>-wipe`, the one
+<!-- hitl:mode end -->
    generated commit that deletes them, before the body is built. Fetch first: this is the
    command the human re-runs after slices merged on the host, and the parent's tip must be
    current.
+<!-- hitl:mode installed -->
+   ```bash
+   git fetch -q --prune origin
+   node scripts/hitl/wipe.mjs build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --base main --shim scripts/hitl/pr.sh
+   ```
+<!-- hitl:mode no-install -->
    ```bash
    git fetch -q --prune origin
    node "${CLAUDE_PLUGIN_ROOT}/runtime/wipe.mjs" build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --shim "${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh"
    ```
+<!-- hitl:mode end -->
    `<parent>` is the branch of the last stack-table row that has a PR not yet merged — a row
    with no PR (a `todo` slice) never counts (read the states from the step 2 list, run now), or the feature branch when no row has one. If `$ARGUMENTS` contains
    `--dry-run`, add `--no-push` to the same call: nothing is archived, pushed or opened. A
    `refused` or `error` in the output → stop and report it verbatim. Keep its `status` and
    `pr` for the stack block in step 2. The wipe branch is never a stack-table row.
-<!-- hitl:mode end -->
 2. Build the body: everything from `Plan:` under `## Umbrella PR body` through the `## Notes`
    section, with the `<!-- stack -->` table's PR column refreshed from
 <!-- hitl:mode installed -->
@@ -59,13 +68,11 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
    `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" list --head-prefix "<feature-branch>-slice-"` (every state; read
 <!-- hitl:mode end -->
    `number`, `head` and `state` from each record).
-<!-- hitl:mode no-install -->
    Inside the `<!-- stack -->` markers, after the table, one line by the wipe's `status`:
    - `built`: `Required before merge: #<pr> removes the transient docs — merge it last. Fix-ups happen before it merges.`
    - `merged`: `Transient docs removed by #<pr>.`
    - `would-build` (a dry run): `Required before merge: the wipe PR (not built in a dry run).`
    - `nothing-to-wipe`: no line.
-<!-- hitl:mode end -->
 3. If `$ARGUMENTS` contains `--dry-run`: print the body in a fenced block and stop.
 <!-- hitl:mode installed -->
 4. Otherwise:
@@ -80,7 +87,7 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
      `scripts/hitl/pr.sh create --draft --base main --head <feature-branch> --title "<feature title from the spec's H1>" --body-file <tmp>`.
      Report `created: #N (draft)` with `N` from the returned record.
    - PR exists: fetch its body (`scripts/hitl/pr.sh view N`, the `body` field). Replace ONLY
-     the text between `<!-- stack -->` and `<!-- /stack -->` with the refreshed table; leave
+     the text between `<!-- stack -->` and `<!-- /stack -->` with the refreshed table and its wipe line; leave
      every other byte untouched. If the markers are absent, report
      `refused: #N has a hand-written body without stack markers` and stop. Otherwise
      `scripts/hitl/pr.sh edit N --body-file <tmp>` and report `updated: #N`.

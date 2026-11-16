@@ -77,6 +77,21 @@ describe("render.mjs on an empty repository", () => {
     );
   });
 
+  it("renders the installed commands with the wipe step and its report lines", () => {
+    const repo = tempRepo();
+    expect(render(repo).status).toBe(0);
+    const umbrella = readFileSync(join(repo, ".claude/commands/umbrella-pr.md"), "utf8");
+    expect(umbrella).toContain(
+      'node scripts/hitl/wipe.mjs build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --base main --shim scripts/hitl/pr.sh',
+    );
+    expect(umbrella).toContain(
+      "Required before merge: #<pr> removes the transient docs — merge it last.",
+    );
+    const implement = readFileSync(join(repo, ".claude/commands/implement-stack.md"), "utf8");
+    expect(implement).toContain("The wipe PR #<pr> is generated; merge it last.");
+    expect(implement).toContain("only the wipe builder pushes it");
+  });
+
   it("creates CLAUDE.md with the @HITL.md line and appends it to an existing one", () => {
     const fresh = tempRepo();
     render(fresh);

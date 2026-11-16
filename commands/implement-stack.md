@@ -214,8 +214,8 @@ Run `/hitl:umbrella-pr` (no `--dry-run`). Report `created: #N (draft)` or `updat
 **STOP** with the final report: one line per slice (`slice N — <branch> — PR #K`), the
 umbrella PR, and the sentence "Nothing is merged. The stack is yours to review." Do not mark
 anything ready for review. Do not merge.
-`/hitl:umbrella-pr` also builds the wipe PR; when it reports one, add to the final report: `The
-wipe PR #<pr> is generated; merge it last.`
+`/hitl:umbrella-pr` also builds the wipe PR; when it reports one, add to the final report:
+`The wipe PR #<pr> is generated; merge it last.`
 
 End the report with this block, in plain words, `<abs path>` being `git rev-parse
 --show-toplevel` and the branches being the feature branch and its local slice branches:
@@ -258,6 +258,6 @@ Report as in § 2.
 ## Never
 
 Merge. Mark ready for review. Force-push unasked (the generated wipe branch is the one
-exception, and only wipe.mjs pushes it). Start a slice after a STOP. Review more often than the mode prescribes.
+exception, and only the wipe builder pushes it). Start a slice after a STOP. Review more often than the mode prescribes.
 Open a PR for a slice whose review produced nothing. Ask the human a code-level question —
 decide, record, move on.

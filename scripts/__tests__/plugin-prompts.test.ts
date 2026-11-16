@@ -168,10 +168,16 @@ describe("the plugin's no-install prompts", () => {
       'runtime/wipe.mjs" archive --repo "$PWD"',
     );
     expect(rendered.get("commands/implement-stack.md")!.content).toContain(
-      "only wipe.mjs pushes it",
+      "only the wipe builder pushes it",
     );
     const installed = renderAll(ROOT, THIS_REPO_CHOICES);
-    expect(installed.get(".claude/commands/umbrella-pr.md")!.content).not.toContain("wipe.mjs");
+    const iu = installed.get(".claude/commands/umbrella-pr.md")!.content;
+    expect(iu).toContain("node scripts/hitl/wipe.mjs build");
+    expect(iu).not.toContain("runtime/wipe.mjs");
+    expect(iu).not.toContain("archive the feature's documents");
+    expect(installed.get(".claude/commands/implement-stack.md")!.content).not.toContain(
+      'wipe.mjs" archive',
+    );
   });
 
   it("a fix-up round always rebuilds the wipe through /hitl:umbrella-pr", () => {
@@ -185,7 +191,7 @@ describe("the plugin's no-install prompts", () => {
       installed.indexOf("## Fix-up"),
       installed.indexOf("## Never"),
     );
-    expect(installedFixup).not.toContain("always run");
+    expect(installedFixup).toContain("always run `/umbrella-pr`");
   });
 
   it("commands/review-plan.md hands over on convergence by the same rules", () => {

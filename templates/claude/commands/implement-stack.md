@@ -241,10 +241,8 @@ Run `/umbrella-pr` (no `--dry-run`). Report `created: #N (draft)` or `updated: #
 **STOP** with the final report: one line per slice (`slice N — <branch> — PR #K`), the
 umbrella PR, and the sentence "Nothing is merged. The stack is yours to review." Do not mark
 anything ready for review. Do not merge.
-<!-- hitl:mode no-install -->
-`/umbrella-pr` also builds the wipe PR; when it reports one, add to the final report: `The
-wipe PR #<pr> is generated; merge it last.`
-<!-- hitl:mode end -->
+`/umbrella-pr` also builds the wipe PR; when it reports one, add to the final report:
+`The wipe PR #<pr> is generated; merge it last.`
 
 End the report with this block, in plain words, `<abs path>` being `git rev-parse
 --show-toplevel` and the branches being the feature branch and its local slice branches:
@@ -283,22 +281,14 @@ Then follow `### Restack order`: for each `<B> onto <A> (old parent tip: <sha>)`
 `git checkout <B> && git rebase --onto <A> <sha>` — the sha is recorded in the handover's
 Fix-up section by the handover agent, never recomputed here. Before ANY force-push, stop
 and ask the human, naming the branch and what will be overwritten.
-<!-- hitl:mode installed -->
-Report as in § 2, without the umbrella step unless it does not exist yet.
-<!-- hitl:mode no-install -->
 Then always run `/umbrella-pr` (no `--dry-run`), even when the umbrella exists: it rebuilds
 the wipe branch on the new slice tips — otherwise the wipe PR still sits on the commits from
 before the fix-up, and merging it last would bring them back — and refreshes the umbrella.
 Report as in § 2.
-<!-- hitl:mode end -->
 
 ## Never
 
-<!-- hitl:mode installed -->
-Merge. Mark ready for review. Force-push unasked. Start a slice after a STOP. Review more often than the mode prescribes.
-<!-- hitl:mode no-install -->
 Merge. Mark ready for review. Force-push unasked (the generated wipe branch is the one
-exception, and only wipe.mjs pushes it). Start a slice after a STOP. Review more often than the mode prescribes.
-<!-- hitl:mode end -->
+exception, and only the wipe builder pushes it). Start a slice after a STOP. Review more often than the mode prescribes.
 Open a PR for a slice whose review produced nothing. Ask the human a code-level question —
 decide, record, move on.
