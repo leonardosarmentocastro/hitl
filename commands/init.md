@@ -9,13 +9,18 @@ written and changes it by pull request. You orchestrate and ask; the scripts rea
 
 ## 1. Prerequisites — stop on the first one missing
 
-Check, in one batch:
+First read the host, then check by host:
 
 ```bash
-node --version            # 20 or newer
+node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"   # read `host` and `remote`
+node --version            # 20 or newer — the installer, and the scripts hitl installs are run with it
 git --version
-gh auth status            # authenticated
+gh auth status            # only when host is github: authenticated
+[ -n "$GITLAB_TOKEN" ]    # only when host is gitlab: the token is set (never print its value)
 ```
+
+A host other than `github` or `gitlab` is not checked here; steps 2 and 3 of `--adopt` and
+§ 2 refuse it.
 
 and that superpowers is enabled: `enabledPlugins` in `~/.claude/settings.json` or in this
 repository's `.claude/settings.json` contains a key starting with `superpowers@`. If it does
@@ -28,7 +33,30 @@ artefacts this workflow reviews). Install it, then re-run /hitl:init:
   claude plugin install superpowers@superpowers-marketplace
 ```
 
-For `node`, `git` or `gh` missing, stop and name the one to install.
+For `node`, `git` or (on GitHub) `gh` missing, stop and name the one to install. On GitLab,
+when `GITLAB_TOKEN` is empty, stop and print exactly:
+
+```
+hitl needs a GitLab access token with the `api` scope in `GITLAB_TOKEN`. Export it in the
+shell that runs Claude Code, then re-run /hitl:init.
+```
+
+### Refusing a host without a backend
+
+Used by `--adopt` step 3 and § 2. `host` `github` or `gitlab` → continue with
+`provider = <host>`. Any other host → stop with "no backend for <host>: hitl opens PRs on
+GitHub and GitLab.", then add one line:
+
+- `host` is `unknown` and `remote` is null → "the origin remote could not be read".
+- `host` is `unknown`, `remote` is non-null and `GITLAB_URL` is unset in the environment →
+  "If `<hostname of the remote>` is a self-hosted GitLab, export
+  `GITLAB_URL=https://<hostname>` and re-run."
+- `host` is `unknown`, `remote` is non-null and `GITLAB_URL` is set → say that `GITLAB_URL`
+  is set but does not match this remote or is not usable (it needs a scheme such as
+  `https://`, and must not end in `/api/v4`), and show its value's hostname next to the
+  remote's. Never tell the human to export a variable they already have.
+
+Nothing else is written or asked.
 
 ## `--adopt` — stamp a repository that was ejected by hand
 
@@ -36,8 +64,9 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
 
 1. Run the prerequisite check above.
 2. Manifest present → "hitl is already initialised at <version>; run `/hitl:diff`." Stop.
-3. Host only: `node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"`. A `host`
-   other than `github` → "no backend for <host> in v1". Stop.
+3. Host only: `node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"`. Apply
+   "Refusing a host without a backend" above: `github` or `gitlab` → continue with
+   `provider = <host>`; any other host → stop with its message.
 4. Before asking anything, run `help.mjs` (`--repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}"`).
    State `not installed` → "nothing to adopt: no hitl-owned file exists. Run `/hitl:init`."
    Stop. Any other state without a manifest → continue. Then ask exactly one thing, with a
@@ -45,8 +74,8 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
    - `testing`: "Which of the testing rules does this repository's `HITL.md` carry under
      `## Testing and gates`: e2e, tiers, ci, hooks, effective-date?" → a list, possibly empty
      (recommend what `HITL.md` shows).
-5. Write the answers file `{ "provider": "github", "testing": [...], "gates": [...] }`
-   and run:
+5. Write the answers file `{ "provider": "<github|gitlab>", "testing": [...], "gates": [...] }`
+   (`provider` from step 3) and run:
 
    ```bash
    node "${CLAUDE_PLUGIN_ROOT}/installer/adopt.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --answers "$ANSWERS"
@@ -56,6 +85,7 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
      Run `/hitl:init`." Stop. (Unreachable after step 4's check; kept as the script's own
      guard.)
    - exit `3`, `refused: "manifest-present"` → as step 2. Stop.
+   - exit `3`, `refused: "unknown-provider"` → "no backend for <provider>". Stop.
    - exit `0` → report: "manifest written to `.claude/hitl.json` at hitl <version>. It records
      the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
      else was touched. Never commit.
@@ -80,9 +110,9 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "$
 node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"
 ```
 
-Read the report. If `host` is not `github`: stop with "no backend for <host> in v1" — and,
-when `host` is `unknown`, add "the origin remote could not be read" (or, when `remote` is
-non-null, name the host in the url). Nothing else is written or asked.
+Read the report. Apply "Refusing a host without a backend" (§ 1): `host` `github` or
+`gitlab` → continue with `provider = <host>`; any other host → stop with its message.
+Nothing else is written or asked.
 
 ## 3. Interview — one question per finding, one message each, with a recommendation
 
@@ -119,12 +149,13 @@ and delete the other." Never edit the repository's section yourself.
 ```bash
 ANSWERS=$(mktemp)
 cat > "$ANSWERS" <<EOF
-{ "provider": "github", "testing": [<chosen ids, quoted>], "gates": [<commands, quoted>] }
+{ "provider": "<github|gitlab>", "testing": [<chosen ids, quoted>], "gates": [<commands, quoted>] }
 EOF
 node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --answers "$ANSWERS"
 ```
 
-Exit `3` is relayed exactly as in step 2 (a collision can appear between the check and the
+Exit `3`, `refused: "unknown-provider"` → "no backend for <provider>". Stop. Any other exit
+`3` is relayed exactly as in step 2 (a collision can appear between the check and the
 write if the human created a file meanwhile). Exit `2` with a `wrote` list means a write
 failed midway. Print the error, then say "init is not transactional", and:
 
@@ -146,7 +177,10 @@ beside hitl's under `.claude/` and left alone (`foreign`), if any; whether the S
 added to `.claude/settings.json` or already present; the `## Testing and gates` rules adopted
 and the ones skipped, one line each; the local gates written to `AGENTS.md`; the manifest
 path `.claude/hitl.json`; and, when step 3 found a `## Local gates` of the repository's own in
-`AGENTS.md`, the reminder to reconcile the two lists. End with:
+`AGENTS.md`, the reminder to reconcile the two lists; and, after a GitLab render
+(`provider` is `gitlab`): "Opening PRs needs `GITLAB_TOKEN` (and `GITLAB_URL` for a
+self-hosted GitLab) in every shell that runs the workflow — `/hitl:help` checks them." End
+with:
 
 > Review the changes and open a pull request. From now on `.claude/` and `HITL.md` are
 > reviewed like code. Nothing was committed.

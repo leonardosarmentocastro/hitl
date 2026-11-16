@@ -220,6 +220,16 @@ describe("the install prompts no longer ask about the CI wipe job", () => {
   }
 });
 
+describe("/hitl:init accepts a GitLab repository", () => {
+  it("checks the token, writes the provider and hints GITLAB_URL; no v1-only refusal", () => {
+    const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
+    expect(text).toContain("GITLAB_TOKEN");
+    expect(text).toContain('"provider": "<github|gitlab>"');
+    expect(text).toContain("GITLAB_URL");
+    expect(text).not.toContain("in v1");
+  });
+});
+
 describe("the umbrella PR body says where the documents go", () => {
   it("the installed handover agent no longer promises removal from main after merge", () => {
     const text = renderAll(ROOT, THIS_REPO_CHOICES).get(".claude/agents/handover.md")!.content;
