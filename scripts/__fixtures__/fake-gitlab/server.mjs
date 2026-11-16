@@ -4,6 +4,8 @@
 // It listens on 127.0.0.1, port 0, and prints {"port":<n>} as its first stdout line. The state
 // file is re-read on every request:
 //   { mode?: "ok"|"fail"|"redirect", project?: <url-encoded id, default "g%2Fr">,
+//     failFromPage?: n (a paged list answers 500 from page n on),
+//     htmlFromPage?: n (a paged list answers 200 with an HTML body from page n on),
 //     mergeRequests: MR[], approvals: { [iid]: { approved_by: [{ user: { username } }] } },
 //     discussions: { [iid]: Discussion[] } }
 // with MR and Discussion in GitLab's REST shape. Every request appends one JSON line to the
@@ -29,9 +31,16 @@ function send(res, status, json, headers = {}) {
 }
 
 /** One page of `items`, with GitLab's x-next-page header. */
-function sendPage(res, items, query) {
+function sendPage(res, items, query, state) {
   const perPage = Number(query.per_page ?? 20) || 20;
   const page = Number(query.page ?? 1) || 1;
+  if (state.failFromPage && page >= state.failFromPage) {
+    return send(res, 500, { message: "boom" });
+  }
+  if (state.htmlFromPage && page >= state.htmlFromPage) {
+    res.writeHead(200, { "content-type": "text/html" });
+    return res.end("<html><body>proxy login</body></html>");
+  }
   const slice = items.slice((page - 1) * perPage, page * perPage);
   const next = page * perPage < items.length ? String(page + 1) : "";
   send(res, 200, slice, { "x-next-page": next, "x-page": String(page) });
@@ -79,7 +88,7 @@ function handle(req, res, bodyText) {
         (!query.source_branch || mr.source_branch === query.source_branch) &&
         (!query.target_branch || mr.target_branch === query.target_branch),
     );
-    return sendPage(res, items, query);
+    return sendPage(res, items, query, state);
   }
 
   if (rest[0] === "merge_requests" && rest.length >= 2) {
@@ -91,7 +100,7 @@ function handle(req, res, bodyText) {
       return send(res, 200, state.approvals?.[iid] ?? { approved_by: [] });
     }
     if (req.method === "GET" && rest[2] === "discussions" && rest.length === 3) {
-      return sendPage(res, state.discussions?.[iid] ?? [], query);
+      return sendPage(res, state.discussions?.[iid] ?? [], query, state);
     }
   }
   return send(res, 404, { error: "404 Not Found" });

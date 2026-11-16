@@ -233,6 +233,33 @@ describe("pr.sh list on GitLab", () => {
     expectNoToken(r);
   });
 
+  it("fails the whole call when a later page fails, printing none of the pages read", () => {
+    fake.setState({
+      ...EMPTY,
+      failFromPage: 2,
+      mergeRequests: Array.from({ length: 250 }, (_, i) => mr(i + 1)),
+    });
+    const r = list(["--head-prefix", "feat/x-slice-"]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("GitLab 500: boom");
+    expect(r.stdout).toBe("");
+    expect(fake.requests().map((q) => q.query.page)).toEqual(["1", "2"]);
+    expectNoToken(r);
+  });
+
+  it("fails the whole call when a page is not a list (a proxy's HTML page)", () => {
+    fake.setState({
+      ...EMPTY,
+      htmlFromPage: 2,
+      mergeRequests: Array.from({ length: 250 }, (_, i) => mr(i + 1)),
+    });
+    const r = list(["--head-prefix", "feat/x-slice-"]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("not a list");
+    expect(r.stdout).toBe("");
+    expectNoToken(r);
+  });
+
   it("does not follow a redirect", () => {
     fake.setState({ ...EMPTY, mode: "redirect" });
     const r = list(["--head-prefix", "feat/x-slice-"]);

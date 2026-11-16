@@ -11,6 +11,8 @@ const SERVER = join(ROOT, "scripts/__fixtures__/fake-gitlab/server.mjs");
 export type GitlabState = {
   mode?: "ok" | "fail" | "redirect";
   project?: string;
+  failFromPage?: number;
+  htmlFromPage?: number;
   mergeRequests: Record<string, unknown>[];
   approvals: Record<string, { approved_by: { user: { username: string } }[] }>;
   discussions: Record<string, Record<string, unknown>[]>;

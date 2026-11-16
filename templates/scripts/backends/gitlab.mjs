@@ -100,7 +100,10 @@ export async function paged(ctx, path, query) {
     const { json } = await api(ctx, "GET", path, {
       query: { ...query, per_page: PER_PAGE, page },
     });
-    const items = Array.isArray(json) ? json : [];
+    if (!Array.isArray(json)) {
+      fail(`GitLab answered page ${page} of ${path} with something that is not a list.`);
+    }
+    const items = json;
     all.push(...items);
     if (items.length < PER_PAGE) return all;
   }
