@@ -19,6 +19,9 @@ const OLD = [".claude/review-context.md", ".claude/hitl.json"];
 // of a move, or the test for the old layout. Stripped before the scan; the rest of the file is
 // still checked. Slices 2, 3 and 4 add their own sentences.
 const MOVE_SOURCE_ALLOWED: Record<string, string[]> = {
+  "customize.md": [
+    "If `.hitl/manifest.json` is absent and `.claude/hitl.json` is present, print the message and stop.",
+  ],
   "diff.md": [
     "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`.",
     "To undo: save any of those files that held uncommitted edits of yours, then `git restore --source=HEAD --worktree -- <the tracked paths among written and deleted, plus whichever of .hitl/manifest.json, .claude/hitl.json, CLAUDE.md, README.md and .gitignore git tracks>`, delete the paths under `written` and `.hitl/manifest.json` that git does not track, `git checkout <FROM>` and `git branch -D <BRANCH>`.",

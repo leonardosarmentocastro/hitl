@@ -84,7 +84,8 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
    - exit `3`, `refused: "nothing-to-adopt"` → "nothing to adopt: no hitl-owned file exists.
      Run `/hitl:init`." Stop. (Unreachable after step 4's check; kept as the script's own
      guard.)
-   - exit `3`, `refused: "manifest-present"` → as step 2. Stop.
+   - exit `3`, `refused: "manifest-present"` → as step 2, the `layout: "old"` case included.
+     Stop.
    - exit `3`, `refused: "unknown-provider"` → "no backend for <provider>". Stop.
    - exit `0` → report: "manifest written to `.hitl/manifest.json` at hitl <version>. It records
      the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
@@ -96,8 +97,15 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
 node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --mode check
 ```
 
-- exit `3`, `refused: "manifest-present"` → "hitl is already initialised at <version>; run
-  `/hitl:diff` to see what changed upstream." Stop.
+- exit `3`, `refused: "manifest-present"` → with `layout: "old"`, print exactly, in place of
+  the sentence below:
+
+  ```
+  This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.
+  ```
+
+  Otherwise: "hitl is already initialised at <version>; run `/hitl:diff` to see what changed
+  upstream." Stop.
 - exit `3`, `refused: "collision"` → list every path, then: "These files are owned by hitl and
   already exist. If this repository was ejected from an earlier hitl or from treasury-2, run
   `/hitl:init --adopt`. Otherwise remove them and re-run.

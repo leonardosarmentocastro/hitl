@@ -8,6 +8,13 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/help.mjs" --repo "$PWD" --plugin-root "${C
 
 Say the matching thing for `state`, then always end with the prerequisites.
 
+- `old layout` → "Installed hitl <manifestVersion> on the layout from before 0.3.0." then,
+  exactly:
+
+  ```
+  This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.
+  ```
+
 - `not installed` → "hitl is not installed here. Run `/hitl:init`."
 - `ejected` → "This repository carries the workflow but no manifest (ejected by hand or from
   treasury-2). Run `/hitl:init --adopt` to record it; the first `/hitl:diff` then shows the

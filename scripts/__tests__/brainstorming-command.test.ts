@@ -40,6 +40,12 @@ describe("/hitl:brainstorming", () => {
     expect(text).not.toMatch(/git worktree add/);
   });
 
+  it("stops on the old layout before the installed branch", () => {
+    const old = text.indexOf('`layout: "old"`');
+    expect(old).toBeGreaterThan(-1);
+    expect(old).toBeLessThan(text.indexOf('`mode: "installed"`'));
+  });
+
   it("reads an installed repository's doctrine at its .hitl/ path", () => {
     expect(text).toContain("Read the repository's `.hitl/HITL.md`");
   });

@@ -307,3 +307,15 @@ describe("/hitl:diff and the move to .hitl/", () => {
     expect(text).toContain("leftovers");
   });
 });
+
+const UPGRADE = "This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.";
+
+describe("the old layout is refused with one message", () => {
+  for (const c of ["brainstorming", "customize", "cleanup", "help", "init"])
+    it(`/hitl:${c} carries it`, () => {
+      expect(readFileSync(join(ROOT, `commands/${c}.md`), "utf8")).toContain(UPGRADE);
+    });
+  it("/hitl:diff does not refuse", () => {
+    expect(readFileSync(join(ROOT, "commands/diff.md"), "utf8")).not.toContain(UPGRADE);
+  });
+});

@@ -9,6 +9,14 @@ working tree and never commit: the change lands by pull request like any other c
 
 ## 0. Ground yourself
 
+First, the layout. This is the upgrade message:
+
+```
+This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.
+```
+
+If `.hitl/manifest.json` is absent and `.claude/hitl.json` is present, print the message and stop.
+
 Read `.hitl/manifest.json` (stop with "hitl is not installed or not adopted; run `/hitl:help`"
 if absent), `.hitl/HITL.md` and its `## Load-bearing invariants` section, and this table. A
 **knob** is a rule a repository may tune. Each knob has one or more **anchors**: the line
@@ -66,6 +74,7 @@ the repository should carry (say what each one states, from
 node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --testing "<comma list, or empty>"
 ```
 
+- exit `3`, `refused: "old-layout"` → print the upgrade message of step 0, exactly. Stop.
 - exit `3`, `refused: "behind"` → "the install is at <recorded> and the plugin at <plugin>;
   run `/hitl:diff --apply` first". Stop.
 - exit `3`, `refused: "ahead"` → "the install is at <recorded>, newer than the plugin at
