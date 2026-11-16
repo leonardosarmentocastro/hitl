@@ -2,10 +2,15 @@
 // The no-install prompts the plugin ships: rendered from the installed templates, they must
 // point at the plugin's doctrine and the project's memory, never at a file only an installed
 // repository has, and name every workflow command and agent with its `hitl:` prefix.
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderAll, renderPlugin, THIS_REPO_CHOICES } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
+
+const REFUSAL =
+  "No PR backend for this repository's host (<host>): hitl opens PRs on GitHub and GitLab. A self-hosted GitLab needs GITLAB_URL set to its address. Implement from the handover by hand.";
 
 describe("the plugin's no-install prompts", () => {
   const rendered = renderPlugin(ROOT);
@@ -58,9 +63,11 @@ describe("the plugin's no-install prompts", () => {
       expect(text).not.toContain("## Local gates");
     });
 
-  it("the handover agent runs the shim only on GitHub and honours branch-name facts", () => {
+  it("the handover agent runs the shim only on GitHub or GitLab and honours branch-name facts", () => {
     const h = rendered.get("agents/handover.md")!.content;
-    expect(h).toContain('"Host:" is not github, do not run the PR shim');
+    expect(h).toContain("only when the block's `Host:` line says `github` or `gitlab`");
+    expect(h).toContain('"Host:" is neither, do not run the PR shim');
+    expect(h).not.toContain('"Host:" is not github');
     expect(h).toContain("constrains every branch name you derive");
     expect(h).toContain('"Base:" line');
   });
@@ -97,7 +104,8 @@ describe("the plugin's no-install prompts", () => {
     const h = rendered.get("commands/handover.md")?.content ?? "";
     expect(h).toContain("/hitl:implement-stack docs/superpowers/handover/<feature>.md");
     expect(h).toContain("No hitl session is registered for this worktree");
-    expect(h).toContain("issue #19");
+    expect(h).toContain("When the block's `Host:` is neither `github` nor `gitlab`");
+    expect(h).toContain(`/hitl:implement-stack will refuse: ${REFUSAL}`);
     expect(h).toContain("`hitl:handover`");
     expect(h).toContain("Worktree: none");
     expect(h).toContain(
@@ -110,10 +118,11 @@ describe("the plugin's no-install prompts", () => {
       const text = rendered.get(`commands/${c}.md`)?.content ?? "";
       const pr = c !== "review-slice";
       expect(text).toContain(
-        `--require ${pr ? "no-install,github,gates" : "no-install,gates"} --format brief`,
+        `--require ${pr ? "no-install,host,gates" : "no-install,gates"} --format brief`,
       );
       expect(text).toContain(`run this repository's own ${c} command (no hitl: prefix) instead.`);
-      expect(text.includes("issues/19")).toBe(pr);
+      expect(text.includes('refused: "no-backend"')).toBe(pr);
+      expect(text.includes(REFUSAL)).toBe(pr);
       expect(text).toContain(
         'Read the file on the "Doctrine:" line in full unless this session already has',
       );
@@ -134,6 +143,7 @@ describe("the plugin's no-install prompts", () => {
     const umbrella = rendered.get("commands/umbrella-pr.md")?.content ?? "";
     expect(umbrella).toContain('--base "<Base>"');
     expect(umbrella).not.toMatch(/--base main/);
+    expect(umbrella).toContain("nothing is archived, pushed or opened");
   });
 
   it("commands/implement-stack.md opens PRs through the plugin shim with memory sections", () => {
@@ -148,7 +158,8 @@ describe("the plugin's no-install prompts", () => {
     expect(section).toBeGreaterThan(body.indexOf("## TL;DR"));
     expect(section).toBeGreaterThan(body.indexOf("How —"));
     expect(section).toBeLessThan(body.indexOf("## Review decisions"));
-    expect(stack.indexOf("--require no-install,github,gates")).toBeLessThan(
+    expect(stack.indexOf("--require no-install,host,gates")).toBeGreaterThan(-1);
+    expect(stack.indexOf("--require no-install,host,gates")).toBeLessThan(
       stack.indexOf("git fetch"),
     );
   });
@@ -156,9 +167,9 @@ describe("the plugin's no-install prompts", () => {
   it("the umbrella and stack commands archive the documents and build the wipe PR", () => {
     const u = rendered.get("commands/umbrella-pr.md")!.content;
     expect(u).toContain('runtime/wipe.mjs" build --repo "$PWD" --feature-branch');
-    expect(u).toContain("Required before merge: #<pr>");
+    expect(u).toContain("Required before merge: <ref>");
     expect(u.indexOf("runtime/wipe.mjs")).toBeGreaterThan(
-      u.indexOf("--require no-install,github,gates"),
+      u.indexOf("--require no-install,host,gates"),
     );
     expect(u.indexOf("git fetch -q --prune origin")).toBeLessThan(u.indexOf("runtime/wipe.mjs"));
     expect(u.indexOf("git fetch -q --prune origin")).toBeGreaterThan(-1);
@@ -168,10 +179,16 @@ describe("the plugin's no-install prompts", () => {
       'runtime/wipe.mjs" archive --repo "$PWD"',
     );
     expect(rendered.get("commands/implement-stack.md")!.content).toContain(
-      "only wipe.mjs pushes it",
+      "only the wipe builder pushes it",
     );
     const installed = renderAll(ROOT, THIS_REPO_CHOICES);
-    expect(installed.get(".claude/commands/umbrella-pr.md")!.content).not.toContain("wipe.mjs");
+    const iu = installed.get(".claude/commands/umbrella-pr.md")!.content;
+    expect(iu).toContain("node scripts/hitl/wipe.mjs build");
+    expect(iu).not.toContain("runtime/wipe.mjs");
+    expect(iu).not.toContain("archive the feature's documents");
+    expect(installed.get(".claude/commands/implement-stack.md")!.content).not.toContain(
+      'wipe.mjs" archive',
+    );
   });
 
   it("a fix-up round always rebuilds the wipe through /hitl:umbrella-pr", () => {
@@ -185,7 +202,7 @@ describe("the plugin's no-install prompts", () => {
       installed.indexOf("## Fix-up"),
       installed.indexOf("## Never"),
     );
-    expect(installedFixup).not.toContain("always run");
+    expect(installedFixup).toContain("always run `/umbrella-pr`");
   });
 
   it("commands/review-plan.md hands over on convergence by the same rules", () => {
@@ -193,9 +210,76 @@ describe("the plugin's no-install prompts", () => {
     for (const s of [
       "Worktree: none",
       "No hitl session is registered for this worktree",
-      "issue #19",
+      "When the block's `Host:` is neither `github` nor `gitlab`",
+      `/hitl:implement-stack will refuse: ${REFUSAL}`,
       "/hitl:implement-stack docs/superpowers/handover/<feature>.md",
     ])
       expect(rp).toContain(s);
   });
+});
+
+describe("the install prompts no longer ask about the CI wipe job", () => {
+  for (const p of ["commands/init.md", "commands/customize.md"]) {
+    it(`${p} names neither the job, the ci answer nor the --ci argument`, () => {
+      const text = readFileSync(join(ROOT, p), "utf8");
+      expect(text).not.toContain("wipe-superpowers-docs");
+      expect(text).not.toContain('"ci":');
+      expect(text).not.toContain("--ci");
+    });
+  }
+});
+
+describe("/hitl:init accepts a GitLab repository", () => {
+  it("checks the token, writes the provider and hints GITLAB_URL; no v1-only refusal", () => {
+    const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
+    expect(text).toContain("GITLAB_TOKEN");
+    expect(text).toContain('"provider": "<github|gitlab>"');
+    expect(text).toContain("GITLAB_URL");
+    expect(text).not.toContain("in v1");
+  });
+});
+
+describe("the umbrella PR body says where the documents go", () => {
+  it("the installed handover agent no longer promises removal from main after merge", () => {
+    const text = renderAll(ROOT, THIS_REPO_CHOICES).get(".claude/agents/handover.md")!.content;
+    expect(text).not.toContain("removed from `main` after merge");
+    expect(text).toContain(
+      "leave through the generated wipe PR before\nthis feature merges into `main`",
+    );
+  });
+});
+
+describe("the plugin runs on GitLab without an install", () => {
+  function filesUnder(dir: string): string[] {
+    return readdirSync(join(ROOT, dir), { recursive: true, encoding: "utf8" })
+      .map((p) => join(ROOT, dir, p))
+      .filter((p) => statSync(p).isFile());
+  }
+
+  it("no command, agent, template or the README still refuses every host but GitHub", () => {
+    const files = [
+      ...filesUnder("commands"),
+      ...filesUnder("agents"),
+      ...filesUnder("templates"),
+      join(ROOT, "README.md"),
+    ];
+    const offenders = files.filter((f) => {
+      const t = readFileSync(f, "utf8");
+      return (
+        t.includes("issues/19") ||
+        t.includes("not-github") ||
+        t.includes("--require no-install,github")
+      );
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  for (const c of ["implement-stack", "umbrella-pr"])
+    it(`commands/${c}.md requires a host with a backend and prints the refusal line`, () => {
+      const text = readFileSync(join(ROOT, `commands/${c}.md`), "utf8");
+      expect(text).toContain("--require no-install,host,gates");
+      expect(text).toContain('refused: "no-backend"');
+      expect(text).toContain(REFUSAL);
+      expect(text).toContain("If the output also has a `problem`, print it");
+    });
 });

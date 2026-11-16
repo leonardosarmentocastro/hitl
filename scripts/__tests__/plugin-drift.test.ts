@@ -22,9 +22,16 @@ describe("the plugin equals its no-install render", () => {
     const shim = rendered.get("runtime/pr/pr.sh");
     expect(shim?.content).toBe(readFileSync(join(ROOT, "templates/scripts/pr.sh"), "utf8"));
     expect(shim?.executable).toBe(true);
-    expect(rendered.get("runtime/pr/backend.sh")?.content).toBe(
-      readFileSync(join(ROOT, "templates/scripts/backends/github.sh"), "utf8"),
+    const template = (p: string) => readFileSync(join(ROOT, "templates/scripts", p), "utf8");
+    expect(rendered.get("runtime/pr/backend.sh")?.content).toBe(template("backends/dispatch.sh"));
+    expect(rendered.get("runtime/pr/backend-github.sh")?.content).toBe(
+      template("backends/github.sh"),
     );
+    expect(rendered.get("runtime/pr/backend-gitlab.sh")?.content).toBe(
+      template("backends/gitlab.sh"),
+    );
+    expect(rendered.get("runtime/pr/gitlab.mjs")?.content).toBe(template("backends/gitlab.mjs"));
+    expect(rendered.get("runtime/pr/host.mjs")?.content).toBe(template("host.mjs"));
   });
 
   const doc = rendered.get("doctrine/HITL.md")!.content;

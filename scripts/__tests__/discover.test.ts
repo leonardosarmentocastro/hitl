@@ -19,8 +19,14 @@ function repoFrom(fixture: string, remote?: string) {
   return dir;
 }
 
+/** The environment without GITLAB_URL, so a developer's exported one cannot flip a host. */
+function cleanEnv() {
+  const { GITLAB_URL: _, ...env } = process.env;
+  return env;
+}
+
 function discover(dir: string) {
-  const r = spawnSync("node", [DISCOVER, "--repo", dir], { encoding: "utf8" });
+  const r = spawnSync("node", [DISCOVER, "--repo", dir], { encoding: "utf8", env: cleanEnv() });
   expect(r.status, r.stderr).toBe(0);
   return JSON.parse(r.stdout);
 }
@@ -52,7 +58,11 @@ describe("hostOf", () => {
     ["https://example.com/o/r.git", "unknown"],
     [null, "unknown"],
   ])("%s → %s", (remote, host) => {
-    expect(hostOf(remote)).toBe(host);
+    expect(hostOf(remote, {})).toBe(host);
+  });
+
+  it("is still exported here and recognises a self-hosted GitLab from GITLAB_URL", () => {
+    expect(hostOf("git@gitlab.corp:g/r.git", { GITLAB_URL: "https://gitlab.corp" })).toBe("gitlab");
   });
 });
 
@@ -111,6 +121,7 @@ describe("discover.mjs", () => {
       [join(link, "installer/discover.mjs"), "--repo", repoFrom("empty")],
       {
         encoding: "utf8",
+        env: cleanEnv(),
       },
     );
     expect(r.status, r.stderr).toBe(0);

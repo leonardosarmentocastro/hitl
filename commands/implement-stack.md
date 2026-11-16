@@ -10,7 +10,7 @@ PR numbers, and each agent's few-line reply.
 ## Before anything: the hitl context
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,github,gates --format brief
+node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --require no-install,host,gates --format brief
 ```
 
 - Exit 3 with `refused: "installed"` → print exactly the line below and stop:
@@ -19,12 +19,15 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
   hitl is installed in this repository — run this repository's own implement-stack command (no hitl: prefix) instead.
   ```
 
-- Exit 3 with `refused: "not-github"` → print exactly the line below and stop, before any
-  fetch, checkout or branch:
+- Exit 3 with `refused: "no-backend"` → print exactly the line below, with `<host>` the
+  output's `host`, and stop, before any fetch, checkout or branch:
 
   ```
-  This repository is not on GitHub: opening PRs needs https://github.com/leonardosarmentocastro/hitl/issues/19. Implement from the handover by hand until then.
+  No PR backend for this repository's host (<host>): hitl opens PRs on GitHub and GitLab. A self-hosted GitLab needs GITLAB_URL set to its address. Implement from the handover by hand.
   ```
+
+  If the output also has a `problem`, print it on the next line: it names what is wrong
+  with the `GITLAB_URL` that is set.
 
 - Exit 3 with `refused: "no-gates"` → print `This project has no confirmed gates on this machine — confirm them now.`,
   read the doctrine (`${CLAUDE_PLUGIN_ROOT}/doctrine/HITL.md`), run its § Project memory,
@@ -161,7 +164,10 @@ human. `done` → fold its "not reproduced" items into the Review decisions bloc
 
 In elaborate mode the second fixer's commits ship as they are; there is no third review.
 
-**e. Push and open the PR.**
+**e. Push and open the PR.** Every record the shim returns carries `ref` — how this host
+writes a reference to the PR (`#12` on GitHub, `!12` on GitLab). Use `<ref>` in anything you
+post or report; `<number>` only goes to the shim, to `/hitl:review-slice --pr <number>` (§ Fix-up
+step 2) and into the stack table.
 
 ```bash
 git push -u origin "<branch>"
@@ -198,7 +204,7 @@ A section a pr-section fact asks for that cannot be produced honestly (a screens
 not be taken) is written as `_not captured_ — <why>`, never invented.
 
 Update the row in the handover document on this branch: status `open #<number>`, and — if a
-plan header changed — its `owns`. Commit `docs(handover): slice <N> open #<number>` and push.
+plan header changed — its `owns`. Commit `docs(handover): slice <N> open <ref>` and push.
 
 **f. Next slice.** Continue with the next `todo` row. Its parent is what the table says.
 Because slices stack, the next branch is cut from this one and inherits the updated table;
@@ -210,12 +216,12 @@ rather than as a change it cannot explain.
 
 ## 2. After the last slice
 
-Run `/hitl:umbrella-pr` (no `--dry-run`). Report `created: #N (draft)` or `updated: #N`. Then
-**STOP** with the final report: one line per slice (`slice N — <branch> — PR #K`), the
+Run `/hitl:umbrella-pr` (no `--dry-run`). Report `created: <ref> (draft)` or `updated: <ref>`. Then
+**STOP** with the final report: one line per slice (`slice N — <branch> — PR <ref>`), the
 umbrella PR, and the sentence "Nothing is merged. The stack is yours to review." Do not mark
 anything ready for review. Do not merge.
-`/hitl:umbrella-pr` also builds the wipe PR; when it reports one, add to the final report: `The
-wipe PR #<pr> is generated; merge it last.`
+`/hitl:umbrella-pr` also builds the wipe PR; when it reports one, add to the final report:
+`The wipe PR <ref> is generated; merge it last.` (`<ref>` is the wipe output's `ref`.)
 
 End the report with this block, in plain words, `<abs path>` being `git rev-parse
 --show-toplevel` and the branches being the feature branch and its local slice branches:
@@ -258,6 +264,6 @@ Report as in § 2.
 ## Never
 
 Merge. Mark ready for review. Force-push unasked (the generated wipe branch is the one
-exception, and only wipe.mjs pushes it). Start a slice after a STOP. Review more often than the mode prescribes.
+exception, and only the wipe builder pushes it). Start a slice after a STOP. Review more often than the mode prescribes.
 Open a PR for a slice whose review produced nothing. Ask the human a code-level question —
 decide, record, move on.

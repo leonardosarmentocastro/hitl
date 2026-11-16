@@ -5,8 +5,8 @@
 # most --limit of them, and applies the real --jq expression with jq; the host has
 # $FAKE_GH_LIST_TOTAL records in all, default 3). `pr edit <n> --base <b>` is remembered next to
 # the log, and later `pr view` records carry that base. · store (a small host: gh-shaped records
-# in the JSON array file $FAKE_GH_STORE, which `pr create`, `pr edit`, `pr list` and `pr view`
-# read and write, applying the real --jq expression with jq).
+# in the JSON array file $FAKE_GH_STORE, which `pr create`, `pr edit`, `pr comment`, `pr list`
+# and `pr view` read and write, applying the real --jq expression with jq).
 set -u
 # One line per call: newlines inside an argument (a multi-line --jq) are logged as spaces.
 argv="$*"
@@ -77,6 +77,15 @@ if [ "$mode" = store ]; then
         && mv "$db.tmp" "$db"
       exit 0
       ;;
+    "pr comment")
+      jq -e --arg t "$target" 'any(.[]; .number == ($t | tonumber))' "$db" >/dev/null \
+        || { echo "no pull requests found for $target" >&2; exit 1; }
+      jq --arg t "$target" --rawfile body "$bodyfile" \
+        'map(if .number == ($t | tonumber)
+             then .comments += [{author: {login: "hitl"}, body: $body, createdAt: "2026-11-15T00:00:00Z"}]
+             else . end)' "$db" > "$db.tmp" && mv "$db.tmp" "$db"
+      exit 0
+      ;;
   esac
   echo "fake gh: unhandled '$sub' in store mode" >&2
   exit 1
@@ -84,7 +93,7 @@ fi
 
 base=feat/x
 [ -f "$FAKE_GH_LOG.base" ] && base=$(cat "$FAKE_GH_LOG.base")
-record='{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"'"$base"'","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md","head_sha":"abc1234"}'
+record='{"number":12,"ref":"#12","url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"'"$base"'","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md","head_sha":"abc1234"}'
 
 case "$sub" in
   "pr create")
@@ -97,7 +106,7 @@ case "$sub" in
     ;;
   "pr view")
     if [[ "$*" == *reviews* ]]; then
-      echo '{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md","head_sha":"abc1234","reviews":[{"author":"ana","state":"changes_requested","body":"rename it"}],"comments":[{"author":"bo","body":"+1","created_at":"2026-09-16T10:00:00Z"}]}'
+      echo '{"number":12,"ref":"#12","url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"Plan: docs/superpowers/plans/p.md","head_sha":"abc1234","reviews":[{"author":"ana","state":"changes_requested","body":"rename it"}],"comments":[{"author":"bo","body":"+1","created_at":"2026-09-16T10:00:00Z"}]}'
     else
       echo "$record"
     fi
@@ -128,7 +137,7 @@ case "$sub" in
       printf '[%s]' "$out" | jq -c "$jqexpr"
       exit $?
     fi
-    echo '[{"number":12,"url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"","head_sha":"abc1234"},{"number":13,"url":"https://github.com/o/r/pull/13","head":"feat/x-slice-2-web","base":"feat/x-slice-1-api","state":"merged","draft":false,"title":"Slice 2: web","body":"","head_sha":"abc1234"}]'
+    echo '[{"number":12,"ref":"#12","url":"https://github.com/o/r/pull/12","head":"feat/x-slice-1-api","base":"feat/x","state":"open","draft":true,"title":"Slice 1: api","body":"","head_sha":"abc1234"},{"number":13,"ref":"#13","url":"https://github.com/o/r/pull/13","head":"feat/x-slice-2-web","base":"feat/x-slice-1-api","state":"merged","draft":false,"title":"Slice 2: web","body":"","head_sha":"abc1234"}]'
     ;;
   "pr edit")
     while [ $# -gt 0 ]; do

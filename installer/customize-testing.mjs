@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-// The `testing-rules` knob of /hitl:customize: re-compose HITL.md with a new fragment set,
-// add or remove the wipe workflow, and record the new choices in the manifest so /hitl:diff
-// stays exact. Refuses when the manifest is behind the plugin or HITL.md was edited by
-// hand. Exit: 0 ok · 1 usage · 3 refused.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+// The `testing-rules` knob of /hitl:customize: re-compose HITL.md with a new fragment set and
+// record the new choices in the manifest so /hitl:diff stays exact. Refuses when the manifest
+// is behind the plugin or HITL.md was edited by hand. Exit: 0 ok · 1 usage · 3 refused.
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   BLOCK_END,
   BLOCK_START,
@@ -19,21 +18,20 @@ import {
   readManifest,
   renderAll,
   renderMode,
-  sha256,
 } from "./lib.mjs";
 
-const WORKFLOW = ".github/workflows/wipe-superpowers-docs.yml";
 const PILOTS_ANCHOR = "<!-- hitl:knob effective-date-pilots -->";
-const USAGE = "usage: --repo <dir> --plugin-root <dir> --testing <a,b|''> --ci github-actions|none";
+const USAGE = "usage: --repo <dir> --plugin-root <dir> --testing <a,b|''>";
+const KNOWN_ARGS = ["repo", "plugin-root", "testing"];
 
 export function run(args) {
-  const { repo, "plugin-root": pluginRoot, ci } = args;
+  const { repo, "plugin-root": pluginRoot } = args;
   const testingArg = args.testing;
   if (
     !repo ||
     !pluginRoot ||
     testingArg === undefined ||
-    !["github-actions", "none"].includes(ci)
+    Object.keys(args).some((k) => !KNOWN_ARGS.includes(k))
   ) {
     return { code: 1, out: { error: USAGE } };
   }
@@ -56,13 +54,11 @@ export function run(args) {
 
   const choices = {
     provider: manifest.provider,
-    ci,
     testing: TESTING_ORDER.filter((t) => testing.includes(t)),
     gates: [],
   };
   const rendered = renderAll(pluginRoot, choices);
   const wrote = [];
-  const removed = [];
   const kept = [];
 
   writeFileSync(hitlPath, rendered.get("HITL.md").content);
@@ -84,25 +80,9 @@ export function run(args) {
     } else kept.push("AGENTS.md");
   } else if (!choices.testing.includes("effective-date") && hasPilots) kept.push("AGENTS.md");
 
-  const workflowPath = join(repo, WORKFLOW);
-  if (ci === "github-actions") {
-    if (!existsSync(workflowPath)) {
-      mkdirSync(dirname(workflowPath), { recursive: true });
-      writeFileSync(workflowPath, rendered.get(WORKFLOW).content);
-      wrote.push(WORKFLOW);
-    } else if (readFileSync(workflowPath, "utf8") !== rendered.get(WORKFLOW).content)
-      kept.push(WORKFLOW);
-  } else if (existsSync(workflowPath)) {
-    const recordedHash = manifest.files[WORKFLOW];
-    if (recordedHash && sha256(readFileSync(workflowPath, "utf8")) === recordedHash) {
-      rmSync(workflowPath);
-      removed.push(WORKFLOW);
-    } else kept.push(WORKFLOW);
-  }
-
   const next = manifestFor(plugin, choices, rendered);
   writeFileSync(join(repo, MANIFEST_PATH), `${JSON.stringify(next, null, 2)}\n`);
-  return { code: 0, out: { wrote, removed, kept, manifest: next } };
+  return { code: 0, out: { wrote, kept, manifest: next } };
 }
 
 const args = parseArgs(process.argv.slice(2));

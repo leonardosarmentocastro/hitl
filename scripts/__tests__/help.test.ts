@@ -31,10 +31,7 @@ function installed() {
   const repo = tempDir();
   spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
   const answers = join(repo, "..", `answers-${Math.random()}.json`);
-  writeFileSync(
-    answers,
-    JSON.stringify({ provider: "github", ci: "github-actions", testing: [], gates: [] }),
-  );
+  writeFileSync(answers, JSON.stringify({ provider: "github", testing: [], gates: [] }));
   const r = spawnSync(
     "node",
     [RENDER, "--repo", repo, "--plugin-root", PLUGIN_ROOT, "--answers", answers],
@@ -67,6 +64,11 @@ describe("help.mjs states", () => {
     expect(r.json.state).toBe("not installed");
     expect(r.json.manifestVersion).toBeNull();
     expect(r.json.locallyEdited).toBeNull();
+  });
+
+  it("not installed when only the old wipe workflow is present (no longer an owned path)", () => {
+    const r = help(tempDir({ ".github/workflows/wipe-superpowers-docs.yml": "name: wipe\n" }));
+    expect(r.json.state).toBe("not installed");
   });
 
   it("ejected (agents dir and HITL.md, no manifest)", () => {
@@ -129,5 +131,118 @@ describe("help.mjs prerequisites", () => {
     s.enabledPlugins = { "superpowers@superpowers-marketplace": true };
     writeFileSync(p, JSON.stringify(s));
     expect(help(projectScoped).json.prerequisites.superpowers).toBe(true);
+  });
+});
+
+/** A GitLab install whose origin remote is `remote`. */
+function installedGitlab(remote: string) {
+  const repo = tempDir();
+  spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+  spawnSync("git", ["remote", "add", "origin", remote], { cwd: repo });
+  const answers = join(repo, "..", `answers-${Math.random()}.json`);
+  writeFileSync(answers, JSON.stringify({ provider: "gitlab", testing: [], gates: [] }));
+  const r = spawnSync(
+    "node",
+    [RENDER, "--repo", repo, "--plugin-root", PLUGIN_ROOT, "--answers", answers],
+    { encoding: "utf8" },
+  );
+  expect(r.status, r.stdout + r.stderr).toBe(0);
+  return repo;
+}
+
+/** help.mjs with GITLAB_TOKEN and GITLAB_URL taken from `vars` only. */
+function helpWith(repo: string, vars: Record<string, string>) {
+  const env: Record<string, string | undefined> = { ...process.env };
+  delete env.GITLAB_TOKEN;
+  delete env.GITLAB_URL;
+  const r = spawnSync(
+    "node",
+    [HELP, "--repo", repo, "--plugin-root", PLUGIN_ROOT, "--home", tempDir()],
+    { encoding: "utf8", env: { ...env, ...vars } },
+  );
+  expect(r.status, r.stdout + r.stderr).toBe(0);
+  return { stdout: r.stdout, json: JSON.parse(r.stdout) };
+}
+
+describe("help.mjs prerequisites by provider", () => {
+  it("on gitlab.com: the token, GITLAB_URL not needed, no gh", () => {
+    const repo = installedGitlab("git@gitlab.com:g/r.git");
+    const json = helpWith(repo, { GITLAB_TOKEN: "t" }).json;
+    expect(json.provider).toBe("gitlab");
+    expect(json.prerequisites.gitlabToken).toBe(true);
+    expect(json.prerequisites.gitlabUrl).toBe("not-needed");
+    expect(json.prerequisites).not.toHaveProperty("gh");
+    expect(json.prerequisites.node).toBe(true);
+    expect(typeof json.prerequisites.git).toBe("boolean");
+    expect(json.prerequisites.superpowers).toBe(false);
+  });
+
+  it("reports an unset or empty token as false", () => {
+    const repo = installedGitlab("git@gitlab.com:g/r.git");
+    expect(helpWith(repo, {}).json.prerequisites.gitlabToken).toBe(false);
+    expect(helpWith(repo, { GITLAB_TOKEN: "" }).json.prerequisites.gitlabToken).toBe(false);
+  });
+
+  it("on a self-hosted remote: GITLAB_URL missing, set or invalid", () => {
+    const repo = installedGitlab("git@gitlab.corp:g/r.git");
+    expect(helpWith(repo, {}).json.prerequisites.gitlabUrl).toBe("missing");
+    expect(helpWith(repo, { GITLAB_URL: "https://gitlab.corp" }).json.prerequisites.gitlabUrl).toBe(
+      "set",
+    );
+    const bad = helpWith(repo, { GITLAB_URL: "gitlab.corp" }).json.prerequisites;
+    expect(bad.gitlabUrl).toBe("invalid");
+    expect(bad.gitlabUrlProblem).toBe("bad-gitlab-url");
+    const api = helpWith(repo, { GITLAB_URL: "https://gitlab.corp/api/v4" }).json.prerequisites;
+    expect(api.gitlabUrl).toBe("invalid");
+    expect(api.gitlabUrlProblem).toBe("gitlab-url-has-api-path");
+  });
+
+  it("reads the provider from the manifest even when the remote no longer matches", () => {
+    const repo = installedGitlab("git@elsewhere.example:g/r.git");
+    const json = helpWith(repo, { GITLAB_URL: "https://gitlab.corp" }).json;
+    expect(json.provider).toBe("gitlab");
+    expect(json.prerequisites.gitlabUrl).toBe("mismatch");
+    expect(helpWith(repo, {}).json.prerequisites.gitlabUrl).toBe("missing");
+  });
+
+  it("with a GitLab manifest and no origin remote, says the remote is missing", () => {
+    const repo = installedGitlab("git@gitlab.com:g/r.git");
+    spawnSync("git", ["remote", "remove", "origin"], { cwd: repo });
+    expect(helpWith(repo, {}).json.prerequisites.gitlabUrl).toBe("no-remote");
+    expect(helpWith(repo, { GITLAB_URL: "https://gitlab.corp" }).json.prerequisites.gitlabUrl).toBe(
+      "no-remote",
+    );
+  });
+
+  for (const [remote, provider] of [
+    ["git@bitbucket.org:o/r.git", "bitbucket"],
+    ["git@elsewhere.example:o/r.git", "unknown"],
+  ]) {
+    it(`without a manifest, a ${provider} remote falls back to the gh probe`, () => {
+      const repo = tempDir();
+      spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+      spawnSync("git", ["remote", "add", "origin", remote], { cwd: repo });
+      const json = helpWith(repo, {}).json;
+      expect(json.provider).toBe(provider);
+      expect(typeof json.prerequisites.gh).toBe("boolean");
+      expect(json.prerequisites).not.toHaveProperty("gitlabToken");
+      expect(json.prerequisites).not.toHaveProperty("gitlabUrl");
+    });
+  }
+
+  it("without a manifest, takes the provider from a GitHub remote and probes gh", () => {
+    const repo = tempDir();
+    spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+    spawnSync("git", ["remote", "add", "origin", "git@github.com:o/r.git"], { cwd: repo });
+    const json = helpWith(repo, {}).json;
+    expect(json.provider).toBe("github");
+    expect(typeof json.prerequisites.gh).toBe("boolean");
+    expect(json.prerequisites).not.toHaveProperty("gitlabToken");
+  });
+
+  it("never prints the token's value", () => {
+    const repo = installedGitlab("git@gitlab.com:g/r.git");
+    const secret = "glpat-secret-value-12345";
+    expect(helpWith(repo, { GITLAB_TOKEN: secret }).stdout).not.toContain(secret);
   });
 });

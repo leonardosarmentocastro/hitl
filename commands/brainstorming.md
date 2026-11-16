@@ -53,15 +53,23 @@ failure here — step 4 resolves the base and stops there if it cannot:
   superpowers brainstorming skill with `$ARGUMENTS`, and follow the repository's doctrine,
   commands and agents from there. Read nothing from this plugin's doctrine, write no
   active-feature record and read no project memory. This command's own steps end here.
-- **`host` other than `github`** → say exactly, once:
-
-  ```
-  Design session only here: opening PRs needs https://github.com/leonardosarmentocastro/hitl/issues/19.
-  ```
-
-  and continue; `gh` is not required here.
 - **`host: "github"`** → also require `gh auth status` to succeed; if it does not, stop and
   name `gh` (installed and signed in) as what is missing.
+- **`host: "gitlab"`** → also require a non-empty `GITLAB_TOKEN`; if it is empty, stop and
+  say:
+
+  ```
+  hitl needs a GitLab access token with the `api` scope in `GITLAB_TOKEN`. Export it in the shell that runs Claude Code, then re-run /hitl:brainstorming.
+  ```
+
+- **any other host** → say exactly, once, with `<host>` the JSON's `host`:
+
+  ```
+  Design session only here: there is no PR backend for this repository's host (<host>). A self-hosted GitLab needs GITLAB_URL set to its address.
+  ```
+
+  If the JSON also has a `hostProblem`, say it on the next line: it names what is wrong with
+  the `GITLAB_URL` that is set. Then continue; neither `gh` nor the token is required here.
 
 ## 3. Doctrine
 

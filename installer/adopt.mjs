@@ -6,8 +6,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { emit, parseArgs } from "./lib.mjs";
 import {
-  CI_CHOICES,
   MANIFEST_PATH,
+  PROVIDERS,
   collisions,
   manifestFor,
   pluginVersion,
@@ -21,8 +21,12 @@ export function run(args) {
   const { repo, "plugin-root": pluginRoot, answers: answersPath } = args;
   if (!repo || !pluginRoot || !answersPath) return { code: 1, out: { error: USAGE } };
   const choices = JSON.parse(readFileSync(answersPath, "utf8"));
-  if (!CI_CHOICES.includes(choices.ci))
-    return { code: 3, out: { refused: "unknown-ci", ci: choices.ci, allowed: CI_CHOICES } };
+  if (!PROVIDERS.includes(choices.provider)) {
+    return {
+      code: 3,
+      out: { refused: "unknown-provider", provider: choices.provider, allowed: PROVIDERS },
+    };
+  }
 
   const existing = readManifest(repo);
   if (existing) return { code: 3, out: { refused: "manifest-present", version: existing.version } };

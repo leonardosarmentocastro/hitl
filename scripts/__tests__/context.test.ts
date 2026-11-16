@@ -32,12 +32,19 @@ beforeEach(() => {
   home = tmp("hitl-home-");
 });
 
-function node(script: string, args: string[]) {
+function node(script: string, args: string[], env: Record<string, string> = {}) {
+  const base: Record<string, string | undefined> = { ...GIT_ENV };
+  delete base.GITLAB_URL;
   const r = spawnSync("node", [script, ...args], {
     encoding: "utf8",
-    env: { ...GIT_ENV, HITL_HOME: home },
+    env: { ...base, HITL_HOME: home, ...env },
   });
   return { status: r.status, stdout: r.stdout };
+}
+
+function contextWith(env: Record<string, string>, repo: string, ...extra: string[]) {
+  const r = node(CONTEXT, ["--repo", repo, "--plugin-root", ROOT, ...extra], env);
+  return { status: r.status, out: JSON.parse(r.stdout) };
 }
 
 function context(repo: string, ...extra: string[]) {
@@ -124,12 +131,49 @@ describe("context.mjs JSON", () => {
     });
   });
 
-  it("refuses a GitLab repository when GitHub is required", () => {
-    const r = clone("git@gitlab.com:acme/api.git");
-    expect(context(r, "--require", "github")).toEqual({
+  it("meets the host requirement on GitHub and on gitlab.com", () => {
+    for (const url of ["git@github.com:Acme/API.git", "git@gitlab.com:acme/api.git"]) {
+      const { status, out } = context(clone(url), "--require", "host");
+      expect(status, url).toBe(0);
+      expect(out.host, url).toBe(url.includes("gitlab") ? "gitlab" : "github");
+    }
+  });
+
+  it("meets the host requirement on a self-hosted GitLab only when GITLAB_URL matches", () => {
+    const r = clone("git@gitlab.corp:acme/api.git");
+    const ok = contextWith({ GITLAB_URL: "https://gitlab.corp" }, r, "--require", "host");
+    expect(ok.status).toBe(0);
+    expect(ok.out.host).toBe("gitlab");
+    expect(context(r, "--require", "host")).toEqual({
       status: 3,
-      out: { refused: "not-github", host: "gitlab" },
+      out: { refused: "no-backend", host: "unknown" },
     });
+  });
+
+  it("names an invalid GITLAB_URL in the host refusal and the context", () => {
+    const r = clone("git@gitlab.corp:acme/api.git");
+    const env = { GITLAB_URL: "https://gitlab.corp/api/v4" };
+    const message = "GITLAB_URL must be the instance's address, without /api/v4.";
+    expect(contextWith(env, r, "--require", "host")).toEqual({
+      status: 3,
+      out: { refused: "no-backend", host: "unknown", problem: message },
+    });
+    expect(contextWith(env, r).out.hostProblem).toBe(message);
+    expect(context(r).out.hostProblem).toBeUndefined();
+  });
+
+  it("refuses a host with no backend when a host is required", () => {
+    const r = clone("git@bitbucket.org:acme/api.git");
+    expect(context(r, "--require", "host")).toEqual({
+      status: 3,
+      out: { refused: "no-backend", host: "bitbucket" },
+    });
+  });
+
+  it("no longer knows a github requirement", () => {
+    const r = clone();
+    const res = node(CONTEXT, ["--repo", r, "--plugin-root", ROOT, "--require", "github"]);
+    expect(res.status).toBe(1);
   });
 
   it("refuses without a gates fact when gates are required", () => {
@@ -139,10 +183,15 @@ describe("context.mjs JSON", () => {
   });
 
   it("checks requirements in a fixed order, whatever order they are given in", () => {
-    const r = clone("git@gitlab.com:acme/api.git");
+    const r = clone("git@bitbucket.org:acme/api.git");
     installed(r);
-    expect(context(r, "--require", "gates,github,no-install").out).toEqual({
+    expect(context(r, "--require", "gates,host,no-install").out).toEqual({
       refused: "installed",
+    });
+    const plain = clone("git@bitbucket.org:acme/api.git");
+    expect(context(plain, "--require", "gates,host,no-install").out).toEqual({
+      refused: "no-backend",
+      host: "bitbucket",
     });
   });
 

@@ -1,23 +1,22 @@
 {
   "version": "0.2.1",
   "provider": "github",
-  "ci": "github-actions",
   "testing": [],
   "files": {
     ".claude/agents/adversarial-reviewer.md": "07ac59e237bf43951f095286062bb861431c1fb003d5d1de33d3a2f181d2bd26",
     ".claude/agents/fixer.md": "325b57592e2470d00d40af1957e677e2eae03845b6971ad3fdf131950034c413",
-    ".claude/agents/handover.md": "4a7c37da6b003fe7d4e7c2fbdb9893330ac0486745c4f8244a0b712e2f6f0ac7",
+    ".claude/agents/handover.md": "b64c5949e2c1b90b0a16ef77f8d900a7511f6738701229d778bcebaf9596d4b6",
     ".claude/agents/implementer.md": "b462bf683bc61b51987538435c22cb3c2b4b056c6a78428341242246a1a4f948",
     ".claude/agents/plan-reviewer.md": "e95bdae390d1b316ff0512c1bafa98c16d6ba37e8c0759abfc1a562e8ca61ed2",
     ".claude/agents/security-reviewer.md": "c3c16f15b62e5d803d15db49a75b0149006818a8677f2b8979c0549e70f95ac7",
     ".claude/agents/slice-reviewer.md": "f496d7a6997d8d6a643229fd0a70d44501905dbf12d6cee237eb3d9c167f6c22",
     ".claude/agents/spec-reviewer.md": "d2f77b9c5d1c39b8dcfbf64dce1b60af359cc381d13a313047df87867e51a28e",
     ".claude/commands/handover.md": "00bc02245ee543fd9470a0e421b6cfe27f3f85f12c04935b817ddb13a9e90571",
-    ".claude/commands/implement-stack.md": "d9e3ee0be9452b21affe85e277cc7fb10f1a0ec7f5bde0e0097c3b88a7c56ca1",
+    ".claude/commands/implement-stack.md": "997dea7e289394f4101dc6e6568ef488679d9819bb1b203cf1e9d5b8f0888c5b",
     ".claude/commands/review-plan.md": "0cf72f0076c0803641594105b7feaa91d632d90d293943296870641319cf7847",
     ".claude/commands/review-slice.md": "f3c7585b0fb9edc7f9856bffc6c6ce355e4cf0f08b0fe30d60b7fe9f463131f5",
     ".claude/commands/review-spec.md": "06a8d34d5260c5abf3ea762ec8caf59a609b8d1b89477c765cbc82ca1078c875",
-    ".claude/commands/umbrella-pr.md": "219da83dc45efb43d8c6001edd03da95f68e184361435bb237d9970e5768abaf",
+    ".claude/commands/umbrella-pr.md": "197d46f043f530bb72387f8d7f745b0de2dc2fbc9d073a0bd42ae7fad4e23a54",
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md": "be55290b2a215fab748dbd4cbc5a2a3110c6f3516b797feb27d50534248bee2b",
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md": "4844682a12664356822133235d8c59ce3bdb8182a6b845d9caf39c861cecd0ec",
     ".claude/fixtures/slice/2026-09-06-slice-fixture-slice-1-tag-export.md": "a2aeed64d927b69fcc596ba04e4d32a99993b844c8b1899619d12672c7efc63b",
@@ -26,11 +25,10 @@
     ".claude/fixtures/spec-fixture-elaborate-design.md": "0032eacfab766e5ed4e93a05b7516440f9bd4c6f3d752fb86ca1c43876aa92ac",
     ".claude/hooks/unreviewed-artifact.sh": "9f754e246f4e4bab44f84b36011cd2dc92627fda1ce4553a25f2e04d65ed454e",
     ".claude/review-context.md": "1e5675474b8cdadc6db01d3c595da602d7949a2d44a479402658f7949be29399",
-    ".github/workflows/wipe-superpowers-docs.yml": "2eb4199ec7d3fb1e4e40b1da5a3e6418b5db0bf77a231e8c311ab5c718ddbe60",
-    "HITL.md": "7ddd4311a54ad58c3b04121b4133a1584f6932081c6a0fc47a5b95d60a793b69",
-    "scripts/hitl/backend.sh": "9c03df74f450dce2cc798163c8aaf48dfc10cc3c8e87700e6081fd8f9c6307ce",
-    "scripts/hitl/pr.sh": "d1529627d892ca6117209f24b6410fd487a1edc242538ef82d4a0990056b9cf1",
+    "HITL.md": "efbc868464afa419e17773c9b6eed1ee727c58b2284c520c2da7562eff7e46c3",
+    "scripts/hitl/backend.sh": "65b10f8b2ede1738f49c7221e2a1cf67432279eac026edb893cd4481f0e69df8",
+    "scripts/hitl/pr.sh": "55d6de45b491a5c515d51ae5331e0d34c60bc835bb8a018ddc7989c7e0304ff1",
     "scripts/hitl/review-mode.sh": "098d7befa59f4c0412f9331f63ea91e1611f41dfb2076a2df6dfcfa9db2e84fa",
-    "scripts/hitl/wipe-superpowers-docs.sh": "569715740427fae9eb133cf7bd9c13bce1b5c3df4a0f4db864168c72bed8b638"
+    "scripts/hitl/wipe.mjs": "bc519d4fad1ee26995a84f179d3818ae7cf4ecb5e12f40972b3e0a87fcc38556"
   }
 }

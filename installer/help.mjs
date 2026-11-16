@@ -1,19 +1,51 @@
 #!/usr/bin/env node
 // /hitl:help's reader. Says where an install stands — one of six states that partition every
 // tree — plus how many owned files differ from the manifest or are missing and which prerequisites are
-// present. Reads only. Exit: 0 ok · 1 usage.
+// present — by the repository's provider (the manifest's, else the origin remote's host).
+// Never prints GITLAB_TOKEN's value, only whether it is set. Reads only. Exit: 0 ok · 1 usage.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { emit, parseArgs } from "./lib.mjs";
-import { collisions, compareVersions, pluginVersion, readManifest, sha256 } from "./lib.mjs";
+import {
+  DEFAULT_CHOICES,
+  collisions,
+  compareVersions,
+  pluginVersion,
+  readManifest,
+  sha256,
+} from "./lib.mjs";
+import { resolveHost } from "../templates/scripts/host.mjs";
 
 const USAGE = "usage: --repo <dir> --plugin-root <dir> [--home <dir>]";
 
 function probe(cmd, args) {
   const r = spawnSync(cmd, args, { encoding: "utf8" });
   return r.status === 0;
+}
+
+function originOf(repo) {
+  const r = spawnSync("git", ["-C", repo, "remote", "get-url", "origin"], { encoding: "utf8" });
+  const url = r.status === 0 ? r.stdout.trim() : "";
+  return url === "" ? null : url;
+}
+
+/**
+ * GitLab's prerequisites: whether the token is set, and where GITLAB_URL stands — `no-remote`
+ * when there is no origin, `mismatch` when it is set and usable but names another host.
+ */
+function gitlabPrerequisites(remote, env) {
+  const out = { gitlabToken: Boolean(env.GITLAB_TOKEN) };
+  const resolved = resolveHost(remote, env);
+  if (remote === null) out.gitlabUrl = "no-remote";
+  else if (resolveHost(remote, {}).host === "gitlab") out.gitlabUrl = "not-needed";
+  else if (resolved.problem) {
+    out.gitlabUrl = "invalid";
+    out.gitlabUrlProblem = resolved.problem;
+  } else if (resolved.host === "gitlab") out.gitlabUrl = "set";
+  else out.gitlabUrl = env.GITLAB_URL ? "mismatch" : "missing";
+  return out;
 }
 
 function superpowersEnabled(settingsPath) {
@@ -31,15 +63,13 @@ export function installState(repo, manifest, plugin) {
     const c = compareVersions(manifest.version, plugin);
     return c < 0 ? "behind" : c > 0 ? "ahead" : "up to date";
   }
-  const anyOwned =
-    collisions(repo, { provider: "github", ci: "github-actions", testing: [], gates: [] }).length >
-    0;
+  const anyOwned = collisions(repo, DEFAULT_CHOICES).length > 0;
   if (!anyOwned) return "not installed";
   const ejected = existsSync(join(repo, ".claude/agents")) && existsSync(join(repo, "HITL.md"));
   return ejected ? "ejected" : "partially installed";
 }
 
-export function run(args) {
+export function run(args, env = process.env) {
   const { repo, "plugin-root": pluginRoot, home = homedir() } = args;
   if (!repo || !pluginRoot) return { code: 1, out: { error: USAGE } };
   const plugin = pluginVersion(pluginRoot);
@@ -58,10 +88,14 @@ export function run(args) {
     }
   }
 
+  const remote = originOf(repo);
+  const provider = manifest ? manifest.provider : resolveHost(remote, env).host;
   const prerequisites = {
     node: Number(process.versions.node.split(".")[0]) >= 20,
     git: probe("git", ["--version"]),
-    gh: probe("gh", ["auth", "status"]),
+    ...(provider === "gitlab"
+      ? gitlabPrerequisites(remote, env)
+      : { gh: probe("gh", ["auth", "status"]) }),
     superpowers:
       superpowersEnabled(join(home, ".claude/settings.json")) ||
       superpowersEnabled(join(repo, ".claude/settings.json")),
@@ -73,6 +107,7 @@ export function run(args) {
       state,
       manifestVersion: manifest ? manifest.version : null,
       pluginVersion: plugin,
+      provider,
       locallyEdited,
       missing,
       prerequisites,

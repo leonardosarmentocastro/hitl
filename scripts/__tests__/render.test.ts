@@ -14,7 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pluginVersion } from "../../installer/lib.mjs";
+import { pluginVersion, renderPlugin } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
 const CURRENT = pluginVersion(PLUGIN_ROOT);
@@ -30,7 +30,7 @@ function tempRepo(files: Record<string, string> = {}) {
   return dir;
 }
 
-const ANSWERS = { provider: "github", ci: "github-actions", testing: [], gates: ["pnpm test"] };
+const ANSWERS = { provider: "github", testing: [], gates: ["pnpm test"] };
 
 function render(repo: string, answers: object = ANSWERS) {
   const answersPath = join(repo, "..", `answers-${Date.now()}-${Math.random()}.json`);
@@ -55,15 +55,74 @@ describe("render.mjs on an empty repository", () => {
       ".claude/hooks/unreviewed-artifact.sh",
       ".claude/review-context.md",
       ".claude/fixtures/spec-fixture-design.md",
-      "scripts/hitl/wipe-superpowers-docs.sh",
       "scripts/hitl/pr.sh",
       "scripts/hitl/backend.sh",
-      ".github/workflows/wipe-superpowers-docs.yml",
     ]) {
       expect(existsSync(join(repo, p)), p).toBe(true);
     }
     expect(statSync(join(repo, ".claude/hooks/unreviewed-artifact.sh")).mode & 0o111).not.toBe(0);
     expect(r.json.wrote).toContain("HITL.md");
+  });
+
+  it("installs the wipe builder as scripts/hitl/wipe.mjs, executable, byte-equal to its template", () => {
+    const repo = tempRepo();
+    expect(render(repo).status).toBe(0);
+    const installed = join(repo, "scripts/hitl/wipe.mjs");
+    expect(existsSync(installed)).toBe(true);
+    expect(statSync(installed).mode & 0o111).not.toBe(0);
+    expect(readFileSync(installed)).toEqual(
+      readFileSync(join(PLUGIN_ROOT, "templates/scripts/wipe-core.mjs")),
+    );
+  });
+
+  it("renders the installed commands with the wipe step and its report lines", () => {
+    const repo = tempRepo();
+    expect(render(repo).status).toBe(0);
+    const umbrella = readFileSync(join(repo, ".claude/commands/umbrella-pr.md"), "utf8");
+    expect(umbrella).toContain(
+      'node scripts/hitl/wipe.mjs build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --base origin/main --shim scripts/hitl/pr.sh',
+    );
+    expect(umbrella).not.toContain("archived");
+    expect(umbrella).toContain(
+      "Required before merge: <ref> removes the transient docs — merge it last.",
+    );
+    const implement = readFileSync(join(repo, ".claude/commands/implement-stack.md"), "utf8");
+    expect(implement).toContain("The wipe PR <ref> is generated; merge it last.");
+    expect(implement).toContain("only the wipe builder pushes it");
+  });
+
+  it("names PRs by their ref in everything posted or reported; the stack table keeps #<number>", () => {
+    const repo = tempRepo();
+    expect(render(repo).status).toBe(0);
+    const read = (p: string) => readFileSync(join(repo, p), "utf8");
+    const implement = read(".claude/commands/implement-stack.md");
+    expect(implement).toContain("docs(handover): slice <N> open <ref>");
+    expect(implement).toContain("slice N — <branch> — PR <ref>");
+    expect(implement).toContain("The wipe PR <ref> is generated; merge it last.");
+    expect(implement).toContain("status `open #<number>`");
+    const umbrella = read(".claude/commands/umbrella-pr.md");
+    for (const s of [
+      "created: <ref> (draft)",
+      "updated: <ref>",
+      "Required before merge: <ref> removes the transient docs",
+      "Transient docs removed by <ref>.",
+      "refused: <ref> has a hand-written body",
+    ])
+      expect(umbrella).toContain(s);
+    const handover = read(".claude/agents/handover.md");
+    const allowed = new Set(["open #<number>", "merged #<number>", "open #K", "merged #K"]);
+    for (const text of [implement, umbrella, handover]) {
+      for (const m of text.matchAll(/(?:\w+ )?#(?:<[^>]*>|[KN]\b)/g)) {
+        expect(allowed, `found "${m[0]}"`).toContain(m[0]);
+      }
+    }
+    // The no-install copies the plugin ships hold the same rule.
+    for (const [path, { content }] of renderPlugin(PLUGIN_ROOT)) {
+      if (!/^(?:commands|agents)\//.test(path)) continue;
+      for (const m of content.matchAll(/(?:\w+ )?#(?:<[^>]*>|[KN]\b)/g)) {
+        expect(allowed, `found "${m[0]}" in ${path}`).toContain(m[0]);
+      }
+    }
   });
 
   it("creates CLAUDE.md with the @HITL.md line and appends it to an existing one", () => {
@@ -118,21 +177,24 @@ describe("render.mjs on an empty repository", () => {
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
     expect(manifest.version).toBe(CURRENT);
     expect(manifest.provider).toBe("github");
-    expect(manifest.ci).toBe("github-actions");
+    expect(manifest).not.toHaveProperty("ci");
     expect(manifest.testing).toEqual([]);
     expect(manifest).not.toHaveProperty("gates");
-    expect(Object.keys(manifest.files)).toHaveLength(28);
+    expect(Object.keys(manifest.files)).toHaveLength(27);
     expect(manifest.files["HITL.md"]).toMatch(/^[0-9a-f]{64}$/);
     expect(Object.keys(manifest.files)).toEqual([...Object.keys(manifest.files)].sort());
   });
 
-  it("omits the workflow when ci is none", () => {
-    const repo = tempRepo();
-    render(repo, { ...ANSWERS, ci: "none" });
-    expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
-    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
-    expect(manifest.ci).toBe("none");
-    expect(Object.keys(manifest.files)).toHaveLength(27);
+  it("ignores a ci key in the answers, whatever its value or absence", () => {
+    for (const answers of [{ ...ANSWERS, ci: "jenkins" }, ANSWERS]) {
+      const repo = tempRepo();
+      const r = render(repo, answers);
+      expect(r.status).toBe(0);
+      expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
+      expect(existsSync(join(repo, "scripts/hitl/wipe-superpowers-docs.sh"))).toBe(false);
+      const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+      expect(manifest).not.toHaveProperty("ci");
+    }
   });
 });
 
@@ -142,7 +204,45 @@ function tree(dir: string): string[] {
     .sort();
 }
 
+describe("render.mjs for provider gitlab", () => {
+  it("writes the GitLab backend byte for byte, hashes it and names GITLAB_TOKEN in the README", () => {
+    const repo = tempRepo();
+    const r = render(repo, { provider: "gitlab", testing: [], gates: [] });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    const pairs: [string, string][] = [
+      ["scripts/hitl/backend.sh", "templates/scripts/backends/gitlab.sh"],
+      ["scripts/hitl/gitlab.mjs", "templates/scripts/backends/gitlab.mjs"],
+      ["scripts/hitl/host.mjs", "templates/scripts/host.mjs"],
+    ];
+    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    expect(manifest.provider).toBe("gitlab");
+    for (const [installed, template] of pairs) {
+      expect(readFileSync(join(repo, installed)), installed).toEqual(
+        readFileSync(join(PLUGIN_ROOT, template)),
+      );
+      expect(manifest.files[installed], installed).toMatch(/^[0-9a-f]{64}$/);
+    }
+    expect(statSync(join(repo, "scripts/hitl/gitlab.mjs")).mode & 0o111).not.toBe(0);
+    const readme = readFileSync(join(repo, "README.md"), "utf8");
+    expect(readme).toContain("GITLAB_TOKEN");
+    expect(readme).not.toContain("`gh`");
+  });
+});
+
 describe("render.mjs refusals", () => {
+  it("refuses an unknown provider before writing anything", () => {
+    const repo = tempRepo();
+    const before = tree(repo);
+    const r = render(repo, { provider: "bitbucket", testing: [], gates: [] });
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({
+      refused: "unknown-provider",
+      provider: "bitbucket",
+      allowed: ["github", "gitlab"],
+    });
+    expect(tree(repo)).toEqual(before);
+  });
+
   it("refuses a second run with the installed version and writes nothing", () => {
     const repo = tempRepo();
     render(repo);
@@ -175,30 +275,13 @@ describe("render.mjs refusals", () => {
     expect(r.json.paths).toEqual(expect.arrayContaining(["scripts/hitl", ".claude/fixtures"]));
   });
 
-  it("refuses on HITL.md, review-context.md and the workflow as files", () => {
-    for (const p of [
-      "HITL.md",
-      ".claude/review-context.md",
-      ".github/workflows/wipe-superpowers-docs.yml",
-    ]) {
+  it("refuses on HITL.md and review-context.md as files", () => {
+    for (const p of ["HITL.md", ".claude/review-context.md"]) {
       const repo = tempRepo({ [p]: "x\n" });
       const r = render(repo);
       expect(r.status, p).toBe(3);
       expect(r.json.paths, p).toEqual([p]);
     }
-  });
-
-  it("refuses an unknown ci value before writing anything", () => {
-    const repo = tempRepo();
-    const before = tree(repo);
-    const r = render(repo, { ...ANSWERS, ci: "github" });
-    expect(r.status).toBe(3);
-    expect(r.json).toEqual({
-      refused: "unknown-ci",
-      ci: "github",
-      allowed: ["github-actions", "none"],
-    });
-    expect(tree(repo)).toEqual(before);
   });
 
   it("refuses an unparsable settings.json before writing anything", () => {
@@ -221,7 +304,7 @@ describe("render.mjs refusals", () => {
       expect(r.status).toBe(2);
       expect(r.json.error).toMatch(/EACCES|permission/i);
       expect(r.json.wrote).toContain("HITL.md");
-      expect(r.json.wrote).not.toContain("scripts/hitl/wipe-superpowers-docs.sh");
+      expect(r.json.wrote).not.toContain("scripts/hitl/pr.sh");
       expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
       chmodSync(join(repo, "scripts"), 0o755);
     },
@@ -329,5 +412,17 @@ describe("render.mjs and AGENTS.md", () => {
     render(repo, { ...ANSWERS, gates: ["pnpm test"] });
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
     expect(manifest).not.toHaveProperty("gates");
+  });
+});
+
+describe("the installed HITL.md states the one wipe rule", () => {
+  it("names the generated wipe PR, merged last, and no CI job", () => {
+    const repo = tempRepo();
+    expect(render(repo).status).toBe(0);
+    const hitl = readFileSync(join(repo, "HITL.md"), "utf8");
+    expect(hitl).toContain("<feature branch>-wipe");
+    expect(hitl).toContain("merged last");
+    for (const s of ["a workflow deletes them", "the wipe script", "never empty"])
+      expect(hitl, s).not.toContain(s);
   });
 });

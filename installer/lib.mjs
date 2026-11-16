@@ -6,9 +6,9 @@ import { join } from "node:path";
 export const TESTING_ORDER = ["e2e", "tiers", "ci", "hooks", "effective-date"];
 export const OWNED_DIRS = ["scripts/hitl", ".claude/fixtures"];
 export const MANIFEST_PATH = ".claude/hitl.json";
-/** The `ci` values the installer supports; any other value is refused before a write. */
-export const CI_CHOICES = ["github-actions", "none"];
-export const DEFAULT_CHOICES = { provider: "github", ci: "github-actions", testing: [], gates: [] };
+export const DEFAULT_CHOICES = { provider: "github", testing: [], gates: [] };
+/** The code hosts hitl has a backend for: the only values `provider` may take. */
+export const PROVIDERS = ["github", "gitlab"];
 
 // Argument parsing and output shared by the installer CLIs. `--name value` pairs; names in
 // `booleans` take no value. Returns null on any malformed argv so the caller prints usage.
@@ -92,12 +92,8 @@ export function ownedFiles(choices) {
       template: `claude/fixtures/${f}`,
       executable: false,
     })),
-    {
-      repoPath: "scripts/hitl/wipe-superpowers-docs.sh",
-      template: "scripts/wipe-superpowers-docs.sh",
-      executable: true,
-    },
     { repoPath: "scripts/hitl/pr.sh", template: "scripts/pr.sh", executable: true },
+    { repoPath: "scripts/hitl/wipe.mjs", template: "scripts/wipe-core.mjs", executable: true },
     {
       repoPath: "scripts/hitl/review-mode.sh",
       template: "scripts/review-mode.sh",
@@ -109,12 +105,15 @@ export function ownedFiles(choices) {
       executable: true,
     },
   ];
-  if (choices.ci === "github-actions") {
-    files.push({
-      repoPath: ".github/workflows/wipe-superpowers-docs.yml",
-      template: "ci/github-actions/wipe-superpowers-docs.yml",
-      executable: false,
-    });
+  if (choices.provider === "gitlab") {
+    files.push(
+      {
+        repoPath: "scripts/hitl/gitlab.mjs",
+        template: "scripts/backends/gitlab.mjs",
+        executable: true,
+      },
+      { repoPath: "scripts/hitl/host.mjs", template: "scripts/host.mjs", executable: false },
+    );
   }
   return files;
 }
@@ -146,7 +145,6 @@ export function readManifest(repoRoot) {
 }
 export const THIS_REPO_CHOICES = {
   provider: "github",
-  ci: "github-actions",
   testing: [],
   gates: ["pnpm test", "pnpm format:check"],
 };
@@ -263,10 +261,27 @@ export function pluginFiles() {
     { pluginPath: "runtime/pr/pr.sh", template: "scripts/pr.sh", executable: true },
     {
       pluginPath: "runtime/pr/backend.sh",
+      template: "scripts/backends/dispatch.sh",
+      executable: true,
+    },
+    {
+      pluginPath: "runtime/pr/backend-github.sh",
       template: "scripts/backends/github.sh",
       executable: true,
     },
+    {
+      pluginPath: "runtime/pr/backend-gitlab.sh",
+      template: "scripts/backends/gitlab.sh",
+      executable: true,
+    },
+    {
+      pluginPath: "runtime/pr/gitlab.mjs",
+      template: "scripts/backends/gitlab.mjs",
+      executable: true,
+    },
+    { pluginPath: "runtime/pr/host.mjs", template: "scripts/host.mjs", executable: false },
     { pluginPath: "runtime/review-mode.sh", template: "scripts/review-mode.sh", executable: true },
+    { pluginPath: "runtime/wipe-core.mjs", template: "scripts/wipe-core.mjs", executable: true },
   ];
 }
 
@@ -329,20 +344,24 @@ export function mergeSettings(existingText, hookEntry) {
   return { text: `${JSON.stringify(settings, null, 2)}\n`, added: !present };
 }
 
-export function readmeBlock(version) {
+export function readmeBlock(version, provider = "github") {
+  const hostPrerequisite =
+    provider === "gitlab"
+      ? "a `GITLAB_TOKEN` with the `api` scope (and `GITLAB_URL` for a self-hosted GitLab)"
+      : "`gh`";
   return `## How changes land here
 
 Every feature and bugfix follows a human-in-the-loop chain: brainstorm → spec → cold spec
 review → plans → cold plan review → handover → stacked slice PRs, each implemented, reviewed
 and fixed by subagents, with a human deciding at every gate. The doctrine is \`HITL.md\`.
 
-- Specs and plans live under \`docs/superpowers/\` for the life of a feature branch and are
-  removed from \`main\` after the feature merges. The PR description is the durable record.
+- Specs and plans live under \`docs/superpowers/\` for the life of a feature branch and
+  leave through a generated wipe PR, merged last. The PR description is the durable record.
 - \`.claude/\` (agents, commands, hook) and \`HITL.md\` are reviewed like code: change them by
   pull request.
 - Installed by hitl ${version}. \`/hitl:diff\` shows what changed upstream since;
   \`/hitl:help\` explains the state of this install.
-- Prerequisites: Claude Code with the superpowers plugin, \`git\`, \`gh\`; \`/grill-me\` from
+- Prerequisites: Claude Code with the superpowers plugin, \`git\`, ${hostPrerequisite}; \`/grill-me\` from
   Matt Pocock's skills is the recommended start for a feature whose shape is unclear.`;
 }
 
@@ -391,7 +410,6 @@ export function manifestFor(version, choices, rendered) {
   return {
     version,
     provider: choices.provider,
-    ci: choices.ci,
     testing: [...choices.testing],
     files,
   };

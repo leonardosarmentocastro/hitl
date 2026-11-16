@@ -1,82 +1,38 @@
 #!/usr/bin/env bash
-# hitl PR shim — GitHub backend. Sourced by pr.sh; never run directly. Talks to `gh` and
-# normalises with gh's built-in --jq, so jq is not a prerequisite.
+# hitl PR shim — the plugin's backend dispatcher. Sourced by pr.sh; never run directly. The
+# plugin runs where nothing is installed, so it ships both backends beside it (backend-github.sh,
+# backend-gitlab.sh) and picks one on the first backend call, from the host of the current
+# directory's origin remote. The host rule lives only in host.mjs; this file just asks it.
+# Resolving lazily keeps a usage error free of any git or host lookup.
 
-RECORD_FIELDS='number,url,headRefName,baseRefName,state,isDraft,title,body,headRefOid'
-RECORD_JQ='{number: .number, url: .url, head: .headRefName, base: .baseRefName,
-            state: (.state | ascii_downcase), draft: .isDraft, title: .title, body: .body,
-            head_sha: .headRefOid}'
-REVIEW_STATE_JQ='(if . == "APPROVED" then "approved"
-                  elif . == "CHANGES_REQUESTED" then "changes_requested"
-                  else "commented" end)'
-VIEW_JQ="$RECORD_JQ + {
-  reviews:  [.reviews[]  | {author: .author.login, state: (.state | $REVIEW_STATE_JQ), body: .body}],
-  comments: [.comments[] | {author: .author.login, body: .body, created_at: .createdAt}]}"
-
-# Run gh; on failure pass its stderr through and exit 2.
-gh_or_2() {
-  local err
-  err=$(mktemp)
-  if ! gh "$@" 2>"$err"; then
-    cat "$err" >&2
-    rm -f "$err"
+hitl_load_backend() {
+  local out host problem
+  # host.mjs's own stderr (or the shell's "node: command not found") reaches the caller as is.
+  if ! out=$(node "$HERE/host.mjs"); then
+    echo "pr.sh: could not work out this repository's host: node $HERE/host.mjs failed (its error is above)." >&2
     exit 2
   fi
-  rm -f "$err"
+  host=${out%%$'\n'*}
+  problem=
+  [ "$out" = "$host" ] || problem=${out#*$'\n'}
+  case "$host" in
+    github) . "$HERE/backend-github.sh" ;;
+    gitlab) . "$HERE/backend-gitlab.sh" ;;
+    *)
+      if [ -n "$problem" ]; then
+        echo "pr.sh: no PR backend for this repository's host (${host:-unknown}): $problem" >&2
+      else
+        echo "pr.sh: no PR backend for this repository's host (${host:-unknown}): hitl opens PRs on GitHub and GitLab. A self-hosted GitLab needs GITLAB_URL set to its address." >&2
+      fi
+      exit 2
+      ;;
+  esac
 }
 
-backend_view() {
-  gh_or_2 pr view "$1" --json "$RECORD_FIELDS,reviews,comments" --jq "$VIEW_JQ"
-}
-
-LIST_LIMIT=200
-
-# `head:<prefix>` narrows on the server (GitHub's search prefix-matches it); `startswith` is
-# the exact check. Fetching one past the limit tells a complete list from a cut-off one, and a
-# cut-off list is an error, never a partial answer. gh's --jq has no --arg, so the prefix is
-# escaped into the string literal by hand; a prefix search cannot quote is not sent to search.
-backend_list() {
-  local prefix=$1 state=$2 lit
-  lit=${prefix//\\/\\\\}
-  lit=${lit//\"/\\\"}
-  local args=(pr list --state "$state" --limit $((LIST_LIMIT + 1)) --json "$RECORD_FIELDS")
-  [[ $prefix == *\"* ]] || args+=(--search "head:$prefix")
-  gh_or_2 "${args[@]}" --jq "if length > $LIST_LIMIT
-    then error(\"pr.sh list: more than $LIST_LIMIT PRs match; the list would be incomplete\")
-    else [.[] | select(.headRefName | startswith(\"$lit\")) | $RECORD_JQ] end"
-}
-
-backend_create() {
-  local base=$1 head=$2 title=$3 body_file=$4 draft=$5
-  local args=(pr create --base "$base" --head "$head" --title "$title" --body-file "$body_file")
-  [ "$draft" = 1 ] && args+=(--draft)
-  local err
-  err=$(mktemp)
-  if ! gh "${args[@]}" >/dev/null 2>"$err"; then
-    if grep -qi "already exists" "$err"; then
-      rm -f "$err"
-      gh_or_2 pr view "$head" --json "$RECORD_FIELDS" --jq "$RECORD_JQ"
-      exit 3
-    fi
-    cat "$err" >&2
-    rm -f "$err"
-    exit 2
-  fi
-  rm -f "$err"
-  gh_or_2 pr view "$head" --json "$RECORD_FIELDS" --jq "$RECORD_JQ"
-}
-
-backend_edit() {
-  gh_or_2 pr edit "$1" --body-file "$2" >/dev/null
-  gh_or_2 pr view "$1" --json "$RECORD_FIELDS" --jq "$RECORD_JQ"
-}
-
-backend_comment() {
-  gh_or_2 pr comment "$1" --body-file "$2" >/dev/null
-  gh_or_2 pr view "$1" --json "$RECORD_FIELDS" --jq "$RECORD_JQ"
-}
-
-backend_retarget() {
-  gh_or_2 pr edit "$1" --base "$2" >/dev/null
-  gh_or_2 pr view "$1" --json "$RECORD_FIELDS" --jq "$RECORD_JQ"
-}
+# Each verb loads the backend, which redefines it, then calls the backend's own definition.
+backend_view() { hitl_load_backend && backend_view "$@"; }
+backend_list() { hitl_load_backend && backend_list "$@"; }
+backend_create() { hitl_load_backend && backend_create "$@"; }
+backend_edit() { hitl_load_backend && backend_edit "$@"; }
+backend_comment() { hitl_load_backend && backend_comment "$@"; }
+backend_retarget() { hitl_load_backend && backend_retarget "$@"; }

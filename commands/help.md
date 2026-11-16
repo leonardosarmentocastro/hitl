@@ -40,9 +40,33 @@ Say the matching thing for `state`, then always end with the prerequisites.
   ```
 
 Prerequisites, always, as a table `prerequisite · needed by · present`: `node` (the
-installer), `git`, `gh` authenticated (the PR shim), the superpowers plugin enabled (the
-brainstorming and writing-plans skills shape the artefacts this workflow reviews). A missing
-one gets its install line (superpowers: `claude plugin marketplace add
+installer **and the scripts under `scripts/hitl/`**), `git`, the superpowers plugin enabled
+(the brainstorming and writing-plans skills shape the artefacts this workflow reviews), and
+the code host's line by `provider`:
+
+- `github` (or any provider without a backend): `gh` authenticated (the PR shim), from
+  `prerequisites.gh`.
+- `gitlab`: `GITLAB_TOKEN` set (the PR shim), from `prerequisites.gitlabToken` — "a GitLab
+  access token with the `api` scope, exported in the shell that runs Claude Code". Never
+  print the token's value; `help.mjs` reports only whether it is set. Then, by
+  `prerequisites.gitlabUrl`:
+  - `not-needed` — no row (the remote is gitlab.com);
+  - `set` — a row `GITLAB_URL` · the PR shim · present;
+  - `missing` — "`GITLAB_URL` set to the address of this self-hosted GitLab (e.g.
+    `https://gitlab.example.com`)";
+  - `mismatch` — the variable is set, not absent: "`GITLAB_URL` does not match this
+    repository's `origin` remote; point it at the GitLab the remote names" (never tell the
+    human to export a variable they already have);
+  - `no-remote` — the repository has no `origin` remote: "add the `origin` remote of this
+    GitLab repository (`git remote add origin <url>`)", and nothing about `GITLAB_URL`;
+  - `invalid` — the variable is set but wrong, not absent: "`GITLAB_URL` needs a scheme
+    (`https://…`)" when `gitlabUrlProblem` is `bad-gitlab-url`, "`GITLAB_URL` must be the
+    instance's address, without `/api/v4`" when it is `gitlab-url-has-api-path`.
+
+  Then one note, GitLab only: "hitl finds its merge requests by the `hitl` label it puts on
+  them. A merge request opened by hand is invisible to hitl until that label is added."
+
+A missing one gets its install line (superpowers: `claude plugin marketplace add
 obra/superpowers-marketplace` then `claude plugin install superpowers@superpowers-marketplace`).
 End with: "Recommended: `/grill-me` (Matt Pocock's skills, `npx skills add mattpocock/skills`)
 to start a feature whose shape is unclear."

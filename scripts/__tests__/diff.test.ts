@@ -5,6 +5,7 @@ import {
   chmodSync,
   cpSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -18,7 +19,7 @@ import { pluginVersion, renderMode, sha256 } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 const DIFF = join(ROOT, "installer/diff.mjs");
-const ANSWERS = { provider: "github", ci: "github-actions", testing: [], gates: [] };
+const ANSWERS = { provider: "github", testing: [], gates: [] };
 // This repository's own version, and the next minor one that the fixture plugin is bumped to.
 const CURRENT = pluginVersion(ROOT);
 const NEXT = CURRENT.replace(/^(\d+)\.(\d+)\.\d+$/, (_, maj, min) => `${maj}.${Number(min) + 1}.0`);
@@ -89,6 +90,46 @@ function fixtureMarketplaceWithRemoval() {
   return mk;
 }
 
+/**
+ * A marketplace clone whose v<CURRENT> is what the released versions with the CI wipe job
+ * owned: `scripts/hitl/wipe-superpowers-docs.sh` always, and the wipe workflow only when
+ * `choices.ci === "github-actions"`; its manifest records `ci`. The NEXT plugin owns neither.
+ */
+function fixtureMarketplaceWithCiJob() {
+  const mk = mkdtempSync(join(tmpdir(), "hitl-mk-ci-"));
+  copyPlugin(mk);
+  const lib = join(mk, "installer/lib.mjs");
+  let text = readFileSync(lib, "utf8");
+  const owned = `{ repoPath: "scripts/hitl/pr.sh", template: "scripts/pr.sh", executable: true },`;
+  const ret = "  return files;\n}";
+  const manifest = "    provider: choices.provider,\n";
+  for (const anchor of [owned, ret, manifest]) expect(text).toContain(anchor);
+  text = text
+    .replace(
+      owned,
+      `${owned}\n    { repoPath: "scripts/hitl/wipe-superpowers-docs.sh", template: "scripts/wipe-superpowers-docs.sh", executable: true },`,
+    )
+    .replace(
+      ret,
+      `  if (choices.ci === "github-actions")\n    files.push({ repoPath: ".github/workflows/wipe-superpowers-docs.yml", template: "ci/github-actions/wipe-superpowers-docs.yml", executable: false });\n${ret}`,
+    )
+    .replace(manifest, `${manifest}    ci: choices.ci,\n`);
+  writeFileSync(lib, text);
+  writeFileSync(join(mk, "templates/scripts/wipe-superpowers-docs.sh"), "#!/bin/sh\necho wipe\n");
+  mkdirSync(join(mk, "templates/ci/github-actions"), { recursive: true });
+  writeFileSync(
+    join(mk, "templates/ci/github-actions/wipe-superpowers-docs.yml"),
+    "on:\n  push:\n    branches: [main]\n",
+  );
+  git(mk, ["init", "-q", "-b", "main"]);
+  git(mk, ["config", "user.email", "t@example.com"]);
+  git(mk, ["config", "user.name", "t"]);
+  git(mk, ["add", "-A"]);
+  git(mk, ["commit", "-q", "-m", CURRENT]);
+  git(mk, ["tag", `v${CURRENT}`]);
+  return mk;
+}
+
 /** A repository installed by the v<CURRENT> marketplace's own render.mjs. */
 function installedRepo(mk: string, answers: object = ANSWERS) {
   const repo = mkdtempSync(join(tmpdir(), "hitl-repo-"));
@@ -135,10 +176,12 @@ const HANDOVER = ".claude/agents/handover.md";
 
 let mk: string;
 let mkRemoval: string;
+let mkCi: string;
 let plugin: string;
 beforeAll(() => {
   ({ mk, plugin } = fixtureMarketplace());
   mkRemoval = fixtureMarketplaceWithRemoval();
+  mkCi = fixtureMarketplaceWithCiJob();
 });
 
 describe("diff.mjs refusals", () => {
@@ -274,6 +317,33 @@ describe("diff.mjs at the same version reads the plugin root, not the tag", () =
   });
 });
 
+describe("diff.mjs and the GitLab backend", () => {
+  const GITLAB_FILES = [
+    "scripts/hitl/backend.sh",
+    "scripts/hitl/gitlab.mjs",
+    "scripts/hitl/host.mjs",
+  ];
+
+  it("diffs a provider gitlab install clean at the same version", () => {
+    const repo = installedRepo(mk, { provider: "gitlab", testing: [], gates: [] });
+    const notAClone = mkdtempSync(join(tmpdir(), "hitl-notaclone-"));
+    const r = diff(repo, mk, notAClone);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    for (const p of GITLAB_FILES) expect(stateOf(r.json, p)?.state, p).toBe("unchanged");
+    expect(r.json.files.filter((f: any) => f.state === "removed upstream")).toEqual([]);
+  });
+
+  it("never adds the GitLab files when a github install is upgraded", () => {
+    const repo = installedRepo(mk);
+    const r = diff(repo, plugin, mk, true);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    for (const p of ["scripts/hitl/gitlab.mjs", "scripts/hitl/host.mjs"]) {
+      expect(stateOf(r.json, p), p).toBeUndefined();
+      expect(existsSync(join(repo, p)), p).toBe(false);
+    }
+  });
+});
+
 describe("diff.mjs absent cases", () => {
   it("reports a deleted owned file as missing locally", () => {
     const repo = installedRepo(mk);
@@ -303,14 +373,6 @@ describe("diff.mjs absent cases", () => {
     expect(stateOf(diff(repo, plugin, mkRemoval).json, "scripts/hitl/gone.sh").local).toBe(
       "absent",
     );
-  });
-
-  it("never reports the wipe workflow for a repository that declined it (ci: none)", () => {
-    const repo = installedRepo(mk, { ...ANSWERS, ci: "none" });
-    const r = diff(repo, plugin, mk);
-    expect(r.status).toBe(0);
-    expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
-    expect(stateOf(r.json, ".github/workflows/wipe-superpowers-docs.yml")).toBeUndefined();
   });
 });
 
@@ -437,5 +499,59 @@ describe("diff.mjs --apply", () => {
     expect(r.status).toBe(0);
     expect(r.json.nothing).toBe(true);
     expect(readFileSync(join(repo, ".claude/hitl.json"), "utf8")).toBe(before);
+  });
+});
+
+describe("diff.mjs upgrading a manifest written by an older hitl with the CI wipe job", () => {
+  const WORKFLOW = ".github/workflows/wipe-superpowers-docs.yml";
+  const SCRIPT = "scripts/hitl/wipe-superpowers-docs.sh";
+  const manifestOf = (repo: string) =>
+    JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+
+  it("removes both unedited files and drops ci from the manifest", () => {
+    const repo = installedRepo(mkCi, { ...ANSWERS, ci: "github-actions" });
+    expect(manifestOf(repo).ci).toBe("github-actions");
+    const r = diff(repo, plugin, mkCi);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    for (const p of [WORKFLOW, SCRIPT]) {
+      expect(stateOf(r.json, p), p).toEqual({ path: p, state: "removed upstream", local: "same" });
+    }
+    const a = diff(repo, plugin, mkCi, true);
+    expect(a.status, a.stdout + a.stderr).toBe(0);
+    expect(a.json.deleted).toEqual([WORKFLOW, SCRIPT]);
+    expect(a.json.keptRemoved).toEqual([]);
+    expect(existsSync(join(repo, WORKFLOW))).toBe(false);
+    expect(existsSync(join(repo, SCRIPT))).toBe(false);
+    expect(manifestOf(repo)).not.toHaveProperty("ci");
+  });
+
+  it("keeps an edited workflow, deletes the script and names the kept file", () => {
+    const repo = installedRepo(mkCi, { ...ANSWERS, ci: "github-actions" });
+    writeFileSync(join(repo, WORKFLOW), "on:\n  push:\n    branches: [master]\n");
+    const r = diff(repo, plugin, mkCi, true);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(stateOf(r.json, WORKFLOW).local).toBe("edited");
+    expect(r.json.deleted).toEqual([SCRIPT]);
+    expect(existsSync(join(repo, WORKFLOW))).toBe(true);
+    expect(r.json.keptRemoved).toEqual([WORKFLOW]);
+    expect(manifestOf(repo)).not.toHaveProperty("ci");
+  });
+
+  it("never reports the workflow for a repository that declined the job (ci: none)", () => {
+    const repo = installedRepo(mkCi, { ...ANSWERS, ci: "none" });
+    expect(manifestOf(repo).ci).toBe("none");
+    const r = diff(repo, plugin, mkCi);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(stateOf(r.json, WORKFLOW)).toBeUndefined();
+    expect(stateOf(r.json, SCRIPT)).toEqual({
+      path: SCRIPT,
+      state: "removed upstream",
+      local: "same",
+    });
+    const a = diff(repo, plugin, mkCi, true);
+    expect(a.status, a.stdout + a.stderr).toBe(0);
+    expect(a.json.deleted).toEqual([SCRIPT]);
+    expect(a.json.keptRemoved).toEqual([]);
+    expect(manifestOf(repo)).not.toHaveProperty("ci");
   });
 });

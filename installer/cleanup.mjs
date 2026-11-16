@@ -6,8 +6,10 @@
 // An installed repository (one with .claude/hitl.json) uses its own PR shim and origin/main.
 // Where nothing is installed it uses the plugin's shim (--plugin-root), compares each entry
 // against its active-feature record's base, reports the feature's archived documents that
-// reached that base, and clears the record of a removed worktree. `<branch>-wipe` is one of
-// the feature's branches. The .git/info/exclude lines are left in place for the next feature.
+// reached that base, and clears the record of a removed worktree. An installed repository
+// reports the documents at the merged umbrella PR's head commit that reached origin/main.
+// `<branch>-wipe` is one of the feature's branches. The .git/info/exclude lines are left in
+// place for the next feature.
 // Exit: 0 ok · 1 usage · 2 the fetch or the PR shim failed.
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
@@ -80,6 +82,20 @@ function archived(dir) {
     .sort();
 }
 
+/**
+ * An installed feature's documents that reached the base: every path under docs/superpowers/
+ * at the merged umbrella PR's head commit that also exists on the base. No merge-base: after
+ * a merge commit or a fast-forward it is the head commit itself and would hide everything.
+ */
+function headDocsOnBase(main, base, headSha) {
+  if (!headSha || !git(main, "cat-file", "-e", `${headSha}^{commit}`).ok) return [];
+  const tree = git(main, "ls-tree", "-r", "--name-only", headSha, "--", DOCS);
+  if (!tree.ok) return [];
+  return lines(tree.out)
+    .filter((f) => git(main, "cat-file", "-e", `${base}:${f}`).ok)
+    .sort();
+}
+
 /** On a remote-tracking ref, or at/behind the head commit of a merged PR for that branch. */
 function isSaved(main, b, prs) {
   const r = git(main, "rev-list", b, "--not", "--remotes");
@@ -107,7 +123,7 @@ function ignoredEntries(path) {
 }
 
 function classify(ctx, here, wt) {
-  const { main, shim } = ctx;
+  const { main, shim, installed } = ctx;
   const base = wt.base;
   const prs = listPrs(shim, wt.branch);
   const slices = lines(
@@ -146,19 +162,19 @@ function classify(ctx, here, wt) {
   if (cls !== "in progress" && unsaved.length > 0) cls = "has unsaved work";
   const shown = merged ?? umbrella[0] ?? null;
   const isHere = resolve(wt.path) === resolve(here);
-  const docsOnBase =
-    merged && wt.record
-      ? archived(
-          join(memoryDir(main), "features", `${wt.record.created}-${wt.record.topic}`),
-        ).filter((f) => git(main, "cat-file", "-e", `${base}:${f}`).ok)
-      : [];
+  let docsOnBase = [];
+  if (merged && wt.record)
+    docsOnBase = archived(
+      join(memoryDir(main), "features", `${wt.record.created}-${wt.record.topic}`),
+    ).filter((f) => git(main, "cat-file", "-e", `${base}:${f}`).ok);
+  else if (merged && installed) docsOnBase = headDocsOnBase(main, base, merged.head_sha);
   const { record: _record, ...entry } = wt;
   return {
     ...entry,
     class: cls,
     offered: (cls === "merged" || cls === "abandoned") && !isHere && present,
     here: isHere,
-    umbrella: shown ? { number: shown.number, url: shown.url } : null,
+    umbrella: shown ? { number: shown.number, ref: shown.ref, url: shown.url } : null,
     branches,
     unsaved,
     sizeKb: present ? sizeKb(wt.path) : null,

@@ -7,19 +7,11 @@ import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "n
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib.mjs";
+import { hostOf } from "../templates/scripts/host.mjs";
+
+export { hostOf };
 
 const APPENDABLE = ["CLAUDE.md", "AGENTS.md", "README.md", ".gitignore", ".claude/settings.json"];
-
-/** github | gitlab | bitbucket | unknown, from an https, ssh:// or scp-style remote url. */
-export function hostOf(remote) {
-  if (!remote) return "unknown";
-  const m = remote.match(/^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?([^/:]+)[/:]/i);
-  const host = (m?.[1] ?? "").toLowerCase();
-  if (host === "github.com") return "github";
-  if (host === "gitlab.com") return "gitlab";
-  if (host === "bitbucket.org") return "bitbucket";
-  return "unknown";
-}
 
 function originOf(repo) {
   try {
@@ -75,7 +67,7 @@ export function discover(repo) {
 
   const remote = originOf(repo);
   return {
-    host: hostOf(remote),
+    host: hostOf(remote, process.env),
     remote,
     ci,
     e2e,

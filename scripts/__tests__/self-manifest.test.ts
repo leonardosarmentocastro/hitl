@@ -25,7 +25,7 @@ describe("this repository's manifest", () => {
     expect(manifest).not.toBeNull();
     expect(manifest.version).toBe(pluginVersion(ROOT));
     expect(manifest.provider).toBe("github");
-    expect(manifest.ci).toBe("github-actions");
+    expect(manifest).not.toHaveProperty("ci");
     expect(manifest.testing).toEqual([]);
   });
 

@@ -111,8 +111,10 @@ the cold slice review and its fixes, and a second fix pass before its PR opens.
 ## Install
 
 You need [Claude Code](https://claude.com/claude-code), the
-[superpowers](https://github.com/obra/superpowers) plugin, Node 20+, git, and an
-authenticated [`gh`](https://cli.github.com/) (GitHub is the only code host for now).
+[superpowers](https://github.com/obra/superpowers) plugin, Node 20+ and git, plus, for the
+code host: on GitHub, [`gh`](https://cli.github.com/) installed and signed in; on GitLab, a
+`GITLAB_TOKEN` with the `api` scope, and `GITLAB_URL` set to the instance's address for a
+self-hosted GitLab.
 
 ```bash
 claude plugin marketplace add obra/superpowers-marketplace
@@ -165,12 +167,13 @@ uninstall the plugin and the workflow keeps working.
 | `.claude/commands/` | `/review-spec`, `/review-plan`, `/review-slice`, `/handover`, `/implement-stack`, `/umbrella-pr` |
 | `.claude/hooks/` + `settings.json` | The Stop hook that blocks the turn while a spec or plan is unreviewed |
 | `.claude/review-context.md` | What reviewers should know about *your* repo |
-| `scripts/hitl/` | A small PR shim (swappable code-host backend) and the cleanup script |
-| `.github/workflows/` | Optional: deletes the transient specs and plans once a feature reaches `main` |
+| `scripts/hitl/` | A small PR shim (swappable code-host backend) and the wipe builder |
 | `.claude/hitl.json` | Install record (version, choices, file hashes), used only by `/hitl:diff` and `/hitl:help` |
 
-Specs and plans live under `docs/superpowers/` only while a feature is in progress. The
-umbrella PR description is the record that lasts.
+Specs and plans live under `docs/superpowers/` only while a feature is in progress: they
+leave through a generated draft PR, `<feature branch>-wipe`, built by `/umbrella-pr` and
+merged last — after every slice, before the umbrella PR. The umbrella PR description is the
+record that lasts.
 
 ## Use it without installing
 
@@ -185,13 +188,12 @@ the feature's own documents under `docs/superpowers/`, as always.
 - **Memory lives on your machine**, in `~/.hitl/projects/<host>/<owner>/<repo>/`: the
   local gates, what reviewers should know, extra PR sections. hitl asks before it remembers
   anything, and every worktree and clone of the project reads the same memory.
-- **GitHub opens the PRs.** Elsewhere, or with no remote, you get the design session only
-  (worktree, spec, plans, handover); opening PRs off GitHub is
-  [issue #19](https://github.com/leonardosarmentocastro/hitl/issues/19).
-- **The wipe PR merges last.** With no CI job to remove the feature's documents, hitl
-  copies them to `~/.hitl/projects/<…>/features/` and opens a generated draft PR,
+- **Code hosts: GitHub and GitLab.** hitl labels the merge requests it opens `hitl` and finds them by that label.
+- **The wipe PR merges last.** hitl copies the feature's documents to
+  `~/.hitl/projects/<…>/features/` and opens a generated draft PR,
   `<feature branch>-wipe`, that deletes them from the branch. It is rebuilt on every
-  `/hitl:umbrella-pr` run. Merge it after every slice and before the umbrella PR.
+  `/hitl:umbrella-pr` run. As in an installed repository, merge it after every slice and
+  before the umbrella PR.
 - **`/hitl:cleanup`** removes a finished feature's worktree and branches, and tells you if
   the documents reached your main branch because the wipe PR did not merge first.
 

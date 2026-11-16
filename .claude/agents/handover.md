@@ -20,7 +20,7 @@ another agent down the wrong branch.
   exist only locally): `git fetch -q --prune origin` then
   `git branch -a --list '<feature-branch>-slice-*' --list 'origin/<feature-branch>-slice-*'`.
 - PRs: `scripts/hitl/pr.sh list --head-prefix "<feature-branch>"` (every state; each record
-  carries `number`, `head`, `base`, `state`, `draft`, `title`) and
+  carries `number`, `ref`, `head`, `base`, `state`, `draft`, `title`) and
   `scripts/hitl/pr.sh view <number>` on any that need reviews and comments (fix-up mode).
 
 ## Derive the stack table
@@ -91,17 +91,17 @@ reconstruct. No file, function or test names.>
 <!-- stack -->
 | slice | title | PR |
 |---|---|---|
-| 1 | <slice title: the plan's H1 with its `<feature> — slice <N>:` prefix removed> | <#K or —> |
+| 1 | <slice title: the plan's H1 with its `<feature> — slice <N>:` prefix removed> | <the PR record's ref, or —> |
 <!-- /stack -->
 
 ## Notes
 
-Spec, plans and this document are transient and are removed from `main` after merge. This
-description is the durable record.
+Spec, plans and this document are transient and leave through the generated wipe PR before
+this feature merges into `main`. This description is the durable record.
 
 ## Fix-up
 <only in fix-up mode; otherwise omit the section>
-### Slice <N> — <branch> — PR #<K>
+### Slice <N> — <branch> — PR <ref>
 <the human's requested changes, restated in plain words, one bullet each>
 ### Restack order
 <branch A> onto <feature branch> (old parent tip: <sha of the feature branch as A currently sees it>);

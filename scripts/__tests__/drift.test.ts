@@ -34,8 +34,9 @@ describe("this repository equals its own render", () => {
     expect(entries).toContainEqual(hookEntry);
   });
 
-  it("renders the workflow for this repository (ci: github-actions)", () => {
-    expect(rendered.has(".github/workflows/wipe-superpowers-docs.yml")).toBe(true);
+  it("renders neither the CI wipe workflow nor its script", () => {
+    expect(rendered.has(".github/workflows/wipe-superpowers-docs.yml")).toBe(false);
+    expect(rendered.has("scripts/hitl/wipe-superpowers-docs.sh")).toBe(false);
   });
 });
 

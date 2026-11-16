@@ -9,7 +9,9 @@
 #   pr.sh retarget <number> --base <branch>
 #
 # stdout is exactly one JSON document: `list` prints an array, every other verb a record:
-#   { number, url, head, base, state: open|merged|closed, draft, title, body, head_sha }
+#   { number, ref, url, head, base, state: open|merged|closed, draft, title, body, head_sha }
+# `ref` is how the host writes a reference to the PR in text: `#12` on GitHub, `!12` on
+# GitLab. Use it in any text posted to the host; `number` is what the verbs take.
 # head_sha is the PR's head commit (what the host merged, for a merged PR); /hitl:cleanup uses
 # it to prove a squash-merged branch saved after the host deleted it. A backend must supply it.
 # `view` adds reviews: [{ author, state: approved|changes_requested|commented, body }] and
@@ -23,6 +25,8 @@
 # The backend is `backend.sh` in this directory, installed by /hitl:init for the host the
 # repository uses; it defines backend_create, backend_list, backend_view, backend_edit,
 # backend_comment and backend_retarget. The word is "PR" throughout; it is a merge request on GitLab.
+# Where nothing is installed, the plugin's `backend.sh` is a dispatcher instead: on each call it
+# asks host.mjs for the origin remote's host and sources backend-github.sh or backend-gitlab.sh.
 #
 # Best-effort per host, documented here so a backend author knows what may not map 1:1:
 #   - draft PRs: GitHub and GitLab have them; Bitbucket has none (create ignores --draft).

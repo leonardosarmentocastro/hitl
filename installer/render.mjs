@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // /hitl:init's writer (`--mode check` runs the refusals only and writes nothing). Refuses
-// before its first write (unknown ci, manifest present, collision, bad settings.json);
+// before its first write (manifest present, collision, bad settings.json);
 // otherwise writes every owned file, the appended blocks, the merged hook and the manifest,
 // and prints one JSON report. Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {
-  CI_CHOICES,
   DEFAULT_CHOICES,
   MANIFEST_PATH,
+  PROVIDERS,
   agentsBlock,
   collisions,
   foreignFiles,
@@ -44,9 +44,13 @@ export function run(args) {
     return { code: 1, out: { error: USAGE } };
   if (mode === "write" && !answersPath) return { code: 1, out: { error: USAGE } };
   const choices = answersPath ? JSON.parse(readFileSync(answersPath, "utf8")) : DEFAULT_CHOICES;
+  if (!PROVIDERS.includes(choices.provider)) {
+    return {
+      code: 3,
+      out: { refused: "unknown-provider", provider: choices.provider, allowed: PROVIDERS },
+    };
+  }
   const version = pluginVersion(pluginRoot);
-  if (!CI_CHOICES.includes(choices.ci))
-    return { code: 3, out: { refused: "unknown-ci", ci: choices.ci, allowed: CI_CHOICES } };
 
   const manifest = readManifest(repo);
   if (manifest) return { code: 3, out: { refused: "manifest-present", version: manifest.version } };
@@ -85,7 +89,10 @@ export function run(args) {
     append("CLAUDE.md", withClaudeLine(readIfPresent(join(repo, "CLAUDE.md"))));
     append(
       "README.md",
-      withMarkerBlock(readIfPresent(join(repo, "README.md")), readmeBlock(version)),
+      withMarkerBlock(
+        readIfPresent(join(repo, "README.md")),
+        readmeBlock(version, choices.provider),
+      ),
     );
     append(
       ".gitignore",
