@@ -349,6 +349,18 @@ describe("moving the doctrine's references", () => {
     expect(rewriteClaudeLine(null)).toEqual({ text: null, state: "absent" });
   });
 
+  it("reads a CRLF CLAUDE.md and keeps its line endings", () => {
+    expect(rewriteClaudeLine("@HITL.md\r\n@AGENTS.md\r\n")).toEqual({
+      text: "@.hitl/HITL.md\r\n@AGENTS.md\r\n",
+      state: "rewritten",
+    });
+    expect(rewriteClaudeLine("@HITL.md\r\n@.hitl/HITL.md\r\n")).toEqual({
+      text: "@.hitl/HITL.md\r\n",
+      state: "rewritten",
+    });
+    expect(rewriteClaudeLine("@.hitl/HITL.md\r\n").state).toBe("current");
+  });
+
   it("rewrites the doctrine path in a README block exactly once", () => {
     const once = rewriteReadmeBlockPaths("The doctrine is `HITL.md`. `.claude/` and `HITL.md` are");
     expect(once).toBe("The doctrine is `.hitl/HITL.md`. `.claude/` and `.hitl/HITL.md` are");

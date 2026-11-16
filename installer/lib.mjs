@@ -367,12 +367,17 @@ export function withClaudeLine(existing) {
  */
 export function rewriteClaudeLine(text) {
   if (text === null) return { text: null, state: "absent" };
+  // A CRLF file's lines end in `\r`: compared without it, and kept on the line rewritten.
   const lines = text.split("\n");
-  const hasNew = lines.includes(CLAUDE_LINE);
-  if (!lines.includes(OLD_CLAUDE_LINE)) return { text, state: hasNew ? "current" : "absent" };
+  const bare = (l) => l.replace(/\r$/, "");
+  const hasNew = lines.some((l) => bare(l) === CLAUDE_LINE);
+  if (!lines.some((l) => bare(l) === OLD_CLAUDE_LINE))
+    return { text, state: hasNew ? "current" : "absent" };
   const next = hasNew
-    ? lines.filter((l) => l !== OLD_CLAUDE_LINE)
-    : lines.map((l) => (l === OLD_CLAUDE_LINE ? CLAUDE_LINE : l));
+    ? lines.filter((l) => bare(l) !== OLD_CLAUDE_LINE)
+    : lines.map((l) =>
+        bare(l) === OLD_CLAUDE_LINE ? CLAUDE_LINE + l.slice(OLD_CLAUDE_LINE.length) : l,
+      );
   return { text: next.join("\n"), state: "rewritten" };
 }
 
