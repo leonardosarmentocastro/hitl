@@ -25,6 +25,8 @@
 # The backend is `backend.sh` in this directory, installed by /hitl:init for the host the
 # repository uses; it defines backend_create, backend_list, backend_view, backend_edit,
 # backend_comment and backend_retarget. The word is "PR" throughout; it is a merge request on GitLab.
+# Where nothing is installed, the plugin's `backend.sh` is a dispatcher instead: on each call it
+# asks host.mjs for the origin remote's host and sources backend-github.sh or backend-gitlab.sh.
 #
 # Best-effort per host, documented here so a backend author knows what may not map 1:1:
 #   - draft PRs: GitHub and GitLab have them; Bitbucket has none (create ignores --draft).
