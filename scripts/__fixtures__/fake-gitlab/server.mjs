@@ -27,7 +27,8 @@ if (!STATE || !LOG) {
   process.exit(1);
 }
 
-const DRAFT_MARKER = /^\s*(?:\[draft\]|\(draft\)|draft:|draft\s)\s*/i;
+// GitLab's draft rule, the same narrow one the backend's create uses.
+const DRAFT_MARKER = /^(?:\[draft\]|\(draft\)|draft:|draft - |draft$)/i;
 
 function save(state) {
   writeFileSync(STATE, JSON.stringify(state));

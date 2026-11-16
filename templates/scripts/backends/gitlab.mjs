@@ -110,6 +110,9 @@ export async function paged(ctx, path, query) {
 }
 
 const DRAFT_MARKER = /^\s*(?:\[draft\]|\(draft\)|draft:|draft\s)\s*/i;
+// GitLab's own draft rule: only these leading markers (or a title that is exactly "Draft") make
+// an MR a draft. "Draft emails" is not one. The prefix decision in create must use this one.
+const GITLAB_DRAFT = /^(?:\[draft\]|\(draft\)|draft:|draft - |draft$)/i;
 const STATES = { opened: "open", locked: "open", merged: "merged", closed: "closed" };
 
 /** The shim's record for a GitLab merge request. */
@@ -184,7 +187,7 @@ function detailOf(json) {
  * if it lacks it, its record is printed and the shim exits 3.
  */
 async function create(ctx, [base, head, title, bodyFile, draft]) {
-  const sentTitle = draft === "1" && !DRAFT_MARKER.test(title) ? `Draft: ${title}` : title;
+  const sentTitle = draft === "1" && !GITLAB_DRAFT.test(title) ? `Draft: ${title}` : title;
   const { status, json } = await api(ctx, "POST", "/merge_requests", {
     body: {
       source_branch: head,

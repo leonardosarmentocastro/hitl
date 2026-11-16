@@ -472,6 +472,24 @@ describe("pr.sh create on GitLab", () => {
     expect((post?.body as { title: string }).title).toBe("Draft: x");
   });
 
+  it("--draft on a title that only starts with the word Draft still adds the marker", () => {
+    const r = create([...base("Draft emails"), "--draft"]);
+    expect(r.status, r.stderr).toBe(0);
+    const post = fake.requests().find((q) => q.method === "POST");
+    expect((post?.body as { title: string }).title).toBe("Draft: Draft emails");
+    const rec = r.json as { draft: boolean; title: string };
+    expect(rec.draft).toBe(true);
+    expect(rec.title).toBe("Draft emails");
+  });
+
+  it("without --draft, a title starting with the word Draft is not a draft", () => {
+    const r = create(base("Draft emails"));
+    expect(r.status, r.stderr).toBe(0);
+    const rec = r.json as { draft: boolean; title: string };
+    expect(rec.draft).toBe(false);
+    expect(rec.title).toBe("Draft emails");
+  });
+
   it("sends a body with non-ASCII text, quotes and newlines byte-exact", () => {
     const text = '"é"\n— end';
     const r = create(base("t", bodyFile(text)));
