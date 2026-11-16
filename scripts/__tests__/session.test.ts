@@ -220,8 +220,8 @@ describe("session.mjs start / get / end", () => {
 
   it("refuses an installed repository and changes nothing", () => {
     const { clones } = world();
-    mkdirSync(join(clones[0], ".claude"));
-    writeFileSync(join(clones[0], ".claude/hitl.json"), "{}\n");
+    mkdirSync(join(clones[0], ".hitl"));
+    writeFileSync(join(clones[0], ".hitl/manifest.json"), "{}\n");
     const before = existsSync(exclude(clones[0])) ? readFileSync(exclude(clones[0]), "utf8") : null;
     expect(
       cli("start", "--worktree", clones[0], "--topic", "t", "--base", "origin/develop"),

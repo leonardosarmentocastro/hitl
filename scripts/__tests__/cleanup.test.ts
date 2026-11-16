@@ -69,8 +69,8 @@ function world(defaultBranch = "main", installed = true) {
   copyFileSync(STUB, shim);
   chmodSync(shim, 0o755);
   if (installed) {
-    mkdirSync(join(main, ".claude"), { recursive: true });
-    writeFileSync(join(main, ".claude/hitl.json"), "{}\n");
+    mkdirSync(join(main, ".hitl"), { recursive: true });
+    writeFileSync(join(main, ".hitl/manifest.json"), "{}\n");
   }
   const prsFile = join(base, "prs.json");
   const setPrs = (prs: Pr[]) =>

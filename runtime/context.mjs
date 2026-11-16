@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { emit, parseArgs } from "../installer/lib.mjs";
+import { MANIFEST_PATH, emit, parseArgs } from "../installer/lib.mjs";
 import { problemMessage, resolveHost } from "../templates/scripts/host.mjs";
 import { gatesOf, hitlHome, projectKey, readFacts } from "./memory.mjs";
 import { defaultBase, getRecord } from "./session.mjs";
@@ -52,7 +52,7 @@ export function readContext(repo, pluginRoot) {
   // Only when GITLAB_URL is why the host is unknown: a sentence naming what is wrong with it.
   const hostProblem = host === "unknown" ? problemMessage(problem) : null;
   return {
-    mode: existsSync(join(top, ".claude/hitl.json")) ? "installed" : "no-install",
+    mode: existsSync(join(top, MANIFEST_PATH)) ? "installed" : "no-install",
     host,
     ...(hostProblem ? { hostProblem } : {}),
     key,

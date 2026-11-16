@@ -3,7 +3,7 @@
 // "hitl design session: <topic> on <branch>" — and classifies each: merged · abandoned ·
 // has unsaved work · in progress. With --remove it deletes exactly the named ones after
 // re-checking them. Never prompts and never touches a remote branch.
-// An installed repository (one with .claude/hitl.json) uses its own PR shim and origin/main.
+// An installed repository (one with .hitl/manifest.json) uses its own PR shim and origin/main.
 // Where nothing is installed it uses the plugin's shim (--plugin-root), compares each entry
 // against its active-feature record's base, reports the feature's archived documents that
 // reached that base, and clears the record of a removed worktree. An installed repository

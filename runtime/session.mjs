@@ -18,7 +18,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { emit, parseArgs } from "../installer/lib.mjs";
+import { MANIFEST_PATH, emit, parseArgs } from "../installer/lib.mjs";
 import { hitlHome, mainCheckout, memoryDir } from "./memory.mjs";
 
 export const EXCLUDES = [".claude/worktrees/", ".claude/reviews/"];
@@ -95,7 +95,7 @@ function ensureExcludes(worktree) {
 /** Register `worktree` as the active feature. Refuses an installed repository. */
 export function startSession(worktree, topic, base) {
   const wt = canonical(worktree);
-  if (existsSync(join(wt, ".claude/hitl.json"))) return { refused: "installed" };
+  if (existsSync(join(wt, MANIFEST_PATH))) return { refused: "installed" };
   const path = recordPath(wt);
   const previous = path && existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null;
   const record = { worktree: wt, topic, base, created: previous?.created ?? today() };

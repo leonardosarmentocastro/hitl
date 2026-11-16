@@ -94,8 +94,8 @@ function fact(repo: string, name: string, type: string, body: string) {
 }
 
 function installed(repo: string) {
-  mkdirSync(join(repo, ".claude"), { recursive: true });
-  writeFileSync(join(repo, ".claude/hitl.json"), "{}\n");
+  mkdirSync(join(repo, ".hitl"), { recursive: true });
+  writeFileSync(join(repo, ".hitl/manifest.json"), "{}\n");
 }
 
 describe("context.mjs JSON", () => {
@@ -129,6 +129,14 @@ describe("context.mjs JSON", () => {
       status: 3,
       out: { refused: "installed" },
     });
+  });
+
+  it("does not call a repository with only the old manifest path installed (slice 3 owns that case)", () => {
+    const r = clone();
+    mkdirSync(join(r, ".claude"), { recursive: true });
+    writeFileSync(join(r, ".claude/hitl.json"), "{}\n");
+    const ctx = context(r).out;
+    expect(ctx.mode).toBe("no-install");
   });
 
   it("meets the host requirement on GitHub and on gitlab.com", () => {

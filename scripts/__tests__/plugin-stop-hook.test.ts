@@ -176,7 +176,7 @@ describe("plugin Stop hook", () => {
 
   it("exits 0 in an installed repository even with a record", () => {
     const { wt } = featureWorktree();
-    write(wt, { ".claude/hitl.json": "{}\n", [SPEC]: UNREVIEWED });
+    write(wt, { ".hitl/manifest.json": "{}\n", [SPEC]: UNREVIEWED });
     expect(plugin(wt).status).toBe(0);
   });
 
