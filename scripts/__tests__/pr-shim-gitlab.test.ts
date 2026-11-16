@@ -540,3 +540,76 @@ describe("pr.sh create on GitLab", () => {
     expect(r.stdout).toBe("");
   });
 });
+
+describe("pr.sh edit, comment and retarget on GitLab", () => {
+  const run = (args: string[]) =>
+    runGitlabShim(shim, repoWithOrigin(`${fake.url}/g/r.git`), args, {
+      GITLAB_URL: fake.url,
+      GITLAB_TOKEN: TOKEN,
+    });
+  const writes = () => fake.requests().filter((q) => q.method !== "GET");
+
+  it("edit sends only the description; the Draft title and status stand", () => {
+    fake.setState({
+      ...EMPTY,
+      mergeRequests: [mr(5, { draft: true, title: "Draft: Slice 5" })],
+    });
+    const r = run(["edit", "5", "--body-file", bodyFile("new body")]);
+    expect(r.status, r.stderr).toBe(0);
+    const [put] = writes();
+    expect(put.method).toBe("PUT");
+    expect(put.path).toBe("/api/v4/projects/g%2Fr/merge_requests/5");
+    expect(put.body).toEqual({ description: "new body" });
+    const rec = r.json as Record<string, unknown>;
+    expect(rec.body).toBe("new body");
+    expect(rec.draft).toBe(true);
+    expect(rec.title).toBe("Slice 5");
+    expectNoToken(r);
+  });
+
+  it("comment posts a note with the file's text and returns the MR's record", () => {
+    fake.setState({ ...EMPTY, mergeRequests: [mr(5)] });
+    const r = run(["comment", "5", "--body-file", bodyFile("a note")]);
+    expect(r.status, r.stderr).toBe(0);
+    const [post] = writes();
+    expect(post.method).toBe("POST");
+    expect(post.path).toBe("/api/v4/projects/g%2Fr/merge_requests/5/notes");
+    expect(post.body).toEqual({ body: "a note" });
+    const rec = r.json as Record<string, unknown>;
+    expect(rec.number).toBe(5);
+    expect(rec.ref).toBe("!5");
+    expect(rec).not.toHaveProperty("reviews");
+  });
+
+  it("retarget sends only target_branch; the record's base is the new branch", () => {
+    fake.setState({ ...EMPTY, mergeRequests: [mr(5)] });
+    const r = run(["retarget", "5", "--base", "feat/y"]);
+    expect(r.status, r.stderr).toBe(0);
+    const [put] = writes();
+    expect(put.method).toBe("PUT");
+    expect(put.body).toEqual({ target_branch: "feat/y" });
+    expect((r.json as { base: string }).base).toBe("feat/y");
+  });
+
+  const verbs: [string, (n: string) => string[]][] = [
+    ["edit", (n) => ["edit", n, "--body-file", bodyFile("x")]],
+    ["comment", (n) => ["comment", n, "--body-file", bodyFile("x")]],
+    ["retarget", (n) => ["retarget", n, "--base", "b"]],
+  ];
+
+  it.each(verbs)("%s exits 2 when GitLab fails", (_verb, args) => {
+    fake.setState({ ...EMPTY, mode: "fail", mergeRequests: [mr(5)] });
+    const r = run(args("5"));
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("GitLab 500: boom");
+    expect(r.stdout).toBe("");
+  });
+
+  it.each(verbs)("%s exits 2 for an unknown number", (_verb, args) => {
+    fake.setState({ ...EMPTY, mergeRequests: [mr(5)] });
+    const r = run(args("99"));
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("GitLab 404");
+    expect(r.stdout).toBe("");
+  });
+});

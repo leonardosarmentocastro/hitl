@@ -212,13 +212,36 @@ async function create(ctx, [base, head, title, bodyFile, draft]) {
   process.exit(3);
 }
 
-const VERBS = { list, view, create };
+/** Replace the description only: the title is never sent, so Draft status stands. */
+async function edit(ctx, [number, bodyFile]) {
+  const { json } = await api(ctx, "PUT", `/merge_requests/${number}`, {
+    body: { description: readFileSync(bodyFile, "utf8") },
+  });
+  return toRecord(json);
+}
+
+async function comment(ctx, [number, bodyFile]) {
+  await api(ctx, "POST", `/merge_requests/${number}/notes`, {
+    body: { body: readFileSync(bodyFile, "utf8") },
+  });
+  const { json } = await api(ctx, "GET", `/merge_requests/${number}`);
+  return toRecord(json);
+}
+
+async function retarget(ctx, [number, base]) {
+  const { json } = await api(ctx, "PUT", `/merge_requests/${number}`, {
+    body: { target_branch: base },
+  });
+  return toRecord(json);
+}
+
+const VERBS = { list, view, create, edit, comment, retarget };
 
 async function main(argv) {
   const [verb, ...args] = argv;
-  const ctx = context(process.env);
   const run = VERBS[verb];
-  if (!run) fail(`${verb} is not available on GitLab yet`);
+  if (!run) fail(`unknown verb: ${verb}`);
+  const ctx = context(process.env);
   const out = await run(ctx, args);
   process.stdout.write(`${JSON.stringify(out)}\n`);
 }
