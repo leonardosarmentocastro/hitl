@@ -560,3 +560,67 @@ describe("cleanup.mjs --remove — the active-feature record", () => {
     expect(existsSync(join(w.home, "projects"))).toBe(false);
   });
 });
+
+describe("cleanup.mjs — documents that reached the base branch, installed", () => {
+  const SPEC = "docs/superpowers/specs/2026-11-12-x-design.md";
+
+  /** An installed feature with its spec and some code, pushed; its umbrella PR merged at `tip`. */
+  function installedFeature(w: World, wipeFirst = false) {
+    const { path, branch } = designWorktree(w, "x");
+    mkdirSync(join(path, "docs/superpowers/specs"), { recursive: true });
+    writeFileSync(join(path, SPEC), "spec\n");
+    writeFileSync(join(path, "code.ts"), "code\n");
+    git(path, "add", "-A");
+    git(path, "commit", "-q", "-m", "feature");
+    if (wipeFirst) {
+      git(path, "rm", "-q", "-r", "docs/superpowers");
+      git(path, "commit", "-q", "-m", "wipe");
+    }
+    git(path, "push", "-q", "origin", branch);
+    const tip = git(path, "rev-parse", "HEAD");
+    w.setPrs([{ number: 9, head: branch, state: "merged", head_sha: tip }]);
+    return { path, branch, tip };
+  }
+
+  function merge(w: World, branch: string, how: "merge" | "squash" | "ff") {
+    git(w.main, "fetch", "-q", "origin");
+    if (how === "ff") git(w.main, "merge", "-q", "--ff-only", `origin/${branch}`);
+    else if (how === "merge") git(w.main, "merge", "-q", "--no-ff", "-m", "m", `origin/${branch}`);
+    else {
+      git(w.main, "merge", "-q", "--squash", `origin/${branch}`);
+      git(w.main, "commit", "-q", "-m", "squash");
+    }
+    git(w.main, "push", "-q", "origin", "HEAD:main");
+  }
+
+  for (const how of ["merge", "squash", "ff"] as const) {
+    it(`lists the spec left on the base after a ${how} merge`, () => {
+      const w = world();
+      const { path, branch } = installedFeature(w);
+      merge(w, branch, how);
+      const e = at(cleanup(w).json, path);
+      expect(e.class).toBe("merged");
+      expect(e.docsOnBase).toEqual([SPEC]);
+    });
+  }
+
+  it("is empty when the wipe PR merged first", () => {
+    const w = world();
+    const { path, branch } = installedFeature(w, true);
+    merge(w, branch, "merge");
+    const e = at(cleanup(w).json, path);
+    expect(e.class).toBe("merged");
+    expect(e.docsOnBase).toEqual([]);
+  });
+
+  it("does not list a document on the base that is not in the feature's tree", () => {
+    const w = world();
+    const { path, branch } = installedFeature(w);
+    mkdirSync(join(w.main, "docs/superpowers/specs"), { recursive: true });
+    writeFileSync(join(w.main, "docs/superpowers/specs/other-design.md"), "other\n");
+    git(w.main, "add", "-A");
+    git(w.main, "commit", "-q", "-m", "other");
+    merge(w, branch, "merge");
+    expect(at(cleanup(w).json, path).docsOnBase).toEqual([SPEC]);
+  });
+});
