@@ -113,3 +113,71 @@ export function runGitlabShim(
   }
   return { status: r.status, stdout: r.stdout, stderr: r.stderr, json };
 }
+
+/** A PR as the contract suite seeds it, whichever the backend. */
+export type SeedPr = {
+  number: number;
+  head: string;
+  base: string;
+  state: "open" | "merged" | "closed";
+  draft: boolean;
+  title: string;
+  body: string;
+  head_sha: string;
+};
+
+export type ShimResult = { status: number | null; stdout: string; stderr: string; json: unknown };
+
+/** One backend behind the shim, for the contract suite. */
+export type World = {
+  name: string;
+  setup(prs: SeedPr[]): Promise<void>;
+  run(args: string[]): ShimResult;
+  backendCalls(): number;
+  teardown(): void;
+};
+
+let fake: FakeGitlab | null = null;
+let shim: string | null = null;
+let repo = "";
+
+const glState = { open: "opened", merged: "merged", closed: "closed" } as const;
+
+/** The GitLab side of the contract suite: seeds the fake GitLab (labelled hitl), counts requests. */
+export const gitlabWorld: World = {
+  name: "gitlab",
+  async setup(prs: SeedPr[]) {
+    fake ??= await startFakeGitlab({ mergeRequests: [], approvals: {}, discussions: {} });
+    shim ??= gitlabShimDir();
+    repo = repoWithOrigin(`${fake.url}/g/r.git`);
+    fake.setState({
+      mergeRequests: prs.map((p) => ({
+        iid: p.number,
+        web_url: `${fake?.url}/g/r/-/merge_requests/${p.number}`,
+        source_branch: p.head,
+        target_branch: p.base,
+        state: glState[p.state],
+        draft: p.draft,
+        title: p.draft ? `Draft: ${p.title}` : p.title,
+        description: p.body,
+        sha: p.head_sha,
+        labels: ["hitl"],
+      })),
+      approvals: {},
+      discussions: {},
+    });
+  },
+  run(args: string[]) {
+    return runGitlabShim(shim as string, repo, args, {
+      GITLAB_URL: (fake as FakeGitlab).url,
+      GITLAB_TOKEN: "glpat-contract",
+    });
+  },
+  backendCalls() {
+    return (fake as FakeGitlab).requests().length;
+  },
+  teardown() {
+    fake?.stop();
+    fake = null;
+  },
+};
