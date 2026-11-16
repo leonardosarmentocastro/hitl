@@ -1,5 +1,7 @@
 # The `.hitl/` folder — slice 4: adopt moves, then records — Implementation Plan
 
+**Reviewed:** round 1 (2026-11-16).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Owns:** `/hitl:init --adopt` on a repository that carries hitl's files in the old places and has no install record moves the doctrine and the reviewer context into `.hitl/`, rewrites the `CLAUDE.md` import line, then writes the install record.
@@ -110,7 +112,7 @@ git commit -m "feat(adopt): move an old-place doctrine and reviewer context into
 
 **Files:**
 - Modify: `commands/init.md` (the `--adopt` branch)
-- Modify: `scripts/__tests__/old-paths.test.ts` (`MOVE_SOURCE_ALLOWED` gains `"init.md"`)
+- Modify: `scripts/__tests__/old-paths.test.ts` (`MOVE_SOURCE_ALLOWED["init.md"]` gains exactly the `CLAUDE.md` sentence below, the only one this task adds that names an old path)
 - Test: `scripts/__tests__/plugin-prompts.test.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -136,7 +138,7 @@ Expected: FAIL.
 
 - exit `3`, `refused: "move-collision"` → "both <from> and <to> exist; hitl will not choose. Keep the one you want at <to>, delete the other, and re-run. Nothing was written." Stop.
 - exit `2` → print `error`; list `moved` as "already moved: <from> → <to>"; "no manifest was written. Fix the error and re-run `/hitl:init --adopt`: it continues from here."
-- exit `0` → the existing manifest sentence with `.hitl/manifest.json`; then one line per entry of `moved`, "moved <from> → <to>"; when `claudeLine` is `rewritten`, "`CLAUDE.md` now imports `@.hitl/HITL.md`"; when `absent`, the `CLAUDE.md` sentence above; when `moved` is not empty, the "agents and commands … still name the old paths" sentence. Replace "Nothing else was touched." with "Nothing else was touched. Never commit."
+- exit `0` → the existing manifest sentence with `.hitl/manifest.json`; then one line per entry of `moved`, "moved <from> → <to>"; when `claudeLine` is `rewritten`, "`CLAUDE.md` now imports `@.hitl/HITL.md`"; when `absent`, the `CLAUDE.md` sentence above; when `moved` is not empty, the "agents and commands … still name the old paths" sentence. Keep the closing "Never commit." as it is.
 
 - [ ] **Step 4: Run both gates**
 
@@ -149,3 +151,7 @@ Expected: PASS.
 git add commands/init.md scripts/__tests__
 git commit -m "docs(init): --adopt reports what it moved into .hitl/"
 ```
+
+## Review decisions
+
+- None declined in round 1.

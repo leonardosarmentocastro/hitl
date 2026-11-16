@@ -296,7 +296,8 @@ exists only on the feature branch and is never released.
   `.hitl/HITL.md`, and none contains `.claude/review-context.md` or `.claude/hitl.json`. The
   no-install renders are exempt where they name the plugin's `doctrine/HITL.md`; the upgrade
   and adopt code and their command text are exempt where they name the old paths as the
-  source of a move.
+  source of a move, and so is a command's test for the old layout. The exemption is by exact
+  sentence, never by whole file.
 
 ## Testing the upgrade
 
@@ -327,6 +328,9 @@ never produces; cover it only if the fixture makes it cheap.
   scope: unchanged from any upgrade today.
 - 0.2.1 installs made from different commits may not all match one `v0.2.1` tag — out of
   scope: the same release step as the tag itself.
+- **Bubbled up from plan review (round 1)** — the old-path exemption is by exact sentence and
+  also covers a command's own test for the old layout (`/hitl:customize`), so the acceptance
+  scan keeps checking the rest of each exempt file.
 - *Forwarded to the plan gate:* an old-layout manifest whose version equals the plugin's
   (reachable only on this feature branch) must refuse rather than misclassify.
 - *Forwarded to the plan gate:* the README-block rewrite must be safe to run twice (never

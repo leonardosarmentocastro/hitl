@@ -1,5 +1,7 @@
 # The `.hitl/` folder — slice 2: the upgrade moves the files — Implementation Plan
 
+**Reviewed:** round 1 (2026-11-16).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Owns:** `/hitl:diff --apply` upgrades an old-layout install to the `.hitl/` layout with no hand edits: the moved files keep the repository's edits, `CLAUDE.md` imports the new path, the install record relocates, and a run that stopped part-way resumes.
@@ -66,6 +68,7 @@ it("tells the three layouts apart, current winning when both manifests exist", (
 
 - in the copy's `installer/lib.mjs`: `MANIFEST_PATH` back to `".claude/hitl.json"`, the two owned `repoPath`s back to `"HITL.md"` and `".claude/review-context.md"`, `CLAUDE_LINE` back to `"@HITL.md"`;
 - in the copy's `templates/HITL.md` and `templates/claude/review-context.md`: `.hitl/HITL.md` → `HITL.md`, `.hitl/review-context.md` → `.claude/review-context.md`, `.hitl/manifest.json` → `.claude/hitl.json`, so the recorded text of both moved files differs from the latest, as it does in the real release;
+- in the copy's `readmeBlock`: `` `.hitl/HITL.md` `` → `` `HITL.md` `` in both places, and the "reviewed like code" sentence back to "`.claude/` (agents, commands, hook) and `HITL.md` are reviewed like code". The fixture asserts the installed README block contains `` `HITL.md` `` and no `.hitl/`, so the apply-level README test of Task 4 starts red;
 - `repo` is produced by running the **copy's** `installer/render.mjs --mode write`, so it holds `HITL.md`, `.claude/review-context.md`, `.claude/hitl.json` and `@HITL.md`.
 
 ```ts
@@ -75,6 +78,7 @@ describe("diff.mjs on an old-layout install", () => {
     expect(status).toBe(0);
     expect(out.recorded).toBe(CURRENT);
     expect(out.latest).toBe(NEXT);
+    expect(out.manifestPath).toBe(".claude/hitl.json");
   });
 
   it("refuses an old-layout manifest at the plugin's own version as unowned-path", () => {
@@ -84,6 +88,8 @@ describe("diff.mjs on an old-layout install", () => {
   });
 });
 ```
+
+The same-version refusal must still hold after Task 2: the `unowned-path` check runs before any move handling.
 
 - [ ] **Step 2: Run to see them fail**
 
@@ -134,9 +140,15 @@ it("reports an untouched doctrine as one moved entry, upstream changed", () => {
   expect(entry(out, "HITL.md")).toBeUndefined();
 });
 
-it("reports a customized doctrine as both, merged clean", () => {
+it("reports a customized doctrine and an edited reviewer context as both, merged clean", () => {
   appendFileSync(join(repo, "HITL.md"), "\n## Ours\n\nA local rule.\n");
+  appendFileSync(join(repo, ".claude/review-context.md"), "\n- A local anchor.\n");
   expect(entry(out, ".hitl/HITL.md")).toMatchObject({ state: "both", merged: "clean" });
+  expect(entry(out, ".hitl/review-context.md")).toMatchObject({
+    movedFrom: ".claude/review-context.md",
+    state: "both",
+    merged: "clean",
+  });
 });
 
 it("classifies a doctrine moved by hand against the old record, never as new upstream", () => {
@@ -190,8 +202,11 @@ git commit -m "feat(diff): classify a moved file as one entry at its new path"
 ```ts
 it("moves a customized doctrine with its edits and relocates the manifest", () => {
   appendFileSync(join(repo, "HITL.md"), "\n## Ours\n\nA local rule.\n");
+  appendFileSync(join(repo, ".claude/review-context.md"), "\n- A local anchor.\n");
   const { out, status } = runDiff(repo, plugin, mk, ["--apply"]);
   expect(status).toBe(0);
+  expect(out.nothing).toBeUndefined();
+  expect(readFileSync(join(repo, ".hitl/review-context.md"), "utf8")).toContain("A local anchor.");
   const moved = readFileSync(join(repo, ".hitl/HITL.md"), "utf8");
   expect(moved).toContain("A local rule.");
   expect(moved).toContain(".hitl/review-context.md"); // the upstream change arrived too
@@ -214,21 +229,30 @@ it("writes a conflicted moved file at the new path and removes the old one", () 
 
 it("resumes when a pair's write landed and its removal did not", () => {
   // run --apply on a copy to learn the outcome text; in the real repo write that text at
-  // .hitl/HITL.md and leave HITL.md in place; then --apply
+  // .hitl/HITL.md (call it outcomeText) and leave HITL.md in place; then --apply
   expect(status).toBe(0);
   expect(existsSync(join(repo, "HITL.md"))).toBe(false);
+  expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe(outcomeText);
 });
 
+// The state "files moved, manifest not" is built directly (a directory at .hitl/manifest.json
+// would make layoutOf answer "current" and never reach it): keep a copy of .claude/hitl.json,
+// run --apply to completion, then delete .hitl/manifest.json and restore .claude/hitl.json.
 it("resumes when the files moved and the manifest did not", () => {
-  // make .hitl/manifest.json unwritable-by-collision: create .hitl/manifest.json as a directory,
-  // run --apply (exit 2, manifest: "untouched"), remove the directory, run --apply again
+  const before = readFileSync(join(repo, ".hitl/HITL.md"), "utf8"); // holds "A local rule."
+  const second = runDiff(repo, plugin, mk, ["--apply"]);
   expect(second.status).toBe(0);
-  expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toContain("A local rule.");
+  expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe(before);
   expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+  expect(existsSync(join(repo, ".hitl/manifest.json"))).toBe(true);
 });
 
 it("does not merge again a moved file that still carries conflict hunks", () => {
-  // after the conflict apply stopped before the manifest moved: text at `to` must be byte-identical after the re-run
+  // the same built state, starting from the conflicting edit
+  const before = readFileSync(join(repo, ".hitl/HITL.md"), "utf8"); // has <<<<<<< this repository
+  const second = runDiff(repo, plugin, mk, ["--apply"]);
+  expect(entry(second.out, ".hitl/HITL.md")).toMatchObject({ state: "both", merged: "conflict" });
+  expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe(before);
 });
 
 it("removes a leftover old manifest on a current-layout repository", () => {
@@ -290,7 +314,7 @@ it("rewrites the doctrine path in a README block exactly once", () => {
 });
 ```
 
-In `diff.test.ts`, on the old-layout fixture after `--apply`: `CLAUDE.md` is `@.hitl/HITL.md\n` and `out.claudeLine` is `"rewritten"`; with `CLAUDE.md` deleted beforehand `out.claudeLine` is `"absent"` and no `CLAUDE.md` exists afterwards; the README's hitl block names `` `.hitl/HITL.md` `` and a line added by hand outside the markers naming `` `HITL.md` `` is unchanged.
+In `diff.test.ts`, on the old-layout fixture after `--apply`: `CLAUDE.md` is `@.hitl/HITL.md\n` and `out.claudeLine` is `"rewritten"`; with `CLAUDE.md` deleted beforehand `out.claudeLine` is `"absent"` and no `CLAUDE.md` exists afterwards; the README's hitl block names `` `.hitl/HITL.md` `` and a line added by hand outside the markers naming `` `HITL.md` `` is unchanged; and on the resumed state of Task 3 (files moved, old manifest restored) a second `--apply` leaves the block without `.hitl/.hitl/`.
 
 - [ ] **Step 2: Run to see them fail**
 
@@ -315,7 +339,7 @@ git commit -m "feat(diff): --apply rewrites the CLAUDE.md import line and the RE
 
 **Files:**
 - Modify: `commands/diff.md`
-- Modify: `scripts/__tests__/old-paths.test.ts` (`MOVE_SOURCE_ALLOWED` gains `"diff.md"`)
+- Modify: `scripts/__tests__/old-paths.test.ts` (`MOVE_SOURCE_ALLOWED["diff.md"]` gains exactly the sentences this task adds that name an old path: the `CLAUDE.md` sentence and the undo-recipe sentence naming `.claude/hitl.json`; nothing else in `diff.md` may name one)
 - Test: `scripts/__tests__/plugin-prompts.test.ts`
 
 - [ ] **Step 1: Write the failing test** in `plugin-prompts.test.ts`:
@@ -358,3 +382,7 @@ Expected: PASS.
 git add commands/diff.md scripts/__tests__
 git commit -m "docs(diff): report the move to .hitl/, stage it and say who must update the plugin"
 ```
+
+## Review decisions
+
+- None declined in round 1.

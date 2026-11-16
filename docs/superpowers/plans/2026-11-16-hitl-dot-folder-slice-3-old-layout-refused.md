@@ -1,5 +1,7 @@
 # The `.hitl/` folder — slice 3: the old layout is refused — Implementation Plan
 
+**Reviewed:** round 1 (2026-11-16).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Owns:** On a repository still on the old layout, the plugin's commands stop with the upgrade message, the plugin's Stop hook and session registration treat it as installed, and `/hitl:help` names the upgrade as the next step.
@@ -20,7 +22,8 @@
 - An old-layout repository reports `mode: "installed"`.
 - `/hitl:diff` is never blocked: it is the fix.
 - The repository's own installed commands and its own Stop hook are untouched by this slice.
-- What proves what (forwarded from the spec review): script tests prove the `layout` and `mode` values, the engines' refusals, the hook's silence and the session refusal; text tests prove each command carries the exact message and branches on the script's field. No command dry run is required for this slice.
+- What proves what (forwarded from the spec review): script tests prove the `layout` and `mode` values, the engines' refusals, the hook's silence and the session refusal; text tests guard each command's wording against regression. The behaviour of the prompt itself — the spec's third Acceptance bullet — is proved by one dry run, described in Task 3 and recorded in the PR body.
+- The one sentence in `commands/customize.md` that tests for `.claude/hitl.json` is the only old-path text this slice adds; it is allowed by exact sentence in `old-paths.test.ts`.
 - Local gates: `pnpm test`, `pnpm format:check`.
 
 ## Review Focus
@@ -187,7 +190,7 @@ Expected: FAIL.
 - [ ] **Step 3: Edit the commands**
 
 - `brainstorming.md`, step 2, as the first bullet after reading the JSON: "**`layout: "old"`** → say exactly, as your only output, the message in a code block, and stop. Create no worktree, write no record."
-- `customize.md`, step 1, before reading the manifest (most knobs never call a script, so the command tests the files itself): "If `.hitl/manifest.json` is absent and `.claude/hitl.json` is present, print the message and stop." Its `testing-rules` branch also handles exit `3`, `refused: "old-layout"` the same way. Add `"customize.md"` to `MOVE_SOURCE_ALLOWED` in `scripts/__tests__/old-paths.test.ts`, since this sentence names the old manifest path.
+- `customize.md`, step 1, before reading the manifest (most knobs never call a script, so the command tests the files itself): "If `.hitl/manifest.json` is absent and `.claude/hitl.json` is present, print the message and stop." Its `testing-rules` branch also handles exit `3`, `refused: "old-layout"` the same way. Add that exact sentence to `MOVE_SOURCE_ALLOWED["customize.md"]` in `scripts/__tests__/old-paths.test.ts`, since it names the old manifest path.
 - `cleanup.md`: exit `3`, `refused: "old-layout"` → the message; stop.
 - `help.md`: `old layout` → "Installed hitl <manifestVersion> on the layout from before 0.3.0." then the message, then the prerequisites as always.
 - `init.md`, both `manifest-present` branches: when `layout` is `old`, the message in place of the "already initialised" sentence.
@@ -197,9 +200,17 @@ Expected: FAIL.
 Run: `pnpm test && pnpm format:check`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Dry run of `/hitl:brainstorming` on an old-layout repository**
+
+In a temp git repository holding one commit and only `.claude/hitl.json` (`{ "version": "0.2.1", "provider": "github", "testing": [], "files": {} }`), with the plugin loaded from this branch (`claude --plugin-dir <this worktree>`), run `/hitl:brainstorming anything`. Expected: the output is the upgrade message and nothing else; `git worktree list` shows one entry; `git branch` shows no new branch; nothing was written under `~/.hitl/projects/` for that repository. If the implementer cannot launch a nested Claude Code session, it reports this step as *not run* and the PR body lists it, with these expected results, as a check for the human.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add commands scripts/__tests__
 git commit -m "feat(commands): stop with the upgrade message on an old-layout repository"
 ```
+
+## Review decisions
+
+- None declined in round 1.

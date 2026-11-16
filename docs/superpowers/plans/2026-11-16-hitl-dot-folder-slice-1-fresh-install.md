@@ -1,5 +1,7 @@
 # The `.hitl/` folder — slice 1: fresh install in the new layout — Implementation Plan
 
+**Reviewed:** round 1 (2026-11-16).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Owns:** `/hitl:init` writes the doctrine, the reviewer context and the install record under `.hitl/`, every installed file names those paths, the plugin recognises the new install record, and this repository itself is on the new layout at 0.3.0.
@@ -23,6 +25,8 @@
 - Local gates before reporting done: `pnpm test` and `pnpm format:check`.
 - File tripwire: this slice crosses ~20 files, because every agent template, most command texts and their rendered copies in this repository name a moved path. It is one capability (the layout), and splitting it would leave templates and their own render disagreeing, which the drift test forbids.
 - Tests that read the disk use temp directories, never `docs/superpowers/`.
+- Tasks 1 to 3 are committed with the `drift`, `self-manifest` and `plugin-drift` suites red: the templates lead and this repository's own copy follows in Task 4. The slice ends green; no single commit before Task 4 is expected to.
+- Known side effect until slice 4: because `collisions` now counts old-path files, `/hitl:init --adopt` accepts a repository whose only hitl file is a root `HITL.md` and records it without moving anything. Feature-branch only; slice 4 adds the move.
 
 ## Review Focus
 
@@ -193,15 +197,17 @@ git commit -m "feat(runtime): detect an install by .hitl/manifest.json"
 
 **Interfaces:**
 - Consumes: `renderAll`, `readmeBlock`, `DEFAULT_CHOICES` from `installer/lib.mjs`.
-- Produces: `scripts/__tests__/old-paths.test.ts` exporting nothing; slices 2 and 4 add entries to its `MOVE_SOURCE_ALLOWED` list.
+- Produces: `scripts/__tests__/old-paths.test.ts`, with `MOVE_SOURCE_ALLOWED: Record<string, string[]>` (file basename → exact allowed sentences), empty in this slice; slices 2, 3 and 4 add sentences to it.
 
 - [ ] **Step 1: Write the failing test `scripts/__tests__/old-paths.test.ts`**
 
 ```ts
 const BARE_DOCTRINE = /(?<!\.hitl\/)(?<!doctrine\/)HITL\.md/;
 const OLD = [".claude/review-context.md", ".claude/hitl.json"];
-// Hand-written commands allowed to name an old path as the source of a move (slices 2 and 4).
-const MOVE_SOURCE_ALLOWED: string[] = [];
+// Exact sentences a hand-written command may carry although they name an old path: the source
+// of a move, or the test for the old layout. Stripped before the scan; the rest of the file is
+// still checked. Slices 2, 3 and 4 add their own sentences.
+const MOVE_SOURCE_ALLOWED: Record<string, string[]> = {};
 
 describe("nothing installed names an old path", () => {
   const rendered = renderAll(ROOT, { ...DEFAULT_CHOICES, testing: [...TESTING_ORDER] });
@@ -218,11 +224,15 @@ describe("nothing installed names an old path", () => {
 describe("no hand-written plugin command names an old path", () => {
   // every commands/*.md that is not a pluginFiles() render
   for (const file of handWritten)
-    if (!MOVE_SOURCE_ALLOWED.includes(file))
-      it(file, () => {
-        expect(text).not.toMatch(BARE_DOCTRINE);
-        for (const o of OLD) expect(text).not.toContain(o);
-      });
+    it(file, () => {
+      let text = readFileSync(join(ROOT, "commands", file), "utf8");
+      for (const allowed of MOVE_SOURCE_ALLOWED[file] ?? []) {
+        expect(text).toContain(allowed); // a stale allowance is a failure too
+        text = text.replace(allowed, "");
+      }
+      expect(text).not.toMatch(BARE_DOCTRINE);
+      for (const o of OLD) expect(text).not.toContain(o);
+    });
 });
 ```
 
@@ -244,7 +254,7 @@ Expected: FAIL, naming each file that still holds an old path.
 - `commands/brainstorming.md:52`: "Read the repository's `.hitl/HITL.md`".
 - `commands/customize.md`: description, the knob table, both `grep` lines (`grep -rn --exclude-dir=worktrees "hitl:knob <id>" .hitl/ AGENTS.md .claude/`), the `diff`/`cp`/`patch` recipe and `.rej` name, and the manifest path.
 - `commands/help.md:39`: "edit .hitl/HITL.md or .claude/ by pull request".
-- `commands/init.md`: every `HITL.md` and `.claude/hitl.json`; in the `collision` branch add: "A root `HITL.md` or `.claude/review-context.md` is a doctrine from an earlier layout: `/hitl:init --adopt` moves it."
+- `commands/init.md`: every `HITL.md` and `.claude/hitl.json`; in the `collision` branch add, naming no old path (the refusal's `paths` already lists them): "A doctrine or reviewer context from the earlier layout is in the way: `/hitl:init --adopt` moves it."
 - `commands/diff.md`: `.claude/hitl.json` → `.hitl/manifest.json` (refusal texts, the staging line, the undo recipe). The move itself is slice 2.
 - `README.md`: the table rows and the prose.
 
@@ -312,3 +322,7 @@ Expected: every suite PASS; Prettier clean.
 git add -A .hitl .claude CLAUDE.md AGENTS.md README.md doctrine agents commands runtime scripts/__tests__
 git commit -m "chore(hitl): move this repository to the .hitl/ layout at 0.3.0"
 ```
+
+## Review decisions
+
+- None declined in round 1.
