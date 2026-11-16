@@ -9,6 +9,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -677,5 +678,58 @@ describe("diff.mjs on an old-layout install", () => {
     expect(status).toBe(3);
     expect(out.refused).toBe("unowned-path");
     expect(out.paths).toEqual([".claude/review-context.md", "HITL.md"]);
+  });
+});
+
+describe("diff.mjs reports a moved file as one entry at its new path", () => {
+  it("reports an untouched doctrine as one moved entry, upstream changed", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    const { out, status } = runDiff(repo, plugin, mk);
+    expect(status).toBe(0);
+    const e = entry(out, ".hitl/HITL.md");
+    expect(e).toMatchObject({ movedFrom: "HITL.md", state: "upstream changed" });
+    expect(entry(out, "HITL.md")).toBeUndefined();
+    expect(entry(out, ".claude/review-context.md")).toBeUndefined();
+  });
+
+  it("reports a customized doctrine and an edited reviewer context as both, merged clean", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    appendFileSync(join(repo, "HITL.md"), "\n## Ours\n\nA local rule.\n");
+    appendFileSync(join(repo, ".claude/review-context.md"), "\n- A local anchor.\n");
+    const { out } = runDiff(repo, plugin, mk);
+    expect(entry(out, ".hitl/HITL.md")).toMatchObject({ state: "both", merged: "clean" });
+    expect(entry(out, ".hitl/review-context.md")).toMatchObject({
+      movedFrom: ".claude/review-context.md",
+      state: "both",
+      merged: "clean",
+    });
+  });
+
+  it("classifies a doctrine moved by hand against the old record, never as new upstream", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    appendFileSync(join(repo, "HITL.md"), "\n## Ours\n\nA local rule.\n");
+    mkdirSync(join(repo, ".hitl"));
+    renameSync(join(repo, "HITL.md"), join(repo, ".hitl/HITL.md"));
+    const { out } = runDiff(repo, plugin, mk);
+    expect(entry(out, ".hitl/HITL.md")).toMatchObject({ movedFrom: "HITL.md", state: "both" });
+  });
+
+  it("refuses when both paths hold different text", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    mkdirSync(join(repo, ".hitl"));
+    writeFileSync(join(repo, ".hitl/HITL.md"), "Something else entirely.\n");
+    const { out, status } = runDiff(repo, plugin, mk);
+    expect(status).toBe(3);
+    expect(out).toMatchObject({ refused: "move-collision", paths: ["HITL.md", ".hitl/HITL.md"] });
+  });
+
+  it("reports a deleted doctrine as a moved entry, missing locally", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    rmSync(join(repo, "HITL.md"));
+    const { out } = runDiff(repo, plugin, mk);
+    expect(entry(out, ".hitl/HITL.md")).toMatchObject({
+      movedFrom: "HITL.md",
+      state: "missing locally",
+    });
   });
 });

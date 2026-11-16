@@ -23,6 +23,7 @@ import {
   BLOCK_END,
   BLOCK_START,
   MANIFEST_PATH,
+  MOVES,
   compareVersions,
   gitignoreBlock,
   manifestFor,
@@ -103,6 +104,27 @@ function mergeThree(repoText, recordedText, latestText) {
   return { text: r.stdout, merged: r.status === 0 ? "clean" : "conflict" };
 }
 
+/** Raised by classify when the recorded render lacks the text a three-way merge needs. */
+class RecordedTextMissing extends Error {}
+
+/**
+ * One owned file's state from its three versions, and the outcome: the text that should sit at
+ * its path after an apply (the latest render, the repository's text, or the three-way merge).
+ * Throws RecordedTextMissing, or the merge's own error.
+ */
+function classify(repoText, recHash, recText, latest) {
+  if (repoText === null) return { state: "missing locally", content: latest.content };
+  const r = sha256(repoText);
+  const lat = sha256(latest.content);
+  if (r === recHash && recHash === lat) return { state: "unchanged", content: latest.content };
+  if (r === recHash) return { state: "upstream changed", content: latest.content };
+  if (recHash === lat) return { state: "locally edited", content: repoText };
+  if (r === lat) return { state: "already applied", content: repoText };
+  if (recText === undefined) throw new RecordedTextMissing();
+  const m = mergeThree(repoText, recText, latest.content);
+  return { state: "both", merged: m.merged, content: m.text };
+}
+
 export async function run(args) {
   const { repo, "plugin-root": pluginRoot, marketplace, apply } = args;
   if (!repo || !pluginRoot || !marketplace) return { code: 1, out: { error: USAGE } };
@@ -142,14 +164,53 @@ export async function run(args) {
   if (unowned.length > 0)
     return { code: 3, out: { refused: "unowned-path", paths: unowned, manifestPath } };
 
+  const readRepo = (p) => (existsSync(join(repo, p)) ? readFileSync(join(repo, p), "utf8") : null);
+  const mergeFailed = (e) => ({
+    code: 2,
+    out: { error: String(e.message), written: [], deleted: [], manifest: "untouched" },
+  });
+
   const files = [];
-  const writes = []; // { path, content, executable } or { path, delete: true }
-  const paths = [...new Set([...Object.keys(manifest.files), ...latest.keys()])].sort();
+  const writes = []; // { path, content, executable, removeFrom?, resume? } or { path, delete: true }
+
+  // A recorded `from` whose `to` the latest render owns is the repository's copy of `to`: one
+  // entry at `to`, classified against the record of `from`, always written (the move is a change).
+  const moves = MOVES.filter(
+    (m) => m.from in manifest.files && latest.has(m.to) && !latest.has(m.from),
+  );
+  for (const { from, to } of moves) {
+    const fromText = readRepo(from);
+    const toText = readRepo(to);
+    const lat = latest.get(to);
+    let c;
+    try {
+      c = classify(fromText ?? toText, manifest.files[from], recorded.get(from)?.content, lat);
+    } catch (e) {
+      if (e instanceof RecordedTextMissing)
+        return { code: 3, out: { refused: "manifest-mismatch", paths: [from], manifestPath } };
+      return mergeFailed(e);
+    }
+    // Both on disk: resume only when `to` already holds what this move would write there.
+    const resume = fromText !== null && toText !== null;
+    if (resume && toText !== c.content)
+      return { code: 3, out: { refused: "move-collision", paths: [from, to], manifestPath } };
+    const entry = { path: to, movedFrom: from, state: c.state };
+    if (c.merged) entry.merged = c.merged;
+    files.push(entry);
+    const w = { path: to, content: c.content, executable: lat.executable };
+    if (fromText !== null) w.removeFrom = from;
+    if (resume) w.resume = true;
+    writes.push(w);
+  }
+  const movedPaths = new Set(moves.flatMap((m) => [m.from, m.to]));
+
+  const paths = [...new Set([...Object.keys(manifest.files), ...latest.keys()])]
+    .filter((p) => !movedPaths.has(p))
+    .sort();
   for (const path of paths) {
     const inRecorded = path in manifest.files;
     const inLatest = latest.has(path);
-    const abs = join(repo, path);
-    const repoText = existsSync(abs) ? readFileSync(abs, "utf8") : null;
+    const repoText = readRepo(path);
     const entry = { path };
     if (!inRecorded) {
       entry.state = "new upstream";
@@ -161,36 +222,19 @@ export async function run(args) {
         entry.local = "same";
         writes.push({ path, delete: true });
       } else entry.local = "edited";
-    } else if (repoText === null) {
-      entry.state = "missing locally";
-      writes.push({ path, ...latest.get(path) });
     } else {
-      const r = sha256(repoText);
-      const rec = manifest.files[path];
-      const lat = sha256(latest.get(path).content);
-      if (r === rec && rec === lat) entry.state = "unchanged";
-      else if (r === rec) {
-        entry.state = "upstream changed";
-        writes.push({ path, ...latest.get(path) });
-      } else if (rec === lat) entry.state = "locally edited";
-      else if (r === lat) entry.state = "already applied";
-      else {
-        const recordedText = recorded.get(path)?.content;
-        if (recordedText === undefined)
+      let c;
+      try {
+        c = classify(repoText, manifest.files[path], recorded.get(path)?.content, latest.get(path));
+      } catch (e) {
+        if (e instanceof RecordedTextMissing)
           return { code: 3, out: { refused: "manifest-mismatch", paths: [path], manifestPath } };
-        let m;
-        try {
-          m = mergeThree(repoText, recordedText, latest.get(path).content);
-        } catch (e) {
-          return {
-            code: 2,
-            out: { error: String(e.message), written: [], deleted: [], manifest: "untouched" },
-          };
-        }
-        entry.state = "both";
-        entry.merged = m.merged;
-        writes.push({ path, content: m.text, executable: latest.get(path).executable });
+        return mergeFailed(e);
       }
+      entry.state = c.state;
+      if (c.merged) entry.merged = c.merged;
+      if (["missing locally", "upstream changed", "both"].includes(c.state))
+        writes.push({ path, content: c.content, executable: latest.get(path).executable });
     }
     files.push(entry);
   }
