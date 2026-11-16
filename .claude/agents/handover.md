@@ -96,8 +96,8 @@ reconstruct. No file, function or test names.>
 
 ## Notes
 
-Spec, plans and this document are transient and are removed from `main` after merge. This
-description is the durable record.
+Spec, plans and this document are transient and leave through the generated wipe PR before
+this feature merges into `main`. This description is the durable record.
 
 ## Fix-up
 <only in fix-up mode; otherwise omit the section>

@@ -5,7 +5,7 @@
   "files": {
     ".claude/agents/adversarial-reviewer.md": "07ac59e237bf43951f095286062bb861431c1fb003d5d1de33d3a2f181d2bd26",
     ".claude/agents/fixer.md": "325b57592e2470d00d40af1957e677e2eae03845b6971ad3fdf131950034c413",
-    ".claude/agents/handover.md": "4a7c37da6b003fe7d4e7c2fbdb9893330ac0486745c4f8244a0b712e2f6f0ac7",
+    ".claude/agents/handover.md": "00ee3e33911f09b3f287138b44fd9c4673ebfacbbb82af4642f33a4c9c70a466",
     ".claude/agents/implementer.md": "b462bf683bc61b51987538435c22cb3c2b4b056c6a78428341242246a1a4f948",
     ".claude/agents/plan-reviewer.md": "e95bdae390d1b316ff0512c1bafa98c16d6ba37e8c0759abfc1a562e8ca61ed2",
     ".claude/agents/security-reviewer.md": "c3c16f15b62e5d803d15db49a75b0149006818a8677f2b8979c0549e70f95ac7",

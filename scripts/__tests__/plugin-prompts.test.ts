@@ -2,6 +2,8 @@
 // The no-install prompts the plugin ships: rendered from the installed templates, they must
 // point at the plugin's doctrine and the project's memory, never at a file only an installed
 // repository has, and name every workflow command and agent with its `hitl:` prefix.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderAll, renderPlugin, THIS_REPO_CHOICES } from "../../installer/lib.mjs";
 
@@ -207,9 +209,6 @@ describe("the plugin's no-install prompts", () => {
   });
 });
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 describe("the install prompts no longer ask about the CI wipe job", () => {
   for (const p of ["commands/init.md", "commands/customize.md"]) {
     it(`${p} names neither the job, the ci answer nor the --ci argument`, () => {
@@ -219,4 +218,14 @@ describe("the install prompts no longer ask about the CI wipe job", () => {
       expect(text).not.toContain("--ci");
     });
   }
+});
+
+describe("the umbrella PR body says where the documents go", () => {
+  it("the installed handover agent no longer promises removal from main after merge", () => {
+    const text = renderAll(ROOT, THIS_REPO_CHOICES).get(".claude/agents/handover.md")!.content;
+    expect(text).not.toContain("removed from `main` after merge");
+    expect(text).toContain(
+      "leave through the generated wipe PR before\nthis feature merges into `main`",
+    );
+  });
 });
