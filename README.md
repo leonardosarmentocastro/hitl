@@ -135,7 +135,8 @@ apply), shows you what it will write, and writes it. Commit the result like any 
 change.
 
 Already copied the workflow by hand? `/hitl:init --adopt` records what you have without
-rewriting it.
+rewriting it. It first moves a doctrine and reviewer context it finds in the old places into
+`.hitl/`, and points `CLAUDE.md` at the doctrine's new place.
 
 ## Your first feature
 
