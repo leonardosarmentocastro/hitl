@@ -303,3 +303,28 @@ describe("the .hitl/ layout", () => {
     expect(collisions(repo, DEFAULT_CHOICES)).toEqual(["HITL.md"]);
   });
 });
+
+import { layoutOf, readManifestOf } from "../../installer/lib.mjs";
+
+describe("layoutOf", () => {
+  it("tells the three layouts apart, current winning when both manifests exist", () => {
+    const manifest = JSON.stringify({ version: "0.2.0", files: {} });
+    const empty = mkdtempSync(join(tmpdir(), "hitl-layout-none-"));
+    const withOldManifest = mkdtempSync(join(tmpdir(), "hitl-layout-old-"));
+    mkdirSync(join(withOldManifest, ".claude"));
+    writeFileSync(join(withOldManifest, ".claude/hitl.json"), manifest);
+    const withBoth = mkdtempSync(join(tmpdir(), "hitl-layout-both-"));
+    mkdirSync(join(withBoth, ".claude"));
+    mkdirSync(join(withBoth, ".hitl"));
+    writeFileSync(join(withBoth, ".claude/hitl.json"), manifest);
+    writeFileSync(join(withBoth, ".hitl/manifest.json"), manifest);
+    expect(layoutOf(empty)).toBe("none");
+    expect(layoutOf(withOldManifest)).toBe("old");
+    expect(layoutOf(withBoth)).toBe("current");
+    expect(readManifestOf(withOldManifest)?.path).toBe(".claude/hitl.json");
+    expect(readManifestOf(withOldManifest)?.layout).toBe("old");
+    expect(readManifestOf(withOldManifest)?.manifest.version).toBe("0.2.0");
+    expect(readManifestOf(withBoth)?.path).toBe(".hitl/manifest.json");
+    expect(readManifestOf(empty)).toBeNull();
+  });
+});

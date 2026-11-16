@@ -197,7 +197,7 @@ describe("diff.mjs refusals", () => {
     editManifest(repo, (m) => (m.version = "0.0.9"));
     const r = diff(repo, plugin, mk);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "tag-missing", tag: "v0.0.9" });
+    expect(r.json).toEqual({ refused: "tag-missing", tag: "v0.0.9", manifestPath: MANIFEST_PATH });
   });
 
   it("refuses a manifest ahead of the plugin instead of proposing a downgrade", () => {
@@ -205,7 +205,12 @@ describe("diff.mjs refusals", () => {
     editManifest(repo, (m) => (m.version = "9.9.9"));
     const r = diff(repo, plugin, mk);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "ahead", recorded: "9.9.9", plugin: NEXT });
+    expect(r.json).toEqual({
+      refused: "ahead",
+      recorded: "9.9.9",
+      plugin: NEXT,
+      manifestPath: MANIFEST_PATH,
+    });
   });
 
   it("refuses a manifest path outside the repository instead of deleting it", () => {
@@ -216,7 +221,7 @@ describe("diff.mjs refusals", () => {
     editManifest(repo, (m) => (m.files[key] = sha256("keep\n")));
     const r = diff(repo, plugin, mk, true);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "unowned-path", paths: [key] });
+    expect(r.json).toEqual({ refused: "unowned-path", paths: [key], manifestPath: MANIFEST_PATH });
     expect(existsSync(outside)).toBe(true);
   });
 
@@ -229,7 +234,11 @@ describe("diff.mjs refusals", () => {
     });
     const r = diff(repo, plugin, mk, true);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "unowned-path", paths: ["/etc/hostname", "notes.md"] });
+    expect(r.json).toEqual({
+      refused: "unowned-path",
+      paths: ["/etc/hostname", "notes.md"],
+      manifestPath: MANIFEST_PATH,
+    });
     expect(readFileSync(join(repo, "notes.md"), "utf8")).toBe("ours\n");
   });
 
@@ -238,7 +247,11 @@ describe("diff.mjs refusals", () => {
     editManifest(repo, (m) => (m.files[".hitl/HITL.md"] = "0".repeat(64)));
     const r = diff(repo, plugin, mk);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "manifest-mismatch", paths: [".hitl/HITL.md"] });
+    expect(r.json).toEqual({
+      refused: "manifest-mismatch",
+      paths: [".hitl/HITL.md"],
+      manifestPath: MANIFEST_PATH,
+    });
   });
 });
 
@@ -550,5 +563,119 @@ describe("diff.mjs upgrading a manifest written by an older hitl with the CI wip
     expect(a.json.deleted).toEqual([SCRIPT]);
     expect(a.json.keptRemoved).toEqual([]);
     expect(manifestOf(repo)).not.toHaveProperty("ci");
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Upgrading an install made before 0.3.0, whose files sat at the old paths.
+
+function runDiff(repo: string, plugin: string, mk: string, extra: string[] = []) {
+  const r = spawnSync(
+    "node",
+    [DIFF, "--repo", repo, "--plugin-root", plugin, "--marketplace", mk, ...extra],
+    {
+      encoding: "utf8",
+    },
+  );
+  if (!r.stdout) throw new Error(r.stderr);
+  return { out: JSON.parse(r.stdout), status: r.status };
+}
+
+function entry(out: any, path: string) {
+  return out.files.find((f: any) => f.path === path);
+}
+
+/** Replace every anchor in a file of the copy, asserting each is present first. */
+function patch(file: string, pairs: [string, string][]) {
+  let text = readFileSync(file, "utf8");
+  for (const [from, to] of pairs) {
+    expect(text, `${file}: ${from}`).toContain(from);
+    text = text.split(from).join(to);
+  }
+  writeFileSync(file, text);
+}
+
+let oldLayout: { mk: string; plugin: string } | undefined;
+
+/**
+ * A marketplace whose tag v<CURRENT> is this repository's installer and templates patched back
+ * to the layout before 0.3.0; a plugin root at NEXT; and a fresh repository installed by the
+ * tag's own render.mjs (HITL.md, .claude/review-context.md, .claude/hitl.json, @HITL.md).
+ */
+function fixtureOldLayout(): { mk: string; plugin: string; repo: string } {
+  if (!oldLayout) {
+    const mk = mkdtempSync(join(tmpdir(), "hitl-mk-old-"));
+    copyPlugin(mk);
+    patch(join(mk, "installer/lib.mjs"), [
+      [
+        'export const MANIFEST_PATH = ".hitl/manifest.json";',
+        'export const MANIFEST_PATH = ".claude/hitl.json";',
+      ],
+      ['export const DOCTRINE_PATH = ".hitl/HITL.md";', 'export const DOCTRINE_PATH = "HITL.md";'],
+      ['repoPath: ".hitl/review-context.md",', 'repoPath: ".claude/review-context.md",'],
+      ['export const CLAUDE_LINE = "@.hitl/HITL.md";', 'export const CLAUDE_LINE = "@HITL.md";'],
+      ["The doctrine is \\`.hitl/HITL.md\\`.", "The doctrine is \\`HITL.md\\`."],
+      [
+        "- \\`.claude/\\` (agents, commands, hook) and \\`.hitl/\\` (the doctrine, the reviewer context) are\n  reviewed like code: change them by pull request.",
+        "- \\`.claude/\\` (agents, commands, hook) and \\`HITL.md\\` are reviewed like code: change them by\n  pull request.",
+      ],
+    ]);
+    for (const t of ["templates/HITL.md", "templates/claude/review-context.md"]) {
+      let text = readFileSync(join(mk, t), "utf8");
+      expect(text, t).toContain(".hitl/");
+      text = text
+        .split(".hitl/HITL.md")
+        .join("HITL.md")
+        .split(".hitl/review-context.md")
+        .join(".claude/review-context.md")
+        .split(".hitl/manifest.json")
+        .join(".claude/hitl.json");
+      writeFileSync(join(mk, t), text);
+    }
+    git(mk, ["init", "-q", "-b", "main"]);
+    git(mk, ["config", "user.email", "t@example.com"]);
+    git(mk, ["config", "user.name", "t"]);
+    git(mk, ["add", "-A"]);
+    git(mk, ["commit", "-q", "-m", CURRENT]);
+    git(mk, ["tag", `v${CURRENT}`]);
+
+    const plugin = mkdtempSync(join(tmpdir(), "hitl-plugin-next-"));
+    copyPlugin(plugin);
+    const pj = join(plugin, ".claude-plugin/plugin.json");
+    writeFileSync(
+      pj,
+      JSON.stringify({ ...JSON.parse(readFileSync(pj, "utf8")), version: NEXT }, null, 2),
+    );
+    oldLayout = { mk, plugin };
+  }
+  const repo = installedRepo(oldLayout.mk);
+  for (const p of ["HITL.md", ".claude/review-context.md", ".claude/hitl.json"]) {
+    expect(existsSync(join(repo, p)), p).toBe(true);
+  }
+  expect(existsSync(join(repo, ".hitl"))).toBe(false);
+  expect(readFileSync(join(repo, "CLAUDE.md"), "utf8")).toBe("@HITL.md\n");
+  const readme = readFileSync(join(repo, "README.md"), "utf8");
+  expect(readme).toContain("`HITL.md`");
+  expect(readme).not.toContain(".hitl/");
+  return { ...oldLayout, repo };
+}
+
+describe("diff.mjs on an old-layout install", () => {
+  it("finds the manifest at the old path and reports the versions", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    const { out, status } = runDiff(repo, plugin, mk);
+    expect(status).toBe(0);
+    expect(out.recorded).toBe(CURRENT);
+    expect(out.latest).toBe(NEXT);
+    expect(out.manifestPath).toBe(".claude/hitl.json");
+  });
+
+  it("refuses an old-layout manifest at the plugin's own version as unowned-path", () => {
+    const { mk, repo } = fixtureOldLayout();
+    // plugin root = ROOT (version CURRENT): the latest render owns no `from` path
+    const { out, status } = runDiff(repo, ROOT, mk);
+    expect(status).toBe(3);
+    expect(out.refused).toBe("unowned-path");
+    expect(out.paths).toEqual([".claude/review-context.md", "HITL.md"]);
   });
 });

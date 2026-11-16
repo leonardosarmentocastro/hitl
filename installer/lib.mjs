@@ -154,6 +154,21 @@ export function readManifest(repoRoot) {
   const p = join(repoRoot, MANIFEST_PATH);
   return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null;
 }
+
+/** Which layout a repository is on: `current` (.hitl/), `old` (before 0.3.0) or `none`. */
+export function layoutOf(repoRoot) {
+  if (existsSync(join(repoRoot, MANIFEST_PATH))) return "current";
+  if (existsSync(join(repoRoot, OLD_MANIFEST_PATH))) return "old";
+  return "none";
+}
+
+/** The manifest of whichever layout the repository is on, with its path; null for `none`. */
+export function readManifestOf(repoRoot) {
+  const layout = layoutOf(repoRoot);
+  if (layout === "none") return null;
+  const path = layout === "current" ? MANIFEST_PATH : OLD_MANIFEST_PATH;
+  return { manifest: JSON.parse(readFileSync(join(repoRoot, path), "utf8")), path, layout };
+}
 export const THIS_REPO_CHOICES = {
   provider: "github",
   testing: [],

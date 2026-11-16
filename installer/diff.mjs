@@ -27,7 +27,7 @@ import {
   gitignoreBlock,
   manifestFor,
   pluginVersion,
-  readManifest,
+  readManifestOf,
   renderAll,
   replaceMarkerBlock,
   sha256,
@@ -107,8 +107,9 @@ export async function run(args) {
   const { repo, "plugin-root": pluginRoot, marketplace, apply } = args;
   if (!repo || !pluginRoot || !marketplace) return { code: 1, out: { error: USAGE } };
 
-  const manifest = readManifest(repo);
-  if (!manifest) return { code: 3, out: { refused: "no-manifest" } };
+  const found = readManifestOf(repo);
+  if (!found) return { code: 3, out: { refused: "no-manifest" } };
+  const { manifest, path: manifestPath, layout } = found;
   const choices = { provider: manifest.provider, testing: manifest.testing, gates: [] };
   // A manifest written before the CI wipe job was removed records `ci`: the recorded version's
   // renderer still needs it to own what it wrote. The latest render and the new manifest never do.
@@ -118,27 +119,28 @@ export async function run(args) {
   if (compareVersions(manifest.version, latestVersion) > 0) {
     return {
       code: 3,
-      out: { refused: "ahead", recorded: manifest.version, plugin: latestVersion },
+      out: { refused: "ahead", recorded: manifest.version, plugin: latestVersion, manifestPath },
     };
   }
   const latest = renderAll(pluginRoot, choices);
   const recorded = await recordedRender(manifest, pluginRoot, marketplace, recordedChoices);
   if (recorded === null)
-    return { code: 3, out: { refused: "tag-missing", tag: `v${manifest.version}` } };
+    return { code: 3, out: { refused: "tag-missing", tag: `v${manifest.version}`, manifestPath } };
 
   // Trust the recorded render only if it hashes to what the manifest recorded.
   const mismatch = [...recorded.keys()]
     .filter((p) => p in manifest.files && sha256(recorded.get(p).content) !== manifest.files[p])
     .sort();
   if (mismatch.length > 0)
-    return { code: 3, out: { refused: "manifest-mismatch", paths: mismatch } };
+    return { code: 3, out: { refused: "manifest-mismatch", paths: mismatch, manifestPath } };
 
   // A removal deletes a manifest path, so every path must be one the recorded version owned
   // (which also keeps it relative and inside the repository): a hand-edited key never is.
   const unowned = Object.keys(manifest.files)
     .filter((p) => isAbsolute(p) || p.split(/[\\/]/).includes("..") || !recorded.has(p))
     .sort();
-  if (unowned.length > 0) return { code: 3, out: { refused: "unowned-path", paths: unowned } };
+  if (unowned.length > 0)
+    return { code: 3, out: { refused: "unowned-path", paths: unowned, manifestPath } };
 
   const files = [];
   const writes = []; // { path, content, executable } or { path, delete: true }
@@ -175,7 +177,7 @@ export async function run(args) {
       else {
         const recordedText = recorded.get(path)?.content;
         if (recordedText === undefined)
-          return { code: 3, out: { refused: "manifest-mismatch", paths: [path] } };
+          return { code: 3, out: { refused: "manifest-mismatch", paths: [path], manifestPath } };
         let m;
         try {
           m = mergeThree(repoText, recordedText, latest.get(path).content);
@@ -198,7 +200,13 @@ export async function run(args) {
     .filter((f) => f.state === "removed upstream" && f.local === "edited")
     .map((f) => f.path)
     .sort();
-  const report = { recorded: manifest.version, latest: latestVersion, files, keptRemoved };
+  const report = {
+    recorded: manifest.version,
+    latest: latestVersion,
+    manifestPath,
+    files,
+    keptRemoved,
+  };
   if (!apply) return { code: 0, out: report };
   if (writes.length === 0 && manifest.version === latestVersion)
     return { code: 0, out: { nothing: true, ...report } };
