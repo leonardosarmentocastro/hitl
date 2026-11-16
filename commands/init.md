@@ -9,11 +9,11 @@ written and changes it by pull request. You orchestrate and ask; the scripts rea
 
 ## 1. Prerequisites — stop on the first one missing
 
-First read the host, then check by host:
+Check Node first, then read the host, then check by host:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"   # read `host` and `remote`
 node --version            # 20 or newer — the installer, and the scripts hitl installs are run with it
+node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"   # read `host` and `remote`
 git --version
 gh auth status            # only when host is github: authenticated
 [ -n "$GITLAB_TOKEN" ]    # only when host is gitlab: the token is set (never print its value)
