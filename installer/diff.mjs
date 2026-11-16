@@ -109,12 +109,10 @@ export async function run(args) {
 
   const manifest = readManifest(repo);
   if (!manifest) return { code: 3, out: { refused: "no-manifest" } };
-  const choices = {
-    provider: manifest.provider,
-    ci: manifest.ci,
-    testing: manifest.testing,
-    gates: [],
-  };
+  const choices = { provider: manifest.provider, testing: manifest.testing, gates: [] };
+  // A manifest written before the CI wipe job was removed records `ci`: the recorded version's
+  // renderer still needs it to own what it wrote. The latest render and the new manifest never do.
+  const recordedChoices = "ci" in manifest ? { ...choices, ci: manifest.ci } : choices;
   const latestVersion = pluginVersion(pluginRoot);
   // A manifest newer than the plugin is a stale plugin cache; never propose a downgrade.
   if (compareVersions(manifest.version, latestVersion) > 0) {
@@ -124,7 +122,7 @@ export async function run(args) {
     };
   }
   const latest = renderAll(pluginRoot, choices);
-  const recorded = await recordedRender(manifest, pluginRoot, marketplace, choices);
+  const recorded = await recordedRender(manifest, pluginRoot, marketplace, recordedChoices);
   if (recorded === null)
     return { code: 3, out: { refused: "tag-missing", tag: `v${manifest.version}` } };
 
@@ -195,7 +193,12 @@ export async function run(args) {
     files.push(entry);
   }
 
-  const report = { recorded: manifest.version, latest: latestVersion, files };
+  // Files hitl no longer ships that the repository edited: kept, and named so the human deletes them.
+  const keptRemoved = files
+    .filter((f) => f.state === "removed upstream" && f.local === "edited")
+    .map((f) => f.path)
+    .sort();
+  const report = { recorded: manifest.version, latest: latestVersion, files, keptRemoved };
   if (!apply) return { code: 0, out: report };
   if (writes.length === 0 && manifest.version === latestVersion)
     return { code: 0, out: { nothing: true, ...report } };

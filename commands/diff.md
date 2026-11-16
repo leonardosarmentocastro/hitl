@@ -32,6 +32,19 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
   `upstream changed`, `both`, `missing locally`, `new upstream`, or `removed upstream` with
   `local: same`.
 
+  After that line, and again after an `--apply` run's report, add these in plain words:
+  - when `.github/workflows/wipe-superpowers-docs.yml` or
+    `scripts/hitl/wipe-superpowers-docs.sh` is `removed upstream`: begin with "The CI wipe
+    job is gone: " only if the workflow path is among them (a repository that never had the
+    job loses only the script), then, in both cases: "A feature's documents now leave through
+    a generated wipe PR, merged last. If a stack is in flight, bring the upgraded base branch
+    into its feature branch first, then re-run `/umbrella-pr` there — it builds the wipe PR.
+    Branches cut before this upgrade still carry the old command and would build nothing."
+  - when `keptRemoved` is not empty: name each kept file, and say "hitl no longer ships
+    these. You edited them, so they were kept. Delete
+    `.github/workflows/wipe-superpowers-docs.yml` and `scripts/hitl/wipe-superpowers-docs.sh`
+    together, by hand: one without the other is a job that fails on every push."
+
 Without `--apply` in `$ARGUMENTS`, stop here.
 
 ## 2. `--apply`
