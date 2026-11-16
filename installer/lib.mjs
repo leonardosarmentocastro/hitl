@@ -267,6 +267,7 @@ export function pluginFiles() {
       executable: true,
     },
     { pluginPath: "runtime/review-mode.sh", template: "scripts/review-mode.sh", executable: true },
+    { pluginPath: "runtime/wipe-core.mjs", template: "scripts/wipe-core.mjs", executable: true },
   ];
 }
 
