@@ -54,6 +54,10 @@ describe("hostOf", () => {
   ])("%s → %s", (remote, host) => {
     expect(hostOf(remote)).toBe(host);
   });
+
+  it("is still exported here and recognises a self-hosted GitLab from GITLAB_URL", () => {
+    expect(hostOf("git@gitlab.corp:g/r.git", { GITLAB_URL: "https://gitlab.corp" })).toBe("gitlab");
+  });
 });
 
 describe("discover.mjs", () => {
