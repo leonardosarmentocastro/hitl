@@ -134,6 +134,7 @@ describe("the plugin's no-install prompts", () => {
     const umbrella = rendered.get("commands/umbrella-pr.md")?.content ?? "";
     expect(umbrella).toContain('--base "<Base>"');
     expect(umbrella).not.toMatch(/--base main/);
+    expect(umbrella).toContain("nothing is archived, pushed or opened");
   });
 
   it("commands/implement-stack.md opens PRs through the plugin shim with memory sections", () => {

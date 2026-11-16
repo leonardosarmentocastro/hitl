@@ -82,8 +82,9 @@ describe("render.mjs on an empty repository", () => {
     expect(render(repo).status).toBe(0);
     const umbrella = readFileSync(join(repo, ".claude/commands/umbrella-pr.md"), "utf8");
     expect(umbrella).toContain(
-      'node scripts/hitl/wipe.mjs build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --base main --shim scripts/hitl/pr.sh',
+      'node scripts/hitl/wipe.mjs build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --base origin/main --shim scripts/hitl/pr.sh',
     );
+    expect(umbrella).not.toContain("archived");
     expect(umbrella).toContain(
       "Required before merge: #<pr> removes the transient docs — merge it last.",
     );

@@ -47,7 +47,7 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
 <!-- hitl:mode installed -->
    ```bash
    git fetch -q --prune origin
-   node scripts/hitl/wipe.mjs build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --base main --shim scripts/hitl/pr.sh
+   node scripts/hitl/wipe.mjs build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --base origin/main --shim scripts/hitl/pr.sh
    ```
 <!-- hitl:mode no-install -->
    ```bash
@@ -57,7 +57,11 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
 <!-- hitl:mode end -->
    `<parent>` is the branch of the last stack-table row that has a PR not yet merged — a row
    with no PR (a `todo` slice) never counts (read the states from the step 2 list, run now), or the feature branch when no row has one. If `$ARGUMENTS` contains
+<!-- hitl:mode installed -->
+   `--dry-run`, add `--no-push` to the same call: nothing is pushed or opened. A
+<!-- hitl:mode no-install -->
    `--dry-run`, add `--no-push` to the same call: nothing is archived, pushed or opened. A
+<!-- hitl:mode end -->
    `refused` or `error` in the output → stop and report it verbatim. Keep its `status` and
    `pr` for the stack block in step 2. The wipe branch is never a stack-table row.
 2. Build the body: everything from `Plan:` under `## Umbrella PR body` through the `## Notes`

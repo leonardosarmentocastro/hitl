@@ -159,7 +159,7 @@ behaviour is validated by the dry run in Step 5.
 
 - [ ] **Step 1: Write the failing test** in `scripts/__tests__/render.test.ts`: the installed
   render of `.claude/commands/umbrella-pr.md` contains
-  `node scripts/hitl/wipe.mjs build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --base main --shim scripts/hitl/pr.sh`
+  `node scripts/hitl/wipe.mjs build --repo "$PWD" --feature-branch "<feature-branch>" --parent "<parent>" --base origin/main --shim scripts/hitl/pr.sh`
   and the line `Required before merge: #<pr> removes the transient docs — merge it last.`;
   the installed render of `.claude/commands/implement-stack.md` contains
   `The wipe PR #<pr> is generated; merge it last.` and
