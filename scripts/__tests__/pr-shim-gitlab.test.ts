@@ -522,6 +522,17 @@ describe("pr.sh create on GitLab", () => {
     expectNoToken(r);
   });
 
+  it("exits 3 with the whole record when the existing MR's body is large", () => {
+    const big = "x".repeat(512 * 1024);
+    fake.setState({
+      ...EMPTY,
+      mergeRequests: [mr(4, { source_branch: "feat/x-slice-1-api", description: big })],
+    });
+    const r = create(base("Slice 1: api"));
+    expect(r.status, r.stderr).toBe(3);
+    expect((r.json as { body: string }).body).toHaveLength(big.length);
+  });
+
   it("exits 3 without a PUT when the existing MR already carries hitl", () => {
     fake.setState({ ...EMPTY, mergeRequests: [mr(4, { source_branch: "feat/x-slice-1-api" })] });
     const r = create(base("Slice 1: api"));

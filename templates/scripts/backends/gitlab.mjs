@@ -184,7 +184,7 @@ function detailOf(json) {
 /**
  * A Draft (when `draft` is "1") MR labelled hitl, with no reviewers or assignees. When GitLab
  * answers 409 because an open MR for this head and base exists, that MR gains the hitl label
- * if it lacks it, its record is printed and the shim exits 3.
+ * if it lacks it, its record is returned and the shim exits 3.
  */
 async function create(ctx, [base, head, title, bodyFile, draft]) {
   const sentTitle = draft === "1" && !GITLAB_DRAFT.test(title) ? `Draft: ${title}` : title;
@@ -211,8 +211,9 @@ async function create(ctx, [base, head, title, bodyFile, draft]) {
       body: { add_labels: "hitl" },
     }));
   }
-  process.stdout.write(`${JSON.stringify(toRecord(mr))}\n`);
-  process.exit(3);
+  // exitCode, not exit(): exit() can cut a large record short on a pipe.
+  process.exitCode = 3;
+  return toRecord(mr);
 }
 
 /** Replace the description only: the title is never sent, so Draft status stands. */
