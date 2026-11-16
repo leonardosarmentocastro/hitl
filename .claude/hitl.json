@@ -31,6 +31,7 @@
     "scripts/hitl/backend.sh": "9c03df74f450dce2cc798163c8aaf48dfc10cc3c8e87700e6081fd8f9c6307ce",
     "scripts/hitl/pr.sh": "d1529627d892ca6117209f24b6410fd487a1edc242538ef82d4a0990056b9cf1",
     "scripts/hitl/review-mode.sh": "098d7befa59f4c0412f9331f63ea91e1611f41dfb2076a2df6dfcfa9db2e84fa",
-    "scripts/hitl/wipe-superpowers-docs.sh": "569715740427fae9eb133cf7bd9c13bce1b5c3df4a0f4db864168c72bed8b638"
+    "scripts/hitl/wipe-superpowers-docs.sh": "569715740427fae9eb133cf7bd9c13bce1b5c3df4a0f4db864168c72bed8b638",
+    "scripts/hitl/wipe.mjs": "8021d8d7d9aa97b7527d0c1d12ea81f966bd01d6b22d9c3cbdc3b6098aa8a863"
   }
 }

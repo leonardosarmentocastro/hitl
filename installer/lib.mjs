@@ -98,6 +98,7 @@ export function ownedFiles(choices) {
       executable: true,
     },
     { repoPath: "scripts/hitl/pr.sh", template: "scripts/pr.sh", executable: true },
+    { repoPath: "scripts/hitl/wipe.mjs", template: "scripts/wipe-core.mjs", executable: true },
     {
       repoPath: "scripts/hitl/review-mode.sh",
       template: "scripts/review-mode.sh",

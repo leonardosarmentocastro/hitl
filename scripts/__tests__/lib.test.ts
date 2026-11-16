@@ -65,9 +65,10 @@ describe("installer/lib primitives", () => {
         "scripts/hitl/pr.sh",
         "scripts/hitl/review-mode.sh",
         "scripts/hitl/backend.sh",
+        "scripts/hitl/wipe.mjs",
       ]),
     );
-    expect(paths).toHaveLength(27);
+    expect(paths).toHaveLength(28);
   });
 
   it("owns review-mode.sh in both forms", () => {

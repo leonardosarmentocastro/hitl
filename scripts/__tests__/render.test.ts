@@ -66,6 +66,17 @@ describe("render.mjs on an empty repository", () => {
     expect(r.json.wrote).toContain("HITL.md");
   });
 
+  it("installs the wipe builder as scripts/hitl/wipe.mjs, executable, byte-equal to its template", () => {
+    const repo = tempRepo();
+    expect(render(repo).status).toBe(0);
+    const installed = join(repo, "scripts/hitl/wipe.mjs");
+    expect(existsSync(installed)).toBe(true);
+    expect(statSync(installed).mode & 0o111).not.toBe(0);
+    expect(readFileSync(installed)).toEqual(
+      readFileSync(join(PLUGIN_ROOT, "templates/scripts/wipe-core.mjs")),
+    );
+  });
+
   it("creates CLAUDE.md with the @HITL.md line and appends it to an existing one", () => {
     const fresh = tempRepo();
     render(fresh);
@@ -121,7 +132,7 @@ describe("render.mjs on an empty repository", () => {
     expect(manifest.ci).toBe("github-actions");
     expect(manifest.testing).toEqual([]);
     expect(manifest).not.toHaveProperty("gates");
-    expect(Object.keys(manifest.files)).toHaveLength(28);
+    expect(Object.keys(manifest.files)).toHaveLength(29);
     expect(manifest.files["HITL.md"]).toMatch(/^[0-9a-f]{64}$/);
     expect(Object.keys(manifest.files)).toEqual([...Object.keys(manifest.files)].sort());
   });
@@ -132,7 +143,7 @@ describe("render.mjs on an empty repository", () => {
     expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
     const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
     expect(manifest.ci).toBe("none");
-    expect(Object.keys(manifest.files)).toHaveLength(27);
+    expect(Object.keys(manifest.files)).toHaveLength(28);
   });
 });
 
