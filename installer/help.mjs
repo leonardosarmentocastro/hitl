@@ -31,15 +31,20 @@ function originOf(repo) {
   return url === "" ? null : url;
 }
 
-/** GitLab's prerequisites: whether the token is set, and where GITLAB_URL stands. */
+/**
+ * GitLab's prerequisites: whether the token is set, and where GITLAB_URL stands — `no-remote`
+ * when there is no origin, `mismatch` when it is set and usable but names another host.
+ */
 function gitlabPrerequisites(remote, env) {
   const out = { gitlabToken: Boolean(env.GITLAB_TOKEN) };
   const resolved = resolveHost(remote, env);
-  if (resolveHost(remote, {}).host === "gitlab") out.gitlabUrl = "not-needed";
+  if (remote === null) out.gitlabUrl = "no-remote";
+  else if (resolveHost(remote, {}).host === "gitlab") out.gitlabUrl = "not-needed";
   else if (resolved.problem) {
     out.gitlabUrl = "invalid";
     out.gitlabUrlProblem = resolved.problem;
-  } else out.gitlabUrl = resolved.host === "gitlab" ? "set" : "missing";
+  } else if (resolved.host === "gitlab") out.gitlabUrl = "set";
+  else out.gitlabUrl = env.GITLAB_URL ? "mismatch" : "missing";
   return out;
 }
 

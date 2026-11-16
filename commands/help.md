@@ -54,6 +54,11 @@ the code host's line by `provider`:
   - `set` — a row `GITLAB_URL` · the PR shim · present;
   - `missing` — "`GITLAB_URL` set to the address of this self-hosted GitLab (e.g.
     `https://gitlab.example.com`)";
+  - `mismatch` — the variable is set, not absent: "`GITLAB_URL` does not match this
+    repository's `origin` remote; point it at the GitLab the remote names" (never tell the
+    human to export a variable they already have);
+  - `no-remote` — the repository has no `origin` remote: "add the `origin` remote of this
+    GitLab repository (`git remote add origin <url>`)", and nothing about `GITLAB_URL`;
   - `invalid` — the variable is set but wrong, not absent: "`GITLAB_URL` needs a scheme
     (`https://…`)" when `gitlabUrlProblem` is `bad-gitlab-url`, "`GITLAB_URL` must be the
     instance's address, without `/api/v4`" when it is `gitlab-url-has-api-path`.

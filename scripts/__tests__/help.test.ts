@@ -201,8 +201,34 @@ describe("help.mjs prerequisites by provider", () => {
     const repo = installedGitlab("git@elsewhere.example:g/r.git");
     const json = helpWith(repo, { GITLAB_URL: "https://gitlab.corp" }).json;
     expect(json.provider).toBe("gitlab");
-    expect(json.prerequisites.gitlabUrl).toBe("missing");
+    expect(json.prerequisites.gitlabUrl).toBe("mismatch");
+    expect(helpWith(repo, {}).json.prerequisites.gitlabUrl).toBe("missing");
   });
+
+  it("with a GitLab manifest and no origin remote, says the remote is missing", () => {
+    const repo = installedGitlab("git@gitlab.com:g/r.git");
+    spawnSync("git", ["remote", "remove", "origin"], { cwd: repo });
+    expect(helpWith(repo, {}).json.prerequisites.gitlabUrl).toBe("no-remote");
+    expect(helpWith(repo, { GITLAB_URL: "https://gitlab.corp" }).json.prerequisites.gitlabUrl).toBe(
+      "no-remote",
+    );
+  });
+
+  for (const [remote, provider] of [
+    ["git@bitbucket.org:o/r.git", "bitbucket"],
+    ["git@elsewhere.example:o/r.git", "unknown"],
+  ]) {
+    it(`without a manifest, a ${provider} remote falls back to the gh probe`, () => {
+      const repo = tempDir();
+      spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+      spawnSync("git", ["remote", "add", "origin", remote], { cwd: repo });
+      const json = helpWith(repo, {}).json;
+      expect(json.provider).toBe(provider);
+      expect(typeof json.prerequisites.gh).toBe("boolean");
+      expect(json.prerequisites).not.toHaveProperty("gitlabToken");
+      expect(json.prerequisites).not.toHaveProperty("gitlabUrl");
+    });
+  }
 
   it("without a manifest, takes the provider from a GitHub remote and probes gh", () => {
     const repo = tempDir();
