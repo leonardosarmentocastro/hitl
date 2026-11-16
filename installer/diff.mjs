@@ -206,6 +206,7 @@ export async function run(args) {
     files.push(entry);
     const w = { path: to, content: c.content, executable: lat.executable };
     if (fromText !== null) w.removeFrom = from;
+    else w.removedEarlier = from;
     if (resume) w.resume = true;
     writes.push(w);
   }
@@ -286,19 +287,28 @@ export async function run(args) {
         deleted.push(w.path);
         continue;
       }
-      // A resumed move already holds its outcome at `to`: only `from` is left to remove.
+      // A resumed move already holds its outcome at `to`: only `from` is left to remove. It is
+      // still named under `written`, as an old path an earlier run removed is under `deleted`,
+      // so what the command stages is always the whole move.
       if (!w.resume) {
         mkdirSync(dirname(abs), { recursive: true });
         writeFileSync(abs, w.content);
         if (w.executable) chmodSync(abs, 0o755);
-        written.push(w.path);
       }
+      written.push(w.path);
       // A move writes `to` and removes `from` back to back, so a stop leaves at most one pair.
       if (w.removeFrom) {
         unlinkSync(join(repo, w.removeFrom));
         deleted.push(w.removeFrom);
-      }
+      } else if (w.removedEarlier) deleted.push(w.removedEarlier);
     }
+    // The record already moved and only the old one was left: the files moved in an earlier run.
+    if (leftovers.length > 0)
+      for (const { from, to } of MOVES) {
+        if (!latest.has(to) || latest.has(from)) continue;
+        if (existsSync(join(repo, to)) && !written.includes(to)) written.push(to);
+        if (!existsSync(join(repo, from)) && !deleted.includes(from)) deleted.push(from);
+      }
 
     // CLAUDE.md imports the doctrine at its new path; an absent import line is never added.
     const claudePath = join(repo, "CLAUDE.md");

@@ -66,21 +66,36 @@ Otherwise, in this order — every file is written before the shim is called, be
 `scripts/hitl/pr.sh` may itself be among the files applied:
 
 ```bash
-FROM=$(git branch --show-current)
 BRANCH="chore/hitl-<recorded>-to-<latest>"
-git checkout -q -b "$BRANCH"
+if [ "$(git branch --show-current)" = "$BRANCH" ]; then
+  # A re-run after an apply that stopped part-way: stay on the branch, keep its base.
+  RESUME=1
+  FROM=$(git config --get "branch.$BRANCH.hitlFrom")
+else
+  RESUME=
+  FROM=$(git branch --show-current)
+  git checkout -q -b "$BRANCH"
+  git config "branch.$BRANCH.hitlFrom" "$FROM"
+fi
 node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --marketplace "$MK" --apply
 ```
+
+On a re-run (`RESUME=1`), `FROM` is the branch the first run started from. If it comes back
+empty, do not guess and never use `$BRANCH` as its own base: ask the human which branch the
+upgrade PR targets, and use that as `FROM`.
 
 - exit `2` → the upgrade stopped part-way on `$BRANCH`. Do not stage, commit, push or call the
   shim. Print `error`, `written`, `deleted` and `manifest` (`written` or `untouched`), then
   tell the human, without running any of it yourself: "Every path under `written` was
   overwritten and every path under `deleted` removed; nothing is committed. To undo: save any of those files that held uncommitted edits of yours, then `git restore --source=HEAD --worktree -- <the tracked paths among written and deleted, plus whichever of .hitl/manifest.json, .claude/hitl.json, CLAUDE.md, README.md and .gitignore git tracks>`, delete the paths under `written` and `.hitl/manifest.json` that git does not track, `git checkout <FROM>` and `git branch -D <BRANCH>`. Fix the error and re-run
-  `/hitl:diff --apply` — or simply re-run `/hitl:diff --apply`: the move resumes." Stop.
+  `/hitl:diff --apply` — or fix the error and re-run `/hitl:diff --apply` from `<BRANCH>`
+  without undoing: the upgrade resumes there, and the PR still targets `<FROM>`." Stop.
 - exit `0` → stage exactly what this apply run reported touching — never the step-1 report's
   whole file list, never `git add -A`: a path the apply did not write (a `locally edited`
   file with the human's uncommitted edits, an absent `removed upstream` file) must not be
-  staged, and a pathspec that matches nothing aborts `git add` as a whole.
+  staged, and a pathspec that matches nothing aborts `git add` as a whole. A re-run
+  (`RESUME=1`) also stages what the stopped run landed and this one did not rewrite: those
+  files now read as `already applied`, and the import line as `current`.
 
 ```bash
 git add -- .hitl/manifest.json <every path in the apply output's `written`>
@@ -93,6 +108,13 @@ git rm -q --cached --ignore-unmatch -- <every path in `deleted`>
 git add -- README.md
 # only when `gitignoreRefreshed` is true:
 git add -- .gitignore
+# only when RESUME=1 — what the stopped run already landed, which this run did not rewrite:
+#   every path whose state is `already applied`:
+git add -- <those paths>
+#   every `removed upstream` path with `local: absent`:
+git rm -q --cached --ignore-unmatch -- <those paths>
+#   CLAUDE.md when `claudeLine` is `current`, and .gitignore when it exists:
+git add -- CLAUDE.md .gitignore   # each only under its condition
 git commit -q -m "chore(hitl): <recorded> → <latest>"
 git push -u origin "$BRANCH"
 scripts/hitl/pr.sh create --base "$FROM" --head "$BRANCH" --title "hitl <recorded> → <latest>" --body-file <tmp>

@@ -812,6 +812,9 @@ describe("diff.mjs --apply on an old-layout install", () => {
     expect(status, JSON.stringify(out)).toBe(0);
     expect(existsSync(join(repo, "HITL.md"))).toBe(false);
     expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe(outcomeText);
+    // what the command stages: the resumed pair's new path with its old path's removal
+    expect(out.written).toContain(".hitl/HITL.md");
+    expect(out.deleted).toContain("HITL.md");
   });
 
   it("resumes when the files moved and the manifest did not", () => {
@@ -825,6 +828,13 @@ describe("diff.mjs --apply on an old-layout install", () => {
     expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe(before);
     expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
     expect(existsSync(join(repo, ".hitl/manifest.json"))).toBe(true);
+    // the first run removed the old paths; this run's output still names them for staging
+    expect(second.out.written).toEqual(
+      expect.arrayContaining([".hitl/HITL.md", ".hitl/review-context.md"]),
+    );
+    expect(second.out.deleted).toEqual(
+      expect.arrayContaining(["HITL.md", ".claude/review-context.md", ".claude/hitl.json"]),
+    );
   });
 
   it("does not merge again a moved file that still carries conflict hunks", () => {
@@ -851,7 +861,12 @@ describe("diff.mjs --apply on an old-layout install", () => {
     expect(report.leftovers).toEqual([".claude/hitl.json"]);
     const applied = runDiff(repo, plugin, mk, ["--apply"]).out;
     expect(applied.nothing).toBeUndefined();
-    expect(applied.deleted).toEqual([".claude/hitl.json"]);
+    expect(applied.deleted).toEqual(
+      expect.arrayContaining([".claude/hitl.json", "HITL.md", ".claude/review-context.md"]),
+    );
+    expect(applied.written).toEqual(
+      expect.arrayContaining([".hitl/HITL.md", ".hitl/review-context.md"]),
+    );
     expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
   });
 });
