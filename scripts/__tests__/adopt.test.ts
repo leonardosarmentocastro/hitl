@@ -1,6 +1,14 @@
 // scripts/__tests__/adopt.test.ts
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -11,6 +19,19 @@ const CURRENT = pluginVersion(PLUGIN_ROOT);
 const RENDER = join(PLUGIN_ROOT, "installer/render.mjs");
 const ADOPT = join(PLUGIN_ROOT, "installer/adopt.mjs");
 const ANSWERS = { provider: "github", testing: [], gates: [] };
+
+/** A repository installed before 0.3.0: the manifest at its old path, no `.hitl/`. */
+const OLD_INSTALL = {
+  ".claude/hitl.json": JSON.stringify({
+    version: "0.2.1",
+    provider: "github",
+    testing: [],
+    files: {},
+  }),
+  ".claude/agents/fixer.md": "x\n",
+  "HITL.md": "# HITL\n",
+  ".claude/review-context.md": "context\n",
+};
 
 function answersFile(answers: object) {
   const p = join(mkdtempSync(join(tmpdir(), "hitl-answers-")), "answers.json");
@@ -71,7 +92,19 @@ describe("adopt.mjs", () => {
     run(ADOPT, repo);
     const r = run(ADOPT, repo);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "manifest-present", version: CURRENT });
+    expect(r.json).toEqual({ refused: "manifest-present", version: CURRENT, layout: "current" });
+  });
+
+  it("refuses an old-layout install instead of stamping a second manifest", () => {
+    const repo = mkdtempSync(join(tmpdir(), "hitl-old-"));
+    for (const [rel, content] of Object.entries(OLD_INSTALL)) {
+      mkdirSync(join(repo, rel, ".."), { recursive: true });
+      writeFileSync(join(repo, rel), content);
+    }
+    const r = run(ADOPT, repo);
+    expect(r.status).toBe(3);
+    expect(r.json).toMatchObject({ refused: "manifest-present", layout: "old" });
+    expect(existsSync(join(repo, ".hitl/manifest.json"))).toBe(false);
   });
 
   it("ignores a ci key in the answers, whatever its value or absence", () => {

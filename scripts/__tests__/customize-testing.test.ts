@@ -12,6 +12,19 @@ const RENDER = join(PLUGIN_ROOT, "installer/render.mjs");
 const SCRIPT = join(PLUGIN_ROOT, "installer/customize-testing.mjs");
 const WORKFLOW = ".github/workflows/wipe-superpowers-docs.yml";
 
+/** A repository installed before 0.3.0: the manifest at its old path, no `.hitl/`. */
+const OLD_INSTALL = {
+  ".claude/hitl.json": JSON.stringify({
+    version: "0.2.1",
+    provider: "github",
+    testing: [],
+    files: {},
+  }),
+  ".claude/agents/fixer.md": "x\n",
+  "HITL.md": "# HITL\n",
+  ".claude/review-context.md": "context\n",
+};
+
 function installedRepo(testing: string[] = []) {
   const dir = mkdtempSync(join(tmpdir(), "hitl-custom-"));
   execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
@@ -57,6 +70,18 @@ describe("customize-testing.mjs", () => {
     expect(r.status).toBe(0);
     expect(hitlOf(repo)).not.toContain("## Testing and gates");
     expect(manifestOf(repo).testing).toEqual([]);
+  });
+
+  it("refuses an old-layout repository", () => {
+    const repo = mkdtempSync(join(tmpdir(), "hitl-old-"));
+    for (const [rel, content] of Object.entries(OLD_INSTALL)) {
+      mkdirSync(join(repo, rel, ".."), { recursive: true });
+      writeFileSync(join(repo, rel), content);
+    }
+    const r = customize(repo, "tiers");
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "old-layout" });
+    expect(readFileSync(join(repo, "HITL.md"), "utf8")).toBe("# HITL\n");
   });
 
   it("refuses a --ci argument as a usage error", () => {

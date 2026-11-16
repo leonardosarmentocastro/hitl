@@ -16,7 +16,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { memoryDir } from "../runtime/memory.mjs";
 import { endSession, getRecord } from "../runtime/session.mjs";
-import { emit, parseArgs, MANIFEST_PATH } from "./lib.mjs";
+import { emit, layoutOf, parseArgs, MANIFEST_PATH } from "./lib.mjs";
 
 const USAGE =
   "usage: --repo <dir> [--plugin-root <dir>] [--remove <abs worktree path>[,<abs worktree path>…]]";
@@ -192,6 +192,8 @@ function run(args) {
   if (!common.ok) return { code: 1, out: { error: `${args.repo} is not in a git repository` } };
   const main = dirname(common.out);
   const here = git(args.repo, "rev-parse", "--show-toplevel").out;
+  // Before 0.3.0's layout the plugin waits for the upgrade: nothing is fetched or listed.
+  if (layoutOf(main) === "old") return { code: 3, out: { refused: "old-layout" } };
   const installed = existsSync(join(main, MANIFEST_PATH));
   let shim;
   if (installed) shim = join(main, "scripts/hitl/pr.sh");

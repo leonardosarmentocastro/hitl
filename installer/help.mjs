@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// /hitl:help's reader. Says where an install stands — one of six states that partition every
+// /hitl:help's reader. Says where an install stands — one of seven states that partition every
 // tree — plus how many owned files differ from the manifest or are missing and which prerequisites are
 // present — by the repository's provider (the manifest's, else the origin remote's host).
 // Never prints GITLAB_TOKEN's value, only whether it is set. Reads only. Exit: 0 ok · 1 usage.
@@ -14,7 +14,7 @@ import {
   collisions,
   compareVersions,
   pluginVersion,
-  readManifest,
+  readManifestOf,
   sha256,
 } from "./lib.mjs";
 import { resolveHost } from "../templates/scripts/host.mjs";
@@ -59,7 +59,9 @@ function superpowersEnabled(settingsPath) {
   }
 }
 
-export function installState(repo, manifest, plugin) {
+export function installState(repo, manifest, plugin, layout = manifest ? "current" : "none") {
+  // An install from before 0.3.0 is neither ejected nor behind: it needs the upgrade.
+  if (layout === "old") return "old layout";
   if (manifest) {
     const c = compareVersions(manifest.version, plugin);
     return c < 0 ? "behind" : c > 0 ? "ahead" : "up to date";
@@ -75,8 +77,9 @@ export function run(args, env = process.env) {
   const { repo, "plugin-root": pluginRoot, home = homedir() } = args;
   if (!repo || !pluginRoot) return { code: 1, out: { error: USAGE } };
   const plugin = pluginVersion(pluginRoot);
-  const manifest = readManifest(repo);
-  const state = installState(repo, manifest, plugin);
+  const found = readManifestOf(repo);
+  const manifest = found ? found.manifest : null;
+  const state = installState(repo, manifest, plugin, found ? found.layout : "none");
 
   let locallyEdited = null;
   let missing = null;

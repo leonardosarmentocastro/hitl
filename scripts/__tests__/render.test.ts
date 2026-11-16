@@ -32,6 +32,19 @@ function tempRepo(files: Record<string, string> = {}) {
 
 const ANSWERS = { provider: "github", testing: [], gates: ["pnpm test"] };
 
+/** A repository installed before 0.3.0: the manifest at its old path, no `.hitl/`. */
+const OLD_INSTALL = {
+  ".claude/hitl.json": JSON.stringify({
+    version: "0.2.1",
+    provider: "github",
+    testing: [],
+    files: {},
+  }),
+  ".claude/agents/fixer.md": "x\n",
+  "HITL.md": "# HITL\n",
+  ".claude/review-context.md": "context\n",
+};
+
 function render(repo: string, answers: object = ANSWERS) {
   const answersPath = join(repo, "..", `answers-${Date.now()}-${Math.random()}.json`);
   writeFileSync(answersPath, JSON.stringify(answers));
@@ -249,8 +262,20 @@ describe("render.mjs refusals", () => {
     const before = tree(repo);
     const r = render(repo);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "manifest-present", version: CURRENT });
+    expect(r.json).toEqual({ refused: "manifest-present", version: CURRENT, layout: "current" });
     expect(tree(repo)).toEqual(before);
+  });
+
+  it("refuses an old-layout repository as manifest-present, layout old", () => {
+    const repo = tempRepo(OLD_INSTALL);
+    const before = tree(repo);
+    const r = render(repo);
+    expect(r.status).toBe(3);
+    expect(r.json).toMatchObject({ refused: "manifest-present", version: "0.2.1", layout: "old" });
+    expect(tree(repo)).toEqual(before);
+    const c = check(repo);
+    expect(c.status).toBe(3);
+    expect(c.json).toMatchObject({ refused: "manifest-present", version: "0.2.1", layout: "old" });
   });
 
   it("refuses on an owned filename inside .claude/commands but not on a foreign one", () => {
@@ -380,7 +405,11 @@ describe("render.mjs --mode check", () => {
   it("refuses on a present manifest", () => {
     const repo = tempRepo();
     render(repo);
-    expect(check(repo).json).toEqual({ refused: "manifest-present", version: CURRENT });
+    expect(check(repo).json).toEqual({
+      refused: "manifest-present",
+      version: CURRENT,
+      layout: "current",
+    });
   });
 });
 

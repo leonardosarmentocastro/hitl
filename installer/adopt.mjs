@@ -11,7 +11,7 @@ import {
   collisions,
   manifestFor,
   pluginVersion,
-  readManifest,
+  readManifestOf,
   renderAll,
 } from "./lib.mjs";
 
@@ -28,8 +28,12 @@ export function run(args) {
     };
   }
 
-  const existing = readManifest(repo);
-  if (existing) return { code: 3, out: { refused: "manifest-present", version: existing.version } };
+  const found = readManifestOf(repo);
+  if (found)
+    return {
+      code: 3,
+      out: { refused: "manifest-present", version: found.manifest.version, layout: found.layout },
+    };
   if (collisions(repo, choices).length === 0)
     return { code: 3, out: { refused: "nothing-to-adopt" } };
 

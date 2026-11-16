@@ -12,6 +12,7 @@ import {
   TESTING_ORDER,
   agentsBlock,
   compareVersions,
+  layoutOf,
   composeHitl,
   manifestFor,
   parseArgs,
@@ -36,6 +37,7 @@ export function run(args) {
   ) {
     return { code: 1, out: { error: USAGE } };
   }
+  if (layoutOf(repo) === "old") return { code: 3, out: { refused: "old-layout" } };
   const testing = testingArg === "" ? [] : testingArg.split(",").map((s) => s.trim());
   for (const id of testing)
     if (!TESTING_ORDER.includes(id)) return { code: 3, out: { refused: "unknown-fragment", id } };
