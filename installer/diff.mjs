@@ -24,6 +24,7 @@ import {
   BLOCK_START,
   MANIFEST_PATH,
   MOVES,
+  OLD_MANIFEST_PATH,
   compareVersions,
   gitignoreBlock,
   manifestFor,
@@ -184,7 +185,11 @@ export async function run(args) {
     const lat = latest.get(to);
     let c;
     try {
-      c = classify(fromText ?? toText, manifest.files[from], recorded.get(from)?.content, lat);
+      // Only `to` on disk and it still carries conflict hunks from an earlier apply: its outcome
+      // is its own text, never a second merge on top of the first.
+      if (fromText === null && toText !== null && /^<<<<<<< this repository/m.test(toText))
+        c = { state: "both", merged: "conflict", content: toText };
+      else c = classify(fromText ?? toText, manifest.files[from], recorded.get(from)?.content, lat);
     } catch (e) {
       if (e instanceof RecordedTextMissing)
         return { code: 3, out: { refused: "manifest-mismatch", paths: [from], manifestPath } };
@@ -244,15 +249,24 @@ export async function run(args) {
     .filter((f) => f.state === "removed upstream" && f.local === "edited")
     .map((f) => f.path)
     .sort();
+  // An apply that stopped between writing the new manifest and removing the old one.
+  const leftovers =
+    layout === "current" && existsSync(join(repo, OLD_MANIFEST_PATH)) ? [OLD_MANIFEST_PATH] : [];
   const report = {
     recorded: manifest.version,
     latest: latestVersion,
     manifestPath,
     files,
     keptRemoved,
+    leftovers,
   };
   if (!apply) return { code: 0, out: report };
-  if (writes.length === 0 && manifest.version === latestVersion)
+  if (
+    writes.length === 0 &&
+    manifest.version === latestVersion &&
+    layout === "current" &&
+    leftovers.length === 0
+  )
     return { code: 0, out: { nothing: true, ...report } };
 
   // Not transactional: on a failure, say exactly what already landed so the human can undo it.
@@ -269,18 +283,19 @@ export async function run(args) {
         deleted.push(w.path);
         continue;
       }
-      mkdirSync(dirname(abs), { recursive: true });
-      writeFileSync(abs, w.content);
-      if (w.executable) chmodSync(abs, 0o755);
-      written.push(w.path);
+      // A resumed move already holds its outcome at `to`: only `from` is left to remove.
+      if (!w.resume) {
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, w.content);
+        if (w.executable) chmodSync(abs, 0o755);
+        written.push(w.path);
+      }
+      // A move writes `to` and removes `from` back to back, so a stop leaves at most one pair.
+      if (w.removeFrom) {
+        unlinkSync(join(repo, w.removeFrom));
+        deleted.push(w.removeFrom);
+      }
     }
-
-    // The manifest describes the templates, never the repository's edits: a locally edited or
-    // conflicted file is recorded at the latest render's hash, which is what lets the next diff
-    // still classify it as locally edited rather than as unchanged.
-    const next = manifestFor(latestVersion, choices, latest);
-    writeFileSync(join(repo, MANIFEST_PATH), `${JSON.stringify(next, null, 2)}\n`);
-    manifestWritten = true;
 
     const readmePath = join(repo, "README.md");
     if (existsSync(readmePath)) {
@@ -303,6 +318,19 @@ export async function run(args) {
         writeFileSync(ignorePath, r.text);
         gitignoreRefreshed = true;
       }
+    }
+
+    // The manifest describes the templates, never the repository's edits: a locally edited or
+    // conflicted file is recorded at the latest render's hash, which is what lets the next diff
+    // still classify it as locally edited rather than as unchanged. It is relocated last, so an
+    // apply that stops anywhere before it leaves an old-layout repository whose re-run resumes.
+    const next = manifestFor(latestVersion, choices, latest);
+    mkdirSync(dirname(join(repo, MANIFEST_PATH)), { recursive: true });
+    writeFileSync(join(repo, MANIFEST_PATH), `${JSON.stringify(next, null, 2)}\n`);
+    manifestWritten = true;
+    if (existsSync(join(repo, OLD_MANIFEST_PATH))) {
+      unlinkSync(join(repo, OLD_MANIFEST_PATH));
+      deleted.push(OLD_MANIFEST_PATH);
     }
   } catch (e) {
     const manifestState = manifestWritten ? "written" : "untouched";

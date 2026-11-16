@@ -733,3 +733,125 @@ describe("diff.mjs reports a moved file as one entry at its new path", () => {
     });
   });
 });
+
+/** A doctrine and a reviewer context the repository edited away from the lines upstream changed. */
+function customize(repo: string) {
+  appendFileSync(join(repo, "HITL.md"), "\n## Ours\n\nA local rule.\n");
+  appendFileSync(join(repo, ".claude/review-context.md"), "\n- A local anchor.\n");
+}
+
+/** A doctrine edited on a line the latest template also changed. */
+function conflictingEdit(repo: string) {
+  const p = join(repo, "HITL.md");
+  const text = readFileSync(p, "utf8");
+  expect(text).toContain("`HITL.md` (this doctrine)");
+  writeFileSync(p, text.replace("`HITL.md` (this doctrine)", "`HITL.md` (our own doctrine)"));
+}
+
+/**
+ * The state "files moved, manifest not": a full apply, then the new manifest deleted and the
+ * old one restored (a directory at .hitl/manifest.json would make the layout read "current").
+ */
+function filesMovedManifestNot(repo: string, plugin: string, mk: string) {
+  const oldManifest = readFileSync(join(repo, ".claude/hitl.json"), "utf8");
+  const first = runDiff(repo, plugin, mk, ["--apply"]);
+  expect(first.status, JSON.stringify(first.out)).toBe(0);
+  rmSync(join(repo, ".hitl/manifest.json"));
+  writeFileSync(join(repo, ".claude/hitl.json"), oldManifest);
+  return oldManifest;
+}
+
+describe("diff.mjs --apply on an old-layout install", () => {
+  it("moves a customized doctrine with its edits and relocates the manifest", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    customize(repo);
+    const { out, status } = runDiff(repo, plugin, mk, ["--apply"]);
+    expect(status).toBe(0);
+    expect(out.nothing).toBeUndefined();
+    expect(readFileSync(join(repo, ".hitl/review-context.md"), "utf8")).toContain(
+      "A local anchor.",
+    );
+    const moved = readFileSync(join(repo, ".hitl/HITL.md"), "utf8");
+    expect(moved).toContain("A local rule.");
+    expect(moved).toContain(".hitl/review-context.md"); // the upstream change arrived too
+    expect(existsSync(join(repo, "HITL.md"))).toBe(false);
+    expect(existsSync(join(repo, ".claude/review-context.md"))).toBe(false);
+    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+    expect(JSON.parse(readFileSync(join(repo, ".hitl/manifest.json"), "utf8")).version).toBe(NEXT);
+    expect(out.deleted).toEqual(
+      expect.arrayContaining(["HITL.md", ".claude/review-context.md", ".claude/hitl.json"]),
+    );
+    // and the record still describes the template, so the edit stays visible
+    const again = runDiff(repo, plugin, mk);
+    expect(entry(again.out, ".hitl/HITL.md").state).toBe("locally edited");
+    expect(runDiff(repo, plugin, mk, ["--apply"]).out.nothing).toBe(true);
+  });
+
+  it("writes a conflicted moved file at the new path and removes the old one", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    conflictingEdit(repo);
+    const { out, status } = runDiff(repo, plugin, mk, ["--apply"]);
+    expect(status).toBe(0);
+    expect(entry(out, ".hitl/HITL.md")).toMatchObject({ state: "both", merged: "conflict" });
+    expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toContain("<<<<<<< this repository");
+    expect(existsSync(join(repo, "HITL.md"))).toBe(false);
+  });
+
+  it("resumes when a pair's write landed and its removal did not", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    customize(repo);
+    // Learn the outcome on a copy, then land only the write in the real repository.
+    const copy = mkdtempSync(join(tmpdir(), "hitl-copy-"));
+    cpSync(repo, copy, { recursive: true });
+    expect(runDiff(copy, plugin, mk, ["--apply"]).status).toBe(0);
+    const outcomeText = readFileSync(join(copy, ".hitl/HITL.md"), "utf8");
+    expect(outcomeText).toContain("A local rule.");
+    mkdirSync(join(repo, ".hitl"));
+    writeFileSync(join(repo, ".hitl/HITL.md"), outcomeText);
+    const { out, status } = runDiff(repo, plugin, mk, ["--apply"]);
+    expect(status, JSON.stringify(out)).toBe(0);
+    expect(existsSync(join(repo, "HITL.md"))).toBe(false);
+    expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe(outcomeText);
+  });
+
+  it("resumes when the files moved and the manifest did not", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    customize(repo);
+    filesMovedManifestNot(repo, plugin, mk);
+    const before = readFileSync(join(repo, ".hitl/HITL.md"), "utf8");
+    expect(before).toContain("A local rule.");
+    const second = runDiff(repo, plugin, mk, ["--apply"]);
+    expect(second.status, JSON.stringify(second.out)).toBe(0);
+    expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe(before);
+    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+    expect(existsSync(join(repo, ".hitl/manifest.json"))).toBe(true);
+  });
+
+  it("does not merge again a moved file that still carries conflict hunks", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    conflictingEdit(repo);
+    filesMovedManifestNot(repo, plugin, mk);
+    const before = readFileSync(join(repo, ".hitl/HITL.md"), "utf8");
+    expect(before).toContain("<<<<<<< this repository");
+    const second = runDiff(repo, plugin, mk, ["--apply"]);
+    expect(second.status, JSON.stringify(second.out)).toBe(0);
+    expect(entry(second.out, ".hitl/HITL.md")).toMatchObject({
+      state: "both",
+      merged: "conflict",
+    });
+    expect(readFileSync(join(repo, ".hitl/HITL.md"), "utf8")).toBe(before);
+  });
+
+  it("removes a leftover old manifest on a current-layout repository", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    const oldManifest = readFileSync(join(repo, ".claude/hitl.json"), "utf8");
+    expect(runDiff(repo, plugin, mk, ["--apply"]).status).toBe(0);
+    writeFileSync(join(repo, ".claude/hitl.json"), oldManifest);
+    const report = runDiff(repo, plugin, mk).out;
+    expect(report.leftovers).toEqual([".claude/hitl.json"]);
+    const applied = runDiff(repo, plugin, mk, ["--apply"]).out;
+    expect(applied.nothing).toBeUndefined();
+    expect(applied.deleted).toEqual([".claude/hitl.json"]);
+    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+  });
+});
