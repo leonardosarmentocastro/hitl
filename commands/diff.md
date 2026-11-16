@@ -18,21 +18,29 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
 - exit `3`, `refused: "tag-missing"` → "the marketplace clone has no tag <tag>; run
   `claude plugin marketplace update hitl` and retry." Stop.
 - exit `3`, `refused: "manifest-mismatch"` → "the manifest and the templates disagree for
-  <paths>; delete `.hitl/manifest.json` and re-run `/hitl:init --adopt`." Stop.
+  <paths>; delete `<manifestPath>` and re-run `/hitl:init --adopt`." Stop.
 - exit `3`, `refused: "unowned-path"` → "the manifest lists <paths>, which hitl <recorded>
-  never installed; nothing was deleted. Remove those keys from `.hitl/manifest.json` (or delete
+  never installed; nothing was deleted. Remove those keys from `<manifestPath>` (or delete
   it and re-run `/hitl:init --adopt`) and retry." Stop.
+- exit `3`, `refused: "move-collision"` → "both <from> and <to> exist and differ; hitl will
+  not choose. Keep the one you want at <to>, delete the other, and retry." (`paths` holds
+  `[<from>, <to>]`.) Stop.
 - exit `3`, `refused: "ahead"` → "the install is at <recorded>, newer than the plugin at
   <plugin>; update the plugin: `claude plugin marketplace update hitl` then
   `claude plugin update hitl`."
   Stop.
 - exit `0` → print one table, `path · state · note`, where the note is `merged: clean`,
-  `merged: conflict`, or `local: same|edited|absent` when present. Then one line:
+  `merged: conflict`, or `local: same|edited|absent` when present, and also `moved from <from>`
+  when the entry has `movedFrom`. Then one line:
   "recorded <recorded> · latest <latest> · <n> to apply", counting every file whose state is
   `upstream changed`, `both`, `missing locally`, `new upstream`, or `removed upstream` with
-  `local: same`.
+  `local: same`; every entry with `movedFrom`, whatever its state (the move itself is a
+  change); and each path in `leftovers` (an earlier install record an apply that stopped
+  part-way left behind, which `--apply` removes).
 
   After that line, and again after an `--apply` run's report, add these in plain words:
+  - when any entry has `movedFrom`: "hitl's files now live in `.hitl/`. Everyone working on this repository must update the hitl plugin to 0.3.0 or newer; an older plugin no longer recognises this repository as installed."
+  - after an `--apply` run, when `claudeLine` is `absent`: "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`."
   - when `.github/workflows/wipe-superpowers-docs.yml` or
     `scripts/hitl/wipe-superpowers-docs.sh` is `removed upstream`: begin with "The CI wipe
     job is gone: " only if the workflow path is among them (a repository that never had the
@@ -51,7 +59,8 @@ Without `--apply` in `$ARGUMENTS`, stop here.
 ## 2. `--apply`
 
 If every file is `unchanged` or `locally edited` (or `already applied`, `removed upstream`
-with `local` other than `same`) and the versions are equal, say "nothing to apply" and stop.
+with `local` other than `same`), no entry has `movedFrom`, `leftovers` is empty and the
+versions are equal, say "nothing to apply" and stop.
 
 Otherwise, in this order — every file is written before the shim is called, because
 `scripts/hitl/pr.sh` may itself be among the files applied:
@@ -66,12 +75,8 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
 - exit `2` → the upgrade stopped part-way on `$BRANCH`. Do not stage, commit, push or call the
   shim. Print `error`, `written`, `deleted` and `manifest` (`written` or `untouched`), then
   tell the human, without running any of it yourself: "Every path under `written` was
-  overwritten and every path under `deleted` removed; nothing is committed. To undo: save any
-  of those files that held uncommitted edits of yours, then
-  `git restore --source=HEAD --worktree -- <the tracked paths among written and deleted, plus
-  .hitl/manifest.json, README.md and .gitignore>`, delete the paths under `written` that git does not track,
-  `git checkout <FROM>` and `git branch -D <BRANCH>`. Fix the error and re-run
-  `/hitl:diff --apply`." Stop.
+  overwritten and every path under `deleted` removed; nothing is committed. To undo: save any of those files that held uncommitted edits of yours, then `git restore --source=HEAD --worktree -- <the tracked paths among written and deleted, plus whichever of .hitl/manifest.json, .claude/hitl.json, CLAUDE.md, README.md and .gitignore git tracks>`, delete the paths under `written` and `.hitl/manifest.json` that git does not track, `git checkout <FROM>` and `git branch -D <BRANCH>`. Fix the error and re-run
+  `/hitl:diff --apply` — or simply re-run `/hitl:diff --apply`: the move resumes." Stop.
 - exit `0` → stage exactly what this apply run reported touching — never the step-1 report's
   whole file list, never `git add -A`: a path the apply did not write (a `locally edited`
   file with the human's uncommitted edits, an absent `removed upstream` file) must not be
@@ -79,7 +84,10 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
 
 ```bash
 git add -- .hitl/manifest.json <every path in the apply output's `written`>
-# only when `deleted` is non-empty (the files are already gone from the tree):
+# only when `claudeLine` is `rewritten`:
+git add -- CLAUDE.md
+# only when `deleted` is non-empty (the files are already gone from the tree; it holds the
+# old paths of moved files and the earlier install record too):
 git rm -q --cached --ignore-unmatch -- <every path in `deleted`>
 # only when `readmeBumped` is true:
 git add -- README.md
@@ -106,10 +114,12 @@ changed these files since this repository recorded hitl <recorded>".>
 
 **How** — Each owned file was compared three ways (recorded template, this repository,
 latest template). Files this repository edited were kept; files both changed were merged.
+<when any entry has `movedFrom`:> <step 1's sentence beginning "hitl's files now live in `.hitl/`", verbatim>
+<when `claudeLine` is `absent`:> <step 1's sentence about `CLAUDE.md`, verbatim>
 
 | file | state |
 |---|---|
-<one row per file whose state is not unchanged>
+<one row per file whose state is not unchanged, and per moved file whatever its state; a moved file's row reads `<to> | <state>, moved from <from>`>
 <only when `gitignoreRefreshed` is true:> | .gitignore | hitl block replaced wholesale — lines added inside the hitl markers were dropped |
 
 <if any file has merged: conflict:> **Conflicts to resolve by hand:** <paths>. They carry

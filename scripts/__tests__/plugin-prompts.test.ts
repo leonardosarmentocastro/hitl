@@ -292,3 +292,18 @@ describe("the plugin runs on GitLab without an install", () => {
       expect(text).toContain("If the output also has a `problem`, print it");
     });
 });
+
+describe("/hitl:diff and the move to .hitl/", () => {
+  const text = readFileSync(join(ROOT, "commands/diff.md"), "utf8");
+  it("carries the fixed copy", () => {
+    expect(text).toContain("moved from <from>");
+    expect(text).toContain(
+      "hitl's files now live in `.hitl/`. Everyone working on this repository must update the hitl plugin to 0.3.0 or newer; an older plugin no longer recognises this repository as installed.",
+    );
+    expect(text).toContain(
+      "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`.",
+    );
+    expect(text).toContain('refused: "move-collision"');
+    expect(text).toContain("leftovers");
+  });
+});
