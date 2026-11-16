@@ -1,5 +1,8 @@
-// scripts/__tests__/pr-shim-contract.test.ts — the shim's contract for the reading verbs,
-// asserted identically against each backend.
+// scripts/__tests__/pr-shim-contract.test.ts — the shim's contract for every verb, asserted
+// identically against each backend.
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { githubWorld } from "./helpers/github";
 import { type SeedPr, gitlabWorld } from "./helpers/gitlab";
@@ -56,6 +59,26 @@ const SEED: SeedPr[] = [
     head_sha: "sha5",
   },
 ];
+
+const RECORD_KEYS = [
+  "number",
+  "ref",
+  "url",
+  "head",
+  "base",
+  "state",
+  "draft",
+  "title",
+  "body",
+  "head_sha",
+].sort();
+
+/** A temp body file holding `text`. */
+function bodyFile(text: string): string {
+  const f = join(mkdtempSync(join(tmpdir(), "hitl-contract-body-")), "body.md");
+  writeFileSync(f, text);
+  return f;
+}
 
 const numbers = (json: unknown) => (json as { number: number }[]).map((p) => p.number).sort();
 
@@ -135,5 +158,101 @@ describe.each([githubWorld, gitlabWorld])("the shim contract on $name", (world) 
     expect(r.status).toBe(2);
     expect(r.stderr.trim()).not.toBe("");
     expect(r.stdout).toBe("");
+  });
+
+  describe("the writing verbs", () => {
+    const createArgs = (head: string, base: string, title: string) => [
+      "create",
+      "--base",
+      base,
+      "--head",
+      head,
+      "--title",
+      title,
+      "--body-file",
+      bodyFile("created body"),
+    ];
+
+    it("create --draft prints a draft record with the title as passed", async () => {
+      await world.setup(SEED);
+      const r = world.run([
+        ...createArgs("feat/x-slice-9-new", "feat/x", "Slice 9: new"),
+        "--draft",
+      ]);
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.stdout.trim().split("\n")).toHaveLength(1);
+      const rec = r.json as Record<string, unknown>;
+      expect(Object.keys(rec).sort()).toEqual(RECORD_KEYS);
+      expect(rec).toMatchObject({
+        draft: true,
+        title: "Slice 9: new",
+        head: "feat/x-slice-9-new",
+        base: "feat/x",
+        state: "open",
+        body: "created body",
+      });
+      expect(rec.ref).toBe(refOf(rec.number as number));
+    });
+
+    it("create without --draft prints a non-draft record", async () => {
+      await world.setup(SEED);
+      const r = world.run(createArgs("feat/x-slice-9-new", "feat/x", "Slice 9: new"));
+      expect(r.status, r.stderr).toBe(0);
+      expect((r.json as { draft: boolean }).draft).toBe(false);
+    });
+
+    it("create for a head with an open PR to that base exits 3 with that PR's record", async () => {
+      await world.setup(SEED);
+      const r = world.run(createArgs("feat/x-slice-1-api", "feat/x", "Slice 1: api"));
+      expect(r.status, r.stderr).toBe(3);
+      expect(r.stdout.trim().split("\n")).toHaveLength(1);
+      const rec = r.json as Record<string, unknown>;
+      expect(Object.keys(rec).sort()).toEqual(RECORD_KEYS);
+      expect(rec).toMatchObject({ number: 1, ref: refOf(1), head: "feat/x-slice-1-api" });
+    });
+
+    it("edit --body-file prints the record with the new body, same draft and title", async () => {
+      await world.setup(SEED);
+      const r = world.run(["edit", "1", "--body-file", bodyFile("edited body")]);
+      expect(r.status, r.stderr).toBe(0);
+      const rec = r.json as Record<string, unknown>;
+      expect(Object.keys(rec).sort()).toEqual(RECORD_KEYS);
+      expect(rec).toMatchObject({
+        number: 1,
+        body: "edited body",
+        draft: true,
+        title: "Slice 1: api",
+      });
+    });
+
+    it("comment --body-file prints the PR's record", async () => {
+      await world.setup(SEED);
+      const r = world.run(["comment", "1", "--body-file", bodyFile("a comment")]);
+      expect(r.status, r.stderr).toBe(0);
+      const rec = r.json as Record<string, unknown>;
+      expect(Object.keys(rec).sort()).toEqual(RECORD_KEYS);
+      expect(rec).toMatchObject({ number: 1, ref: refOf(1) });
+    });
+
+    it("retarget --base prints the record with the new base", async () => {
+      await world.setup(SEED);
+      const r = world.run(["retarget", "1", "--base", "b"]);
+      expect(r.status, r.stderr).toBe(0);
+      const rec = r.json as Record<string, unknown>;
+      expect(Object.keys(rec).sort()).toEqual(RECORD_KEYS);
+      expect(rec.base).toBe("b");
+    });
+
+    it.each([
+      [["create", "--base", "feat/x", "--head", "h", "--body-file", "/dev/null"]],
+      [["edit", "1"]],
+      [["retarget", "1"]],
+    ])("%j is a usage error that never reaches the backend", async (args) => {
+      await world.setup(SEED);
+      const r = world.run(args);
+      expect(r.status).toBe(1);
+      expect(r.stdout).toBe("");
+      expect(world.backendCalls()).toBe(0);
+    });
   });
 });

@@ -5,8 +5,8 @@
 # most --limit of them, and applies the real --jq expression with jq; the host has
 # $FAKE_GH_LIST_TOTAL records in all, default 3). `pr edit <n> --base <b>` is remembered next to
 # the log, and later `pr view` records carry that base. · store (a small host: gh-shaped records
-# in the JSON array file $FAKE_GH_STORE, which `pr create`, `pr edit`, `pr list` and `pr view`
-# read and write, applying the real --jq expression with jq).
+# in the JSON array file $FAKE_GH_STORE, which `pr create`, `pr edit`, `pr comment`, `pr list`
+# and `pr view` read and write, applying the real --jq expression with jq).
 set -u
 # One line per call: newlines inside an argument (a multi-line --jq) are logged as spaces.
 argv="$*"
@@ -75,6 +75,15 @@ if [ "$mode" = store ]; then
       jq --arg t "$target" --arg b "$base" --rawfile body "${bodyfile:-/dev/null}" \
         "map(if .number == (\$t | tonumber) then $upd else . end)" "$db" > "$db.tmp" \
         && mv "$db.tmp" "$db"
+      exit 0
+      ;;
+    "pr comment")
+      jq -e --arg t "$target" 'any(.[]; .number == ($t | tonumber))' "$db" >/dev/null \
+        || { echo "no pull requests found for $target" >&2; exit 1; }
+      jq --arg t "$target" --rawfile body "$bodyfile" \
+        'map(if .number == ($t | tonumber)
+             then .comments += [{author: {login: "hitl"}, body: $body, createdAt: "2026-11-15T00:00:00Z"}]
+             else . end)' "$db" > "$db.tmp" && mv "$db.tmp" "$db"
       exit 0
       ;;
   esac
