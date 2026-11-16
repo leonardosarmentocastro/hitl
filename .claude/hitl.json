@@ -29,6 +29,6 @@
     "scripts/hitl/backend.sh": "65b10f8b2ede1738f49c7221e2a1cf67432279eac026edb893cd4481f0e69df8",
     "scripts/hitl/pr.sh": "b45e789a298ca8b117bbef397a318e0378999c5973f2c864804a807c1d5aa39f",
     "scripts/hitl/review-mode.sh": "098d7befa59f4c0412f9331f63ea91e1611f41dfb2076a2df6dfcfa9db2e84fa",
-    "scripts/hitl/wipe.mjs": "8021d8d7d9aa97b7527d0c1d12ea81f966bd01d6b22d9c3cbdc3b6098aa8a863"
+    "scripts/hitl/wipe.mjs": "bc519d4fad1ee26995a84f179d3818ae7cf4ecb5e12f40972b3e0a87fcc38556"
   }
 }

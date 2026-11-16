@@ -310,7 +310,7 @@ describe("wipe.mjs build", () => {
     writeFileSync(join(archiveDir(), "kept.md"), "kept\n");
     const r = build("feat/x");
     expect(r.status, r.stderr).toBe(0);
-    expect(r.out).toEqual({ status: "merged", pr: 9 });
+    expect(r.out).toEqual({ status: "merged", pr: 9, ref: "#9" });
     expect(remoteSha("feat/x-wipe")).toBe("");
     expect(filesIn(archiveDir())).toEqual(["kept.md"]);
     expect(calls().filter((c) => /^pr (create|edit)/.test(c))).toEqual([]);

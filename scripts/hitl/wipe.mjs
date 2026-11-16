@@ -12,8 +12,10 @@
 //                  --shim <path> [--no-push]
 //
 // stdout is one JSON document: { refused: "bad-branch" } · { status: "nothing-to-wipe" } ·
-// { status: "merged", pr } · { status: "would-build", branch, parent, files } ·
-// { status: "built", branch, pr, files }. Exit: 0 ok · 1 usage · 2 error · 3 refused.
+// { status: "merged", pr, ref } · { status: "would-build", branch, parent, files } ·
+// { status: "built", branch, pr, ref, files }. `ref` is the PR record's `ref` (`#12` on
+// GitHub, `!12` on GitLab): use it in text; `pr` is the number the shim's verbs take.
+// Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -115,7 +117,9 @@ function build(opts) {
     const merged = prs.find((p) => p.state === "merged");
     return {
       code: 0,
-      out: merged ? { status: "merged", pr: merged.number } : { status: "nothing-to-wipe" },
+      out: merged
+        ? { status: "merged", pr: merged.number, ref: merged.ref }
+        : { status: "nothing-to-wipe" },
     };
   }
   if (opts.noPush) return { code: 0, out: { status: "would-build", branch: wipe, parent, files } };
@@ -148,7 +152,10 @@ function build(opts) {
     }
   }
   if (pr.base !== parent) pr = shim(opts.shim, ["retarget", String(pr.number), "--base", parent]);
-  return { code: 0, out: { status: "built", branch: wipe, pr: pr.number, ...extra, files } };
+  return {
+    code: 0,
+    out: { status: "built", branch: wipe, pr: pr.number, ref: pr.ref, ...extra, files },
+  };
 }
 
 /**

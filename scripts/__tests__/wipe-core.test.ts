@@ -169,6 +169,22 @@ describe("wipe-core build", () => {
       isDraft: true,
     });
     expect(r.out.pr).toBe(all[0].number);
+    expect(r.out.ref).toBe(`#${all[0].number}`);
+  });
+
+  it("reports merged with the wipe PR's number and ref once the documents are gone", () => {
+    const first = build("feat/x", "feat/x");
+    expect(first.status, first.stderr).toBe(0);
+    const all = prs();
+    all[0].state = "MERGED";
+    writeFileSync(store, JSON.stringify(all));
+    git(repo, "rm", "-q", ...THREE);
+    git(repo, "commit", "-q", "-m", "wipe merged");
+    git(repo, "push", "-q", "origin", "feat/x");
+    git(repo, "fetch", "-q", "origin");
+    const r = build("feat/x", "feat/x");
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.out).toEqual({ status: "merged", pr: all[0].number, ref: `#${all[0].number}` });
   });
 
   it("needs and creates no record and no memory folder", () => {
