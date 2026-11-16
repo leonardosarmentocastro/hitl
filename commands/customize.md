@@ -26,7 +26,7 @@ rule. `grep -rn --exclude-dir=worktrees "hitl:knob <id>" HITL.md AGENTS.md .clau
 | `local-gates` | the commands the implementer and fixer run before "done" | `AGENTS.md` hitl block, `## Local gates` | discovered at init from the repository's scripts |
 | `pr-body-sections` | what every PR body must answer | `HITL.md` § Pull requests (the What/Why/How bullet and the Review decisions bullet, both anchored); `implement-stack.md`, the body block | What / Why / How plus Review decisions — a newcomer can follow it |
 | `scare-anchors` | the scare-score ladder reviewers calibrate on | `.claude/review-context.md` | treasury's ladder with 5–8 left as placeholders for this repository's own risky change classes |
-| `testing-rules` | which testing principles `HITL.md` carries and whether the wipe job is installed | `HITL.md` § Testing and gates; the wipe workflow | the choices made at init |
+| `testing-rules` | which testing principles `HITL.md` carries | `HITL.md` § Testing and gates | the choices made at init |
 
 ## 1. Refuse an invariant
 
@@ -58,13 +58,12 @@ agreed:
 
 ## 4. `testing-rules`
 
-Read the manifest's `testing` and `ci`. Ask, one at a time, which of `e2e`, `tiers`, `ci`,
-`hooks`, `effective-date` the repository should carry (say what each one states, from
-`${CLAUDE_PLUGIN_ROOT}/templates/testing/<id>.md`) and whether the wipe job should be
-installed (`ci: github-actions`) or not (`ci: none`). Then:
+Read the manifest's `testing`. Ask which of `e2e`, `tiers`, `ci`, `hooks`, `effective-date`
+the repository should carry (say what each one states, from
+`${CLAUDE_PLUGIN_ROOT}/templates/testing/<id>.md`). Then:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --testing "<comma list, or empty>" --ci <github-actions|none>
+node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --testing "<comma list, or empty>"
 ```
 
 - exit `3`, `refused: "behind"` → "the install is at <recorded> and the plugin at <plugin>;
@@ -74,14 +73,14 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plu
 - exit `3`, `refused: "hitl-locally-edited"` → `HITL.md` differs from what hitl rendered for
   the recorded `testing` (a hand edit, or another knob customized). This knob re-composes the
   whole file, so set the local changes aside, run it on the render, and put them back — in
-  one shell invocation, with the same `--testing` and `--ci`:
+  one shell invocation, with the same `--testing`:
 
   ```bash
   TMP=$(mktemp -d)
   node --input-type=module -e 'const root = process.argv[1]; const { composeHitl, readManifest } = await import(`${root}/installer/lib.mjs`); process.stdout.write(composeHitl(root, readManifest(".").testing));' "${CLAUDE_PLUGIN_ROOT}" > "$TMP/rendered.md"
   diff -u "$TMP/rendered.md" HITL.md > "$TMP/local.patch"
   cp "$TMP/rendered.md" HITL.md
-  node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --testing "<comma list, or empty>" --ci <github-actions|none>; CODE=$?
+  node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --testing "<comma list, or empty>"; CODE=$?
   patch HITL.md "$TMP/local.patch"; echo "customize exit $CODE"
   ```
 
@@ -90,8 +89,7 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/customize-testing.mjs" --repo "$PWD" --plu
   re-apply it by hand with the human, and delete the `.rej` and any `.orig` file. Do not
   hand-merge fragment text, and never edit `.claude/hitl.json` by hand.
 - exit `3`, `refused: "no-manifest"` → "run `/hitl:init --adopt` first". Stop.
-- exit `0` → report `wrote`, `removed`, `kept` and the new `testing` and `ci`. A kept
-  workflow differs from what hitl rendered and is left for the human. A kept `AGENTS.md`
+- exit `0` → report `wrote`, `kept` and the new `testing`. A kept `AGENTS.md`
   either still carries `## Effective-date pilots` after `effective-date` was removed (the
   humans' list is theirs to delete) or has no hitl block to add that section to (add it by
   hand). Do not commit.

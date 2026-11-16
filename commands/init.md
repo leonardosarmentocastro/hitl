@@ -40,14 +40,12 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
    other than `github` → "no backend for <host> in v1". Stop.
 4. Before asking anything, run `help.mjs` (`--repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}"`).
    State `not installed` → "nothing to adopt: no hitl-owned file exists. Run `/hitl:init`."
-   Stop. Any other state without a manifest → continue. Then ask exactly two things, one at
-   a time, each with a recommendation:
-   - `ci`: "Is the wipe workflow (`.github/workflows/wipe-superpowers-docs.yml`) part of this
-     repository?" → `github-actions` or `none` (recommend what the tree shows).
+   Stop. Any other state without a manifest → continue. Then ask exactly one thing, with a
+   recommendation:
    - `testing`: "Which of the testing rules does this repository's `HITL.md` carry under
      `## Testing and gates`: e2e, tiers, ci, hooks, effective-date?" → a list, possibly empty
      (recommend what `HITL.md` shows).
-5. Write the answers file `{ "provider": "github", "ci": ..., "testing": [...], "gates": [] }`
+5. Write the answers file `{ "provider": "github", "testing": [...], "gates": [...] }`
    and run:
 
    ```bash
@@ -58,8 +56,6 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
      Run `/hitl:init`." Stop. (Unreachable after step 4's check; kept as the script's own
      guard.)
    - exit `3`, `refused: "manifest-present"` → as step 2. Stop.
-   - exit `3`, `refused: "unknown-ci"` → "the answers named ci `<ci>`, which must be one of
-     <allowed>; this is an init error, not the repository's. Nothing was written." Stop.
    - exit `0` → report: "manifest written to `.claude/hitl.json` at hitl <version>. It records
      the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
      else was touched. Never commit.
@@ -70,9 +66,6 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
 node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --mode check
 ```
 
-- exit `3`, `refused: "unknown-ci"` → "the answers named ci `<ci>`, which must be one of
-  <allowed>; this is an init error, not the repository's. Nothing was written." Stop. (Only
-  step 4 can hit this: the check runs without answers.)
 - exit `3`, `refused: "manifest-present"` → "hitl is already initialised at <version>; run
   `/hitl:diff` to see what changed upstream." Stop.
 - exit `3`, `refused: "collision"` → list every path, then: "These files are owned by hitl and
@@ -98,10 +91,8 @@ say so before moving on. Collect the answers as you go.
 
 | finding in the report | ask | on yes |
 |---|---|---|
-| `ci` contains `github-actions` | "I found GitHub Actions under `.github/workflows/`. Install the wipe job that removes `docs/superpowers/` from `main` after a feature merges? (recommended: yes — specs and plans are transient)" | `ci = "github-actions"` |
 | `ci` is non-empty | "Adopt the CI rule — one terminal check, a red run is read not re-run, a flaky test is a red job? (recommended: yes)" | `testing += "ci"` |
-| `ci` is non-empty and lacks `github-actions` | say: "skipped: no wipe wrapper for <ci> in v1; specs are deleted by hand after merge" | `ci = "none"` |
-| `ci` is empty | say: "skipped: no CI system found; specs are deleted by hand after merge" | `ci = "none"` |
+| `ci` is empty | say: "skipped: no CI system found" | — |
 | `e2e` is non-empty | "I found <playwright / cypress / an `e2e/` directory>. Adopt the e2e rule — a user-visible bug ships a reproduces-then-proves-fixed e2e, a feature's critical path gets one, in the slice that first makes it exercisable? (recommended: yes)" | `testing += "e2e"` |
 | `e2e` is empty | say: "skipped: no e2e harness found" | — |
 | `testRunner` is true | "Adopt test tiers — `unit > component > e2e`, the plan names the tests before implementation? (recommended: yes)" | `testing += "tiers"` |
@@ -116,8 +107,6 @@ Pilot areas are asked (the effective-date question), never discovered. Nothing e
 asked. The package manager for the recommendation is `pnpm` when `pnpm-lock.yaml` exists,
 `yarn` when `yarn.lock` exists, otherwise `npm run`.
 
-A "no" to the wipe-job question sets `ci = "none"`.
-
 When `existing["AGENTS.md"]` is true, read `AGENTS.md` before the local-gates question. If it
 has a `## Local gates` heading outside `<!-- hitl:start -->`…`<!-- hitl:end -->`, say with that
 question: "`AGENTS.md` already has its own `## Local gates`: <its commands>. hitl appends its
@@ -130,7 +119,7 @@ and delete the other." Never edit the repository's section yourself.
 ```bash
 ANSWERS=$(mktemp)
 cat > "$ANSWERS" <<EOF
-{ "provider": "github", "ci": "<github-actions|none>", "testing": [<chosen ids, quoted>], "gates": [<commands, quoted>] }
+{ "provider": "github", "testing": [<chosen ids, quoted>], "gates": [<commands, quoted>] }
 EOF
 node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --answers "$ANSWERS"
 ```

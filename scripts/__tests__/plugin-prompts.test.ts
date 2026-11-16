@@ -206,3 +206,17 @@ describe("the plugin's no-install prompts", () => {
       expect(rp).toContain(s);
   });
 });
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+describe("the install prompts no longer ask about the CI wipe job", () => {
+  for (const p of ["commands/init.md", "commands/customize.md"]) {
+    it(`${p} names neither the job, the ci answer nor the --ci argument`, () => {
+      const text = readFileSync(join(ROOT, p), "utf8");
+      expect(text).not.toContain("wipe-superpowers-docs");
+      expect(text).not.toContain('"ci":');
+      expect(text).not.toContain("--ci");
+    });
+  }
+});
