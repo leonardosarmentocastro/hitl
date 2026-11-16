@@ -93,6 +93,11 @@ function fact(repo: string, name: string, type: string, body: string) {
   expect(r.status).toBe(0);
 }
 
+function oldInstalled(repo: string) {
+  mkdirSync(join(repo, ".claude"), { recursive: true });
+  writeFileSync(join(repo, ".claude/hitl.json"), "{}\n");
+}
+
 function installed(repo: string) {
   mkdirSync(join(repo, ".hitl"), { recursive: true });
   writeFileSync(join(repo, ".hitl/manifest.json"), "{}\n");
@@ -106,6 +111,7 @@ describe("context.mjs JSON", () => {
     expect(status).toBe(0);
     expect(out).toEqual({
       mode: "no-install",
+      layout: "none",
       host: "github",
       key: "github.com/acme/api",
       memoryDir: join(home, "projects/github.com/acme/api"),
@@ -131,12 +137,29 @@ describe("context.mjs JSON", () => {
     });
   });
 
-  it("does not call a repository with only the old manifest path installed (slice 3 owns that case)", () => {
+  it("reports an old-layout repository as installed, layout old", () => {
     const r = clone();
-    mkdirSync(join(r, ".claude"), { recursive: true });
-    writeFileSync(join(r, ".claude/hitl.json"), "{}\n");
+    oldInstalled(r);
     const ctx = context(r).out;
-    expect(ctx.mode).toBe("no-install");
+    expect(ctx).toMatchObject({ mode: "installed", layout: "old" });
+    expect(context(r, "--require", "no-install")).toEqual({
+      status: 3,
+      out: { refused: "installed" },
+    });
+  });
+
+  it("reports both manifests as the current layout", () => {
+    const r = clone();
+    oldInstalled(r);
+    installed(r);
+    const ctx = context(r).out;
+    expect(ctx).toMatchObject({ mode: "installed", layout: "current" });
+  });
+
+  it("reports a repository without hitl as layout none", () => {
+    const r = clone();
+    const ctx = context(r).out;
+    expect(ctx).toMatchObject({ mode: "no-install", layout: "none" });
   });
 
   it("meets the host requirement on GitHub and on gitlab.com", () => {
@@ -294,6 +317,18 @@ describe("context.mjs --format brief", () => {
     expect(b.stdout).toContain("\nWorktree: none\n");
     expect(b.stdout).toContain("\nGates:\n- none\n");
     expect(b.stdout.endsWith("recorded by its user:\n(nothing recorded)\n")).toBe(true);
+  });
+
+  it("prints a Layout line only on an old-layout repository", () => {
+    const r = clone();
+    fact(r, "gates", "gates", "none\n");
+    expect(brief(r).stdout).not.toContain("Layout:");
+    oldInstalled(r);
+    const b = brief(r);
+    expect(b.status).toBe(0);
+    expect(b.stdout).toContain("\nLayout: old\n");
+    installed(r);
+    expect(brief(r).stdout).not.toContain("Layout:");
   });
 
   it("refuses without a gates fact even when gates are not required", () => {

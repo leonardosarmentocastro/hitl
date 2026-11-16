@@ -231,6 +231,23 @@ describe("session.mjs start / get / end", () => {
     expect(existsSync(join(home, "projects"))).toBe(false);
   });
 
+  it("refuses to register a worktree of an old-layout repository", () => {
+    const { clones } = world();
+    mkdirSync(join(clones[0], ".claude"), { recursive: true });
+    writeFileSync(join(clones[0], ".claude/hitl.json"), "{}\n");
+    const out = cli(
+      "start",
+      "--worktree",
+      clones[0],
+      "--topic",
+      "t",
+      "--base",
+      "origin/develop",
+    ).out;
+    expect(out).toEqual({ refused: "installed" });
+    expect(existsSync(join(home, "projects"))).toBe(false);
+  });
+
   it("clears the record once", () => {
     const { clones } = world();
     cli("start", "--worktree", clones[0], "--topic", "t", "--base", "origin/develop");

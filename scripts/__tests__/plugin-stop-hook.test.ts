@@ -180,6 +180,15 @@ describe("plugin Stop hook", () => {
     expect(plugin(wt).status).toBe(0);
   });
 
+  it("stays silent on an old-layout repository with an unreviewed spec", () => {
+    const { wt } = featureWorktree();
+    write(wt, { ".claude/hitl.json": "{}\n", [SPEC]: UNREVIEWED });
+    commitAll(wt);
+    const { status, stderr } = plugin(wt);
+    expect(status).toBe(0);
+    expect(stderr).toBe("");
+  });
+
   it("exits 0 when there is no record for this path", () => {
     const repo = gitRepoWith({ "README.md": "hi\n" });
     write(repo, { [SPEC]: UNREVIEWED });
