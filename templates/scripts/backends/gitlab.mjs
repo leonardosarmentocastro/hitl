@@ -135,7 +135,41 @@ async function list(ctx, [prefix, state]) {
   return mrs.map(toRecord).filter((r) => r.head.startsWith(prefix));
 }
 
-const VERBS = { list };
+/**
+ * The record plus reviews (each approver, then each thread — a discussion with a resolvable
+ * note — in GitLab's order) and comments (the non-system notes of every other discussion).
+ */
+async function view(ctx, [number]) {
+  const { json: mr } = await api(ctx, "GET", `/merge_requests/${number}`);
+  const { json: approvals } = await api(ctx, "GET", `/merge_requests/${number}/approvals`);
+  const discussions = await paged(ctx, `/merge_requests/${number}/discussions`, {});
+
+  const reviews = (approvals?.approved_by ?? []).map((a) => ({
+    author: a.user.username,
+    state: "approved",
+    body: "",
+  }));
+  const comments = [];
+  for (const d of discussions) {
+    const notes = d.notes ?? [];
+    const spoken = notes.filter((n) => !n.system);
+    const resolvable = notes.filter((n) => n.resolvable === true);
+    if (resolvable.length > 0) {
+      reviews.push({
+        author: spoken[0]?.author?.username ?? null,
+        state: resolvable.some((n) => n.resolved === false) ? "changes_requested" : "commented",
+        body: spoken.map((n) => `@${n.author.username}: ${n.body}`).join("\n\n"),
+      });
+    } else {
+      for (const n of spoken) {
+        comments.push({ author: n.author.username, body: n.body, created_at: n.created_at });
+      }
+    }
+  }
+  return { ...toRecord(mr), reviews, comments };
+}
+
+const VERBS = { list, view };
 
 async function main(argv) {
   const [verb, ...args] = argv;

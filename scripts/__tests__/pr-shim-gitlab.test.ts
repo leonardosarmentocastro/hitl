@@ -278,3 +278,106 @@ describe("pr.sh list on GitLab", () => {
     expect(fake.requests()[0].path).toBe("/api/v4/projects/g%2Fsub%2Fr/merge_requests");
   });
 });
+
+/** A GitLab note. */
+function note(username: string, body: string, over: Record<string, unknown> = {}) {
+  return {
+    id: Math.floor(Math.random() * 1e9),
+    body,
+    author: { username },
+    created_at: "2026-11-15T10:00:00Z",
+    system: false,
+    resolvable: false,
+    ...over,
+  };
+}
+
+describe("pr.sh view on GitLab", () => {
+  const view = (n: string) =>
+    runGitlabShim(shim, repoWithOrigin(`${fake.url}/g/r.git`), ["view", n], {
+      GITLAB_URL: fake.url,
+      GITLAB_TOKEN: TOKEN,
+    });
+
+  it("maps approvals, threads and comments, leaving system notes out", () => {
+    const open = { resolvable: true, resolved: false };
+    const done = { resolvable: true, resolved: true };
+    fake.setState({
+      mergeRequests: [mr(5)],
+      approvals: { "5": { approved_by: [{ user: { username: "ana" } }] } },
+      discussions: {
+        "5": [
+          {
+            id: "d1",
+            notes: [
+              note("bo", "rename it", open),
+              note("me", "why?", open),
+              note("bo", "never mind, keep it", open),
+            ],
+          },
+          { id: "d2", notes: [note("cy", "typo", done)] },
+          { id: "d3", notes: [note("di", "+1", { created_at: "2026-11-15T11:00:00Z" })] },
+          { id: "d4", notes: [note("me", "added 1 commit", { system: true })] },
+        ],
+      },
+    });
+    const r = view("5");
+    expect(r.status, r.stderr).toBe(0);
+    const out = r.json as Record<string, unknown>;
+    expect(out.number).toBe(5);
+    expect(out.ref).toBe("!5");
+    expect(out.reviews).toEqual([
+      { author: "ana", state: "approved", body: "" },
+      {
+        author: "bo",
+        state: "changes_requested",
+        body: "@bo: rename it\n\n@me: why?\n\n@bo: never mind, keep it",
+      },
+      { author: "cy", state: "commented", body: "@cy: typo" },
+    ]);
+    expect(out.comments).toEqual([
+      { author: "di", body: "+1", created_at: "2026-11-15T11:00:00Z" },
+    ]);
+    expect(r.stdout).not.toContain("added 1 commit");
+    expectNoToken(r);
+  });
+
+  it("reads every page of discussions: 150 are all represented", () => {
+    fake.setState({
+      mergeRequests: [mr(5)],
+      approvals: {},
+      discussions: {
+        "5": Array.from({ length: 150 }, (_, i) => ({
+          id: `d${i}`,
+          notes: [note("bo", `c${i}`, i % 2 ? { resolvable: true, resolved: false } : {})],
+        })),
+      },
+    });
+    const r = view("5");
+    expect(r.status, r.stderr).toBe(0);
+    const out = r.json as { reviews: unknown[]; comments: unknown[] };
+    expect(out.reviews.length + out.comments.length).toBe(150);
+    const pages = fake
+      .requests()
+      .filter((q) => q.path.endsWith("/discussions"))
+      .map((q) => q.query.page);
+    expect(pages).toEqual(["1", "2"]);
+  });
+
+  it("returns empty reviews and comments for an MR with neither", () => {
+    fake.setState({ ...EMPTY, mergeRequests: [mr(5)] });
+    const r = view("5");
+    expect(r.status, r.stderr).toBe(0);
+    const out = r.json as { reviews: unknown[]; comments: unknown[] };
+    expect(out.reviews).toEqual([]);
+    expect(out.comments).toEqual([]);
+  });
+
+  it("exits 2 with GitLab's message for an unknown number", () => {
+    fake.setState({ ...EMPTY, mergeRequests: [mr(5)] });
+    const r = view("99");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("GitLab 404: 404 Not found");
+    expect(r.stdout).toBe("");
+  });
+});
