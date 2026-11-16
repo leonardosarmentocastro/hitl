@@ -165,7 +165,7 @@ uninstall the plugin and the workflow keeps working.
 | `.claude/commands/` | `/review-spec`, `/review-plan`, `/review-slice`, `/handover`, `/implement-stack`, `/umbrella-pr` |
 | `.claude/hooks/` + `settings.json` | The Stop hook that blocks the turn while a spec or plan is unreviewed |
 | `.claude/review-context.md` | What reviewers should know about *your* repo |
-| `scripts/hitl/` | A small PR shim (swappable code-host backend) and the cleanup script |
+| `scripts/hitl/` | A small PR shim (swappable code-host backend) and the wipe builder |
 | `.claude/hitl.json` | Install record (version, choices, file hashes), used only by `/hitl:diff` and `/hitl:help` |
 
 Specs and plans live under `docs/superpowers/` only while a feature is in progress: they
