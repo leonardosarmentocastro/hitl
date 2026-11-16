@@ -855,3 +855,46 @@ describe("diff.mjs --apply on an old-layout install", () => {
     expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
   });
 });
+
+describe("diff.mjs --apply moves the doctrine's references", () => {
+  const blockOf = (readme: string) =>
+    readme.slice(readme.indexOf("<!-- hitl:start -->"), readme.indexOf("<!-- hitl:end -->"));
+
+  it("rewrites the CLAUDE.md import line", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    const { out, status } = runDiff(repo, plugin, mk, ["--apply"]);
+    expect(status).toBe(0);
+    expect(out.claudeLine).toBe("rewritten");
+    expect(readFileSync(join(repo, "CLAUDE.md"), "utf8")).toBe("@.hitl/HITL.md\n");
+  });
+
+  it("adds no CLAUDE.md when the repository has none", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    rmSync(join(repo, "CLAUDE.md"));
+    const { out, status } = runDiff(repo, plugin, mk, ["--apply"]);
+    expect(status).toBe(0);
+    expect(out.claudeLine).toBe("absent");
+    expect(existsSync(join(repo, "CLAUDE.md"))).toBe(false);
+  });
+
+  it("rewrites the doctrine path inside the README block only", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    const p = join(repo, "README.md");
+    writeFileSync(p, `${readFileSync(p, "utf8")}\nOur own note about \`HITL.md\`.\n`);
+    expect(runDiff(repo, plugin, mk, ["--apply"]).status).toBe(0);
+    const readme = readFileSync(p, "utf8");
+    expect(blockOf(readme)).toContain("`.hitl/HITL.md`");
+    expect(blockOf(readme)).not.toContain("`HITL.md`");
+    expect(readme).toContain("\nOur own note about `HITL.md`.\n");
+  });
+
+  it("never doubles the README path on a resumed apply", () => {
+    const { mk, plugin, repo } = fixtureOldLayout();
+    customize(repo);
+    filesMovedManifestNot(repo, plugin, mk);
+    expect(runDiff(repo, plugin, mk, ["--apply"]).status).toBe(0);
+    const readme = readFileSync(join(repo, "README.md"), "utf8");
+    expect(blockOf(readme)).toContain("`.hitl/HITL.md`");
+    expect(readme).not.toContain(".hitl/.hitl/");
+  });
+});

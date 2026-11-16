@@ -360,6 +360,27 @@ export function withClaudeLine(existing) {
   return { text: `${base}${gap}${CLAUDE_LINE}\n`, changed: true };
 }
 
+/**
+ * Point CLAUDE.md's doctrine import at the new path. A line exactly `@HITL.md` becomes
+ * `@.hitl/HITL.md`, or is dropped when that line is already there (`rewritten`); only the new
+ * line is `current`; neither, or no file, is `absent` and the text is left alone. Never adds a line.
+ */
+export function rewriteClaudeLine(text) {
+  if (text === null) return { text: null, state: "absent" };
+  const lines = text.split("\n");
+  const hasNew = lines.includes(CLAUDE_LINE);
+  if (!lines.includes(OLD_CLAUDE_LINE)) return { text, state: hasNew ? "current" : "absent" };
+  const next = hasNew
+    ? lines.filter((l) => l !== OLD_CLAUDE_LINE)
+    : lines.map((l) => (l === OLD_CLAUDE_LINE ? CLAUDE_LINE : l));
+  return { text: next.join("\n"), state: "rewritten" };
+}
+
+/** Every `` `HITL.md` `` in a README block becomes `` `.hitl/HITL.md` ``; idempotent. */
+export function rewriteReadmeBlockPaths(block) {
+  return block.split("`HITL.md`").join("`.hitl/HITL.md`");
+}
+
 /** Merge the Stop hook entry into settings.json text; other hooks and keys are kept. Throws on bad JSON. */
 export function mergeSettings(existingText, hookEntry) {
   const settings = existingText === null ? {} : JSON.parse(existingText);

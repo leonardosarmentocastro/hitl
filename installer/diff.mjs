@@ -32,6 +32,8 @@ import {
   readManifestOf,
   renderAll,
   replaceMarkerBlock,
+  rewriteClaudeLine,
+  rewriteReadmeBlockPaths,
   sha256,
 } from "./lib.mjs";
 
@@ -275,6 +277,7 @@ export async function run(args) {
   let manifestWritten = false;
   let readmeBumped = false;
   let gitignoreRefreshed = false;
+  let claudeLine;
   try {
     for (const w of writes) {
       const abs = join(repo, w.path);
@@ -297,15 +300,25 @@ export async function run(args) {
       }
     }
 
+    // CLAUDE.md imports the doctrine at its new path; an absent import line is never added.
+    const claudePath = join(repo, "CLAUDE.md");
+    const claude = rewriteClaudeLine(
+      existsSync(claudePath) ? readFileSync(claudePath, "utf8") : null,
+    );
+    if (claude.state === "rewritten") writeFileSync(claudePath, claude.text);
+    claudeLine = claude.state;
+
     const readmePath = join(repo, "README.md");
     if (existsSync(readmePath)) {
       const readme = readFileSync(readmePath, "utf8");
       const start = readme.indexOf(BLOCK_START);
       const end = readme.indexOf(BLOCK_END);
       if (start !== -1 && end > start) {
-        const block = readme
-          .slice(start, end)
-          .replace(`Installed by hitl ${manifest.version}`, `Installed by hitl ${latestVersion}`);
+        const block = rewriteReadmeBlockPaths(
+          readme
+            .slice(start, end)
+            .replace(`Installed by hitl ${manifest.version}`, `Installed by hitl ${latestVersion}`),
+        );
         writeFileSync(readmePath, readme.slice(0, start) + block + readme.slice(end));
         readmeBumped = true;
       }
@@ -336,13 +349,21 @@ export async function run(args) {
     const manifestState = manifestWritten ? "written" : "untouched";
     return {
       code: 2,
-      out: { error: String(e.message), written, deleted, manifest: manifestState },
+      out: { error: String(e.message), written, deleted, manifest: manifestState, claudeLine },
     };
   }
 
   return {
     code: 0,
-    out: { ...report, applied: true, written, deleted, readmeBumped, gitignoreRefreshed },
+    out: {
+      ...report,
+      applied: true,
+      written,
+      deleted,
+      claudeLine,
+      readmeBumped,
+      gitignoreRefreshed,
+    },
   };
 }
 

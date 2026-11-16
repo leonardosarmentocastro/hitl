@@ -328,3 +328,30 @@ describe("layoutOf", () => {
     expect(readManifestOf(empty)).toBeNull();
   });
 });
+
+import { rewriteClaudeLine, rewriteReadmeBlockPaths } from "../../installer/lib.mjs";
+
+describe("moving the doctrine's references", () => {
+  it("rewrites the import line, drops a duplicate, and adds nothing", () => {
+    expect(rewriteClaudeLine("@HITL.md\n@AGENTS.md\n")).toEqual({
+      text: "@.hitl/HITL.md\n@AGENTS.md\n",
+      state: "rewritten",
+    });
+    expect(rewriteClaudeLine("@HITL.md\n@.hitl/HITL.md\n")).toEqual({
+      text: "@.hitl/HITL.md\n",
+      state: "rewritten",
+    });
+    expect(rewriteClaudeLine("@.hitl/HITL.md\n").state).toBe("current");
+    expect(rewriteClaudeLine("# notes about @HITL.md here\n")).toEqual({
+      text: "# notes about @HITL.md here\n",
+      state: "absent",
+    });
+    expect(rewriteClaudeLine(null)).toEqual({ text: null, state: "absent" });
+  });
+
+  it("rewrites the doctrine path in a README block exactly once", () => {
+    const once = rewriteReadmeBlockPaths("The doctrine is `HITL.md`. `.claude/` and `HITL.md` are");
+    expect(once).toBe("The doctrine is `.hitl/HITL.md`. `.claude/` and `.hitl/HITL.md` are");
+    expect(rewriteReadmeBlockPaths(once)).toBe(once);
+  });
+});
