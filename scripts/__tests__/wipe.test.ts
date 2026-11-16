@@ -1,7 +1,9 @@
 // scripts/__tests__/wipe.test.ts
 // The feature's documents: measured by merge-base, archived under project memory, and deleted
 // by one generated commit on `<feature branch>-wipe`, whose draft PR is created or retargeted
-// through the plugin's PR shim (here against a fake gh that keeps a small store of PRs).
+// through the PR shim (here pr.sh with the GitHub backend, against a fake gh that keeps a small
+// store of PRs; the clone's origin is a local path, which the plugin's dispatcher would refuse —
+// dispatch is proven in pr-shim-dispatch.test.ts).
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -16,11 +18,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { archiveDocs, featureDocs, wipeCommit } from "../../runtime/wipe.mjs";
+import { githubShimDir } from "./helpers/github";
 
 const ROOT = process.cwd();
 const CLI = join(ROOT, "runtime/wipe.mjs");
 const SESSION = join(ROOT, "runtime/session.mjs");
-const SHIM = join(ROOT, "runtime/pr/pr.sh");
+const SHIM = join(githubShimDir(), "pr.sh");
 const FAKE_GH_DIR = join(ROOT, "scripts/__fixtures__/fake-gh");
 const IDENTITY = {
   GIT_AUTHOR_NAME: "t",

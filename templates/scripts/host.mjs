@@ -7,6 +7,13 @@
 // gitlab (API base GITLAB_URL); anything else → unknown. Hostnames compare case-insensitively
 // and ignore the port. An empty GITLAB_URL is unset; one that is not an http(s) URL, or that
 // ends in /api/v4, is a `problem` and is otherwise treated as unset.
+//
+// Run as a program (`node host.mjs`), it prints the host word of the current directory's origin
+// remote — `unknown` when there is no origin or no repository — and exits 0.
+
+import { execFileSync } from "node:child_process";
+import { existsSync, realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 /** Split a remote url (https, ssh:// or scp-style) into its lower-cased hostname and path. */
 function parseRemote(remote) {
@@ -76,4 +83,27 @@ export function resolveHost(remote, env = process.env) {
 /** github | gitlab | bitbucket | unknown, from an https, ssh:// or scp-style remote url. */
 export function hostOf(remote, env = process.env) {
   return resolveHost(remote, env).host;
+}
+
+/** The current directory's origin remote url, or null (no origin, or not a repository). */
+function originOfCwd() {
+  try {
+    return execFileSync("git", ["remote", "get-url", "origin"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+// Compare realpaths: Node resolves symlinks in import.meta.url but not in argv[1].
+const isMain =
+  process.argv[1] !== undefined &&
+  existsSync(process.argv[1]) &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+
+if (isMain) {
+  process.stdout.write(`${hostOf(originOfCwd())}\n`);
+  process.exit(0);
 }

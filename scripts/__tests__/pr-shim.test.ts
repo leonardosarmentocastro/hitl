@@ -1,5 +1,5 @@
 // scripts/__tests__/pr-shim.test.ts
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,14 +8,22 @@ import { describe, expect, it } from "vitest";
 const ROOT = process.cwd();
 const FAKE_GH_DIR = join(ROOT, "scripts/__fixtures__/fake-gh");
 
-/** Run one checked-in shim in place, from a working directory that is not the plugin root. */
+/**
+ * Run one checked-in shim in place, from a working directory that is not the plugin root: by
+ * default a git repository whose origin is on GitHub, or (repo false) not a repository at all.
+ */
 function runShim(
   shimPath: string,
   args: string[],
   mode = "ok",
   extraEnv: Record<string, string> = {},
+  repo = true,
 ) {
   const dir = mkdtempSync(join(tmpdir(), "hitl-shim-"));
+  if (repo) {
+    execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
+    execFileSync("git", ["remote", "add", "origin", "git@github.com:o/r.git"], { cwd: dir });
+  }
   const log = join(dir, "gh.log");
   writeFileSync(log, "");
   const r = spawnSync(join(ROOT, shimPath), args, {
@@ -292,6 +300,18 @@ describe.each([
       expect(r.json).toEqual(RECORD);
       expect(r.calls[0]).toBe(`pr comment 12 --body-file ${body}`);
     });
+  });
+});
+
+describe("the plugin shim outside a repository", () => {
+  it("still exits 1 on a usage error, calling nothing", () => {
+    for (const args of [[], ["view"], ["list"], ["nope"]]) {
+      const r = runShim("runtime/pr/pr.sh", args, "ok", {}, false);
+      expect(r.status, args.join(" ")).toBe(1);
+      expect(r.stdout, args.join(" ")).toBe("");
+      expect(r.stderr, args.join(" ")).toContain("usage: pr.sh");
+      expect(r.calls, args.join(" ")).toHaveLength(0);
+    }
   });
 });
 

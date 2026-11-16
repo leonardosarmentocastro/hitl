@@ -261,9 +261,25 @@ export function pluginFiles() {
     { pluginPath: "runtime/pr/pr.sh", template: "scripts/pr.sh", executable: true },
     {
       pluginPath: "runtime/pr/backend.sh",
+      template: "scripts/backends/dispatch.sh",
+      executable: true,
+    },
+    {
+      pluginPath: "runtime/pr/backend-github.sh",
       template: "scripts/backends/github.sh",
       executable: true,
     },
+    {
+      pluginPath: "runtime/pr/backend-gitlab.sh",
+      template: "scripts/backends/gitlab.sh",
+      executable: true,
+    },
+    {
+      pluginPath: "runtime/pr/gitlab.mjs",
+      template: "scripts/backends/gitlab.mjs",
+      executable: true,
+    },
+    { pluginPath: "runtime/pr/host.mjs", template: "scripts/host.mjs", executable: false },
     { pluginPath: "runtime/review-mode.sh", template: "scripts/review-mode.sh", executable: true },
     { pluginPath: "runtime/wipe-core.mjs", template: "scripts/wipe-core.mjs", executable: true },
   ];
