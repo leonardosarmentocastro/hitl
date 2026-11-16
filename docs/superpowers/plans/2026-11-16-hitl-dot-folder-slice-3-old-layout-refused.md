@@ -217,3 +217,4 @@ git commit -m "feat(commands): stop with the upgrade message on an old-layout re
 ## Review decisions
 
 - Keeping the dry run's repository under `.claude/fixtures/` — declined, not worth it: the whole fixture is one JSON file and a commit, and it must be a separate git repository, which a folder inside this one is not.
+- Task 3, `customize.md` "step 1" — clarified by the implementer, no acceptance criterion changed: the step that reads the manifest is numbered 0 ("Ground yourself") in the command, so the layout check sits at the start of step 0, before the manifest is read, as the task intends.
