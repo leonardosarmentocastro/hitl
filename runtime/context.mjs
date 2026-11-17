@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { emit, parseArgs } from "../installer/lib.mjs";
+import { emit, layoutOf, parseArgs } from "../installer/lib.mjs";
 import { problemMessage, resolveHost } from "../templates/scripts/host.mjs";
 import { gatesOf, hitlHome, projectKey, readFacts } from "./memory.mjs";
 import { defaultBase, getRecord } from "./session.mjs";
@@ -51,8 +51,11 @@ export function readContext(repo, pluginRoot) {
   const { host, problem } = resolveHost(originOf(repo));
   // Only when GITLAB_URL is why the host is unknown: a sentence naming what is wrong with it.
   const hostProblem = host === "unknown" ? problemMessage(problem) : null;
+  // An old-layout repository (before 0.3.0) is still installed: it runs its own commands.
+  const layout = layoutOf(top);
   return {
-    mode: existsSync(join(top, ".claude/hitl.json")) ? "installed" : "no-install",
+    mode: layout === "none" ? "no-install" : "installed",
+    layout,
     host,
     ...(hostProblem ? { hostProblem } : {}),
     key,
@@ -81,11 +84,13 @@ function refusal(ctx, required) {
 export function briefOf(ctx, pluginRoot) {
   const lines = [
     "## hitl context (no-install)",
+    ...(ctx.layout === "old" ? ["Layout: old"] : []),
     `Plugin root: ${resolve(pluginRoot)}`,
     `Doctrine: ${ctx.doctrine}`,
     `PR shim: ${ctx.prShim}`,
     `Host: ${ctx.host}`,
-    `Base: ${ctx.base.branch}`,
+    // An installed repository resolves no base.
+    `Base: ${ctx.base ? ctx.base.branch : "none"}`,
     `Worktree: ${ctx.record ? ctx.record.worktree : "none"}`,
     "Gates:",
   ];

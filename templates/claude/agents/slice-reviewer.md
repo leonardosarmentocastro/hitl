@@ -22,9 +22,9 @@ If your brief carries no hitl context block, reply "blocked: no hitl context" an
 Your FIRST action is ONE message that reads all of these together:
 
 <!-- hitl:mode installed -->
-- `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/` and `.claude/worktrees/`);
+- `.hitl/HITL.md` (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/` and `.claude/worktrees/`);
 - `CONTEXT.md` if present;
-- `.claude/review-context.md` if present;
+- `.hitl/review-context.md` if present;
 <!-- hitl:mode no-install -->
 - the doctrine at the `Doctrine:` path of the `## hitl context (no-install)` block in your
   brief (the workflow doctrine), and every `AGENTS.md` and `CLAUDE.md` in the tree (excluding

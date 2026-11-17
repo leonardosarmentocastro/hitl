@@ -17,7 +17,7 @@ import {
   mergeSettings,
   parseArgs,
   pluginVersion,
-  readManifest,
+  readManifestOf,
   readmeBlock,
   renderAll,
   withClaudeLine,
@@ -52,8 +52,12 @@ export function run(args) {
   }
   const version = pluginVersion(pluginRoot);
 
-  const manifest = readManifest(repo);
-  if (manifest) return { code: 3, out: { refused: "manifest-present", version: manifest.version } };
+  const found = readManifestOf(repo);
+  if (found)
+    return {
+      code: 3,
+      out: { refused: "manifest-present", version: found.manifest.version, layout: found.layout },
+    };
   const hits = collisions(repo, choices);
   if (hits.length > 0) return { code: 3, out: { refused: "collision", paths: hits } };
   const settingsPath = join(repo, ".claude/settings.json");

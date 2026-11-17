@@ -15,7 +15,7 @@ import {
 
 const ROOT = process.cwd();
 const REFRESH =
-  "a template changed: regenerate .claude/hitl.json — see AGENTS.md, 'Refreshing this repository's manifest'";
+  "a template changed: regenerate .hitl/manifest.json — see AGENTS.md, 'Refreshing this repository's manifest'";
 
 describe("this repository's manifest", () => {
   const manifest = readManifest(ROOT);
@@ -58,9 +58,9 @@ describe("this repository's manifest", () => {
     expect(r.status, `${r.stdout}${r.stderr}\n${REFRESH}`).toBe(0);
     const files: { path: string; state: string }[] = JSON.parse(r.stdout).files;
     const byPath = Object.fromEntries(files.map((f) => [f.path, f.state]));
-    expect(byPath[".claude/review-context.md"]).toBe("locally edited");
+    expect(byPath[".hitl/review-context.md"]).toBe("locally edited");
     for (const f of files) {
-      if (f.path === ".claude/review-context.md") continue;
+      if (f.path === ".hitl/review-context.md") continue;
       expect(f.state, `${f.path}: ${REFRESH}`).toBe("unchanged");
     }
   });

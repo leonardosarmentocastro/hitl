@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pluginVersion } from "../../installer/lib.mjs";
+import { MANIFEST_PATH, pluginVersion } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
 const CURRENT = pluginVersion(PLUGIN_ROOT);
@@ -42,7 +42,7 @@ function installed() {
 }
 
 function setVersion(repo: string, version: string) {
-  const p = join(repo, ".claude/hitl.json");
+  const p = join(repo, MANIFEST_PATH);
   const m = JSON.parse(readFileSync(p, "utf8"));
   m.version = version;
   writeFileSync(p, JSON.stringify(m));
@@ -56,6 +56,19 @@ function help(repo: string, home: string = tempDir()) {
   );
   return { ...r, json: r.stdout ? JSON.parse(r.stdout) : null };
 }
+
+/** A repository installed before 0.3.0: the manifest at its old path, no `.hitl/`. */
+const OLD_INSTALL = {
+  ".claude/hitl.json": JSON.stringify({
+    version: "0.2.1",
+    provider: "github",
+    testing: [],
+    files: {},
+  }),
+  ".claude/agents/fixer.md": "x\n",
+  "HITL.md": "# HITL\n",
+  ".claude/review-context.md": "context\n",
+};
 
 describe("help.mjs states", () => {
   it("not installed", () => {
@@ -74,6 +87,17 @@ describe("help.mjs states", () => {
   it("ejected (agents dir and HITL.md, no manifest)", () => {
     const r = help(tempDir({ "HITL.md": "# HITL\n", ".claude/agents/fixer.md": "x\n" }));
     expect(r.json.state).toBe("ejected");
+  });
+
+  it("ejected (agents dir and .hitl/HITL.md, no manifest)", () => {
+    const r = help(tempDir({ ".hitl/HITL.md": "# HITL\n", ".claude/agents/fixer.md": "x\n" }));
+    expect(r.json.state).toBe("ejected");
+  });
+
+  it("reports an old-layout install as old layout, never ejected or behind", () => {
+    const out = help(tempDir(OLD_INSTALL)).json;
+    expect(out.state).toBe("old layout");
+    expect(out.manifestVersion).toBe("0.2.1");
   });
 
   it("partially installed (some owned path, not both of the above)", () => {

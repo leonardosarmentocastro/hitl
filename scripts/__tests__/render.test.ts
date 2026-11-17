@@ -14,7 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pluginVersion, renderPlugin } from "../../installer/lib.mjs";
+import { MANIFEST_PATH, pluginVersion, renderPlugin } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
 const CURRENT = pluginVersion(PLUGIN_ROOT);
@@ -31,6 +31,19 @@ function tempRepo(files: Record<string, string> = {}) {
 }
 
 const ANSWERS = { provider: "github", testing: [], gates: ["pnpm test"] };
+
+/** A repository installed before 0.3.0: the manifest at its old path, no `.hitl/`. */
+const OLD_INSTALL = {
+  ".claude/hitl.json": JSON.stringify({
+    version: "0.2.1",
+    provider: "github",
+    testing: [],
+    files: {},
+  }),
+  ".claude/agents/fixer.md": "x\n",
+  "HITL.md": "# HITL\n",
+  ".claude/review-context.md": "context\n",
+};
 
 function render(repo: string, answers: object = ANSWERS) {
   const answersPath = join(repo, "..", `answers-${Date.now()}-${Math.random()}.json`);
@@ -49,11 +62,11 @@ describe("render.mjs on an empty repository", () => {
     const r = render(repo);
     expect(r.status).toBe(0);
     for (const p of [
-      "HITL.md",
+      ".hitl/HITL.md",
       ".claude/agents/fixer.md",
       ".claude/commands/implement-stack.md",
       ".claude/hooks/unreviewed-artifact.sh",
-      ".claude/review-context.md",
+      ".hitl/review-context.md",
       ".claude/fixtures/spec-fixture-design.md",
       "scripts/hitl/pr.sh",
       "scripts/hitl/backend.sh",
@@ -61,7 +74,7 @@ describe("render.mjs on an empty repository", () => {
       expect(existsSync(join(repo, p)), p).toBe(true);
     }
     expect(statSync(join(repo, ".claude/hooks/unreviewed-artifact.sh")).mode & 0o111).not.toBe(0);
-    expect(r.json.wrote).toContain("HITL.md");
+    expect(r.json.wrote).toContain(".hitl/HITL.md");
   });
 
   it("installs the wipe builder as scripts/hitl/wipe.mjs, executable, byte-equal to its template", () => {
@@ -125,15 +138,15 @@ describe("render.mjs on an empty repository", () => {
     }
   });
 
-  it("creates CLAUDE.md with the @HITL.md line and appends it to an existing one", () => {
+  it("creates CLAUDE.md with the @.hitl/HITL.md line and appends it to an existing one", () => {
     const fresh = tempRepo();
     render(fresh);
-    expect(readFileSync(join(fresh, "CLAUDE.md"), "utf8")).toBe("@HITL.md\n");
+    expect(readFileSync(join(fresh, "CLAUDE.md"), "utf8")).toBe("@.hitl/HITL.md\n");
 
     const existing = tempRepo({ "CLAUDE.md": "# Mine\n\nRules.\n" });
     render(existing);
     expect(readFileSync(join(existing, "CLAUDE.md"), "utf8")).toBe(
-      "# Mine\n\nRules.\n\n@HITL.md\n",
+      "# Mine\n\nRules.\n\n@.hitl/HITL.md\n",
     );
   });
 
@@ -174,14 +187,14 @@ describe("render.mjs on an empty repository", () => {
   it("writes the manifest with the version, the choices and a hash per owned file", () => {
     const repo = tempRepo();
     render(repo);
-    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    const manifest = JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
     expect(manifest.version).toBe(CURRENT);
     expect(manifest.provider).toBe("github");
     expect(manifest).not.toHaveProperty("ci");
     expect(manifest.testing).toEqual([]);
     expect(manifest).not.toHaveProperty("gates");
     expect(Object.keys(manifest.files)).toHaveLength(27);
-    expect(manifest.files["HITL.md"]).toMatch(/^[0-9a-f]{64}$/);
+    expect(manifest.files[".hitl/HITL.md"]).toMatch(/^[0-9a-f]{64}$/);
     expect(Object.keys(manifest.files)).toEqual([...Object.keys(manifest.files)].sort());
   });
 
@@ -192,7 +205,7 @@ describe("render.mjs on an empty repository", () => {
       expect(r.status).toBe(0);
       expect(existsSync(join(repo, ".github/workflows/wipe-superpowers-docs.yml"))).toBe(false);
       expect(existsSync(join(repo, "scripts/hitl/wipe-superpowers-docs.sh"))).toBe(false);
-      const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+      const manifest = JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
       expect(manifest).not.toHaveProperty("ci");
     }
   });
@@ -214,7 +227,7 @@ describe("render.mjs for provider gitlab", () => {
       ["scripts/hitl/gitlab.mjs", "templates/scripts/backends/gitlab.mjs"],
       ["scripts/hitl/host.mjs", "templates/scripts/host.mjs"],
     ];
-    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    const manifest = JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
     expect(manifest.provider).toBe("gitlab");
     for (const [installed, template] of pairs) {
       expect(readFileSync(join(repo, installed)), installed).toEqual(
@@ -249,8 +262,20 @@ describe("render.mjs refusals", () => {
     const before = tree(repo);
     const r = render(repo);
     expect(r.status).toBe(3);
-    expect(r.json).toEqual({ refused: "manifest-present", version: CURRENT });
+    expect(r.json).toEqual({ refused: "manifest-present", version: CURRENT, layout: "current" });
     expect(tree(repo)).toEqual(before);
+  });
+
+  it("refuses an old-layout repository as manifest-present, layout old", () => {
+    const repo = tempRepo(OLD_INSTALL);
+    const before = tree(repo);
+    const r = render(repo);
+    expect(r.status).toBe(3);
+    expect(r.json).toMatchObject({ refused: "manifest-present", version: "0.2.1", layout: "old" });
+    expect(tree(repo)).toEqual(before);
+    const c = check(repo);
+    expect(c.status).toBe(3);
+    expect(c.json).toMatchObject({ refused: "manifest-present", version: "0.2.1", layout: "old" });
   });
 
   it("refuses on an owned filename inside .claude/commands but not on a foreign one", () => {
@@ -264,7 +289,7 @@ describe("render.mjs refusals", () => {
     const r = render(owned);
     expect(r.status).toBe(3);
     expect(r.json).toEqual({ refused: "collision", paths: [".claude/commands/review-spec.md"] });
-    expect(existsSync(join(owned, "HITL.md"))).toBe(false);
+    expect(existsSync(join(owned, ".hitl/HITL.md"))).toBe(false);
   });
 
   it("refuses on scripts/hitl/ and .claude/fixtures/ as directories", () => {
@@ -275,8 +300,13 @@ describe("render.mjs refusals", () => {
     expect(r.json.paths).toEqual(expect.arrayContaining(["scripts/hitl", ".claude/fixtures"]));
   });
 
-  it("refuses on HITL.md and review-context.md as files", () => {
-    for (const p of ["HITL.md", ".claude/review-context.md"]) {
+  it("refuses on the doctrine and review-context.md as files, at their new and old paths", () => {
+    for (const p of [
+      ".hitl/HITL.md",
+      ".hitl/review-context.md",
+      "HITL.md",
+      ".claude/review-context.md",
+    ]) {
       const repo = tempRepo({ [p]: "x\n" });
       const r = render(repo);
       expect(r.status, p).toBe(3);
@@ -303,9 +333,9 @@ describe("render.mjs refusals", () => {
       const r = render(repo);
       expect(r.status).toBe(2);
       expect(r.json.error).toMatch(/EACCES|permission/i);
-      expect(r.json.wrote).toContain("HITL.md");
+      expect(r.json.wrote).toContain(".hitl/HITL.md");
       expect(r.json.wrote).not.toContain("scripts/hitl/pr.sh");
-      expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+      expect(existsSync(join(repo, MANIFEST_PATH))).toBe(false);
       chmodSync(join(repo, "scripts"), 0o755);
     },
   );
@@ -320,26 +350,26 @@ describe("render.mjs refusals", () => {
       chmodSync(join(repo, ".claude/settings.json"), 0o444); // the settings write fails
       const r = render(repo);
       expect(r.status).toBe(2);
-      expect(r.json.wrote).toContain("HITL.md");
+      expect(r.json.wrote).toContain(".hitl/HITL.md");
       expect(r.json.wrote).not.toContain("README.md");
       expect(r.json.appended).toEqual(
         expect.arrayContaining(["CLAUDE.md", "README.md", ".gitignore"]),
       );
       expect(r.json.settings).toBe("untouched");
-      expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+      expect(existsSync(join(repo, MANIFEST_PATH))).toBe(false);
       chmodSync(join(repo, ".claude/settings.json"), 0o644);
     },
   );
 
   it("reports settings as added when only the manifest write fails", () => {
     const repo = tempRepo();
-    mkdirSync(join(repo, ".claude"));
+    mkdirSync(join(repo, ".hitl"));
     // A dangling link reads as absent, and writing through it fails.
-    symlinkSync(join(repo, "missing-dir", "hitl.json"), join(repo, ".claude/hitl.json"));
+    symlinkSync(join(repo, "missing-dir", "hitl.json"), join(repo, MANIFEST_PATH));
     const r = render(repo);
     expect(r.status).toBe(2);
     expect(r.json.settings).toBe("added");
-    expect(r.json.wrote).not.toContain(".claude/hitl.json");
+    expect(r.json.wrote).not.toContain(MANIFEST_PATH);
   });
 });
 
@@ -375,7 +405,11 @@ describe("render.mjs --mode check", () => {
   it("refuses on a present manifest", () => {
     const repo = tempRepo();
     render(repo);
-    expect(check(repo).json).toEqual({ refused: "manifest-present", version: CURRENT });
+    expect(check(repo).json).toEqual({
+      refused: "manifest-present",
+      version: CURRENT,
+      layout: "current",
+    });
   });
 });
 
@@ -410,7 +444,7 @@ describe("render.mjs and AGENTS.md", () => {
   it("never records gates in the manifest", () => {
     const repo = tempRepo();
     render(repo, { ...ANSWERS, gates: ["pnpm test"] });
-    const manifest = JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
+    const manifest = JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
     expect(manifest).not.toHaveProperty("gates");
   });
 });
@@ -419,10 +453,40 @@ describe("the installed HITL.md states the one wipe rule", () => {
   it("names the generated wipe PR, merged last, and no CI job", () => {
     const repo = tempRepo();
     expect(render(repo).status).toBe(0);
-    const hitl = readFileSync(join(repo, "HITL.md"), "utf8");
+    const hitl = readFileSync(join(repo, ".hitl/HITL.md"), "utf8");
     expect(hitl).toContain("<feature branch>-wipe");
     expect(hitl).toContain("merged last");
     for (const s of ["a workflow deletes them", "the wipe script", "never empty"])
       expect(hitl, s).not.toContain(s);
+  });
+});
+
+describe("render.mjs and the .hitl/ layout", () => {
+  it("writes the three hitl files under .hitl/ and nothing of its own at the root", () => {
+    const repo = tempRepo();
+    const r = render(repo);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(existsSync(join(repo, ".hitl/HITL.md"))).toBe(true);
+    expect(existsSync(join(repo, ".hitl/review-context.md"))).toBe(true);
+    expect(existsSync(join(repo, ".hitl/manifest.json"))).toBe(true);
+    expect(existsSync(join(repo, "HITL.md"))).toBe(false);
+    expect(existsSync(join(repo, ".claude/hitl.json"))).toBe(false);
+    expect(existsSync(join(repo, ".claude/review-context.md"))).toBe(false);
+    expect(readFileSync(join(repo, "CLAUDE.md"), "utf8")).toBe("@.hitl/HITL.md\n");
+  });
+
+  it("refuses when a root HITL.md exists and no manifest does", () => {
+    const repo = tempRepo({ "HITL.md": "mine\n" });
+    const out = check(repo).json;
+    expect(out).toEqual({ refused: "collision", paths: ["HITL.md"] });
+    expect(existsSync(join(repo, ".hitl"))).toBe(false);
+  });
+
+  it("installs into a repository whose .hitl/ holds unrelated files", () => {
+    const repo = tempRepo({ ".hitl/notes.txt": "ours\n" });
+    const r = render(repo);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(readFileSync(join(repo, ".hitl/notes.txt"), "utf8")).toBe("ours\n");
+    expect(existsSync(join(repo, ".hitl/HITL.md"))).toBe(true);
   });
 });

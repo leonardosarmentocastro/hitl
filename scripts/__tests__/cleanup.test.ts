@@ -69,8 +69,8 @@ function world(defaultBranch = "main", installed = true) {
   copyFileSync(STUB, shim);
   chmodSync(shim, 0o755);
   if (installed) {
-    mkdirSync(join(main, ".claude"), { recursive: true });
-    writeFileSync(join(main, ".claude/hitl.json"), "{}\n");
+    mkdirSync(join(main, ".hitl"), { recursive: true });
+    writeFileSync(join(main, ".hitl/manifest.json"), "{}\n");
   }
   const prsFile = join(base, "prs.json");
   const setPrs = (prs: Pr[]) =>
@@ -130,6 +130,21 @@ describe("cleanup.mjs — which worktrees", () => {
     const r = cleanup(w);
     expect(r.status).toBe(0);
     expect(r.json.worktrees.map((x: { path: string }) => x.path)).toEqual([path]);
+  });
+
+  it("refuses an old-layout repository before fetching", () => {
+    const w = world();
+    rmSync(join(w.main, ".hitl"), { recursive: true });
+    mkdirSync(join(w.main, ".claude"), { recursive: true });
+    writeFileSync(
+      join(w.main, ".claude/hitl.json"),
+      JSON.stringify({ version: "0.2.1", provider: "github", testing: [], files: {} }),
+    );
+    // A fetch would fail on this origin, so a refusal proves nothing was fetched first.
+    git(w.main, "remote", "set-url", "origin", join(w.base, "missing.git"));
+    const { status, json: out } = cleanup(w);
+    expect(status).toBe(3);
+    expect(out).toEqual({ refused: "old-layout" });
   });
 
   it("exits 1 without --repo", () => {

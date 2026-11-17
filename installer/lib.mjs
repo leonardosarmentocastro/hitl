@@ -5,7 +5,18 @@ import { join } from "node:path";
 
 export const TESTING_ORDER = ["e2e", "tiers", "ci", "hooks", "effective-date"];
 export const OWNED_DIRS = ["scripts/hitl", ".claude/fixtures"];
-export const MANIFEST_PATH = ".claude/hitl.json";
+export const MANIFEST_PATH = ".hitl/manifest.json";
+/** Where the manifest lived before 0.3.0. */
+export const OLD_MANIFEST_PATH = ".claude/hitl.json";
+export const DOCTRINE_PATH = ".hitl/HITL.md";
+/** The CLAUDE.md line that imports the doctrine, and the one it replaced in 0.3.0. */
+export const CLAUDE_LINE = "@.hitl/HITL.md";
+export const OLD_CLAUDE_LINE = "@HITL.md";
+/** Owned files that moved: `from` is the path before 0.3.0, `to` the path since. */
+export const MOVES = [
+  { from: "HITL.md", to: ".hitl/HITL.md" },
+  { from: ".claude/review-context.md", to: ".hitl/review-context.md" },
+];
 export const DEFAULT_CHOICES = { provider: "github", testing: [], gates: [] };
 /** The code hosts hitl has a backend for: the only values `provider` may take. */
 export const PROVIDERS = ["github", "gitlab"];
@@ -66,7 +77,7 @@ const FIXTURES = [
 /** The owned files for a set of choices. `template` is relative to templates/; null = composed. */
 export function ownedFiles(choices) {
   const files = [
-    { repoPath: "HITL.md", template: null, executable: false },
+    { repoPath: DOCTRINE_PATH, template: null, executable: false },
     ...AGENTS.map((a) => ({
       repoPath: `.claude/agents/${a}.md`,
       template: `claude/agents/${a}.md`,
@@ -83,7 +94,7 @@ export function ownedFiles(choices) {
       executable: true,
     },
     {
-      repoPath: ".claude/review-context.md",
+      repoPath: ".hitl/review-context.md",
       template: "claude/review-context.md",
       executable: false,
     },
@@ -142,6 +153,21 @@ export function compareVersions(a, b) {
 export function readManifest(repoRoot) {
   const p = join(repoRoot, MANIFEST_PATH);
   return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null;
+}
+
+/** Which layout a repository is on: `current` (.hitl/), `old` (before 0.3.0) or `none`. */
+export function layoutOf(repoRoot) {
+  if (existsSync(join(repoRoot, MANIFEST_PATH))) return "current";
+  if (existsSync(join(repoRoot, OLD_MANIFEST_PATH))) return "old";
+  return "none";
+}
+
+/** The manifest of whichever layout the repository is on, with its path; null for `none`. */
+export function readManifestOf(repoRoot) {
+  const layout = layoutOf(repoRoot);
+  if (layout === "none") return null;
+  const path = layout === "current" ? MANIFEST_PATH : OLD_MANIFEST_PATH;
+  return { manifest: JSON.parse(readFileSync(join(repoRoot, path), "utf8")), path, layout };
 }
 export const THIS_REPO_CHOICES = {
   provider: "github",
@@ -324,14 +350,40 @@ export function replaceMarkerBlock(existing, block) {
   return { text, changed: text !== existing };
 }
 
-/** Append the `@HITL.md` import line to CLAUDE.md; recognised and left alone on a re-run. */
+/** Append the doctrine's import line to CLAUDE.md; recognised and left alone on a re-run. */
 export function withClaudeLine(existing) {
-  if (existing !== null && existing.split("\n").includes("@HITL.md")) {
+  if (existing !== null && existing.split("\n").includes(CLAUDE_LINE)) {
     return { text: existing, changed: false };
   }
   const base = existing === null ? "" : withTrailingNewline(existing);
   const gap = base === "" ? "" : "\n";
-  return { text: `${base}${gap}@HITL.md\n`, changed: true };
+  return { text: `${base}${gap}${CLAUDE_LINE}\n`, changed: true };
+}
+
+/**
+ * Point CLAUDE.md's doctrine import at the new path. A line exactly `@HITL.md` becomes
+ * `@.hitl/HITL.md`, or is dropped when that line is already there (`rewritten`); only the new
+ * line is `current`; neither, or no file, is `absent` and the text is left alone. Never adds a line.
+ */
+export function rewriteClaudeLine(text) {
+  if (text === null) return { text: null, state: "absent" };
+  // A CRLF file's lines end in `\r`: compared without it, and kept on the line rewritten.
+  const lines = text.split("\n");
+  const bare = (l) => l.replace(/\r$/, "");
+  const hasNew = lines.some((l) => bare(l) === CLAUDE_LINE);
+  if (!lines.some((l) => bare(l) === OLD_CLAUDE_LINE))
+    return { text, state: hasNew ? "current" : "absent" };
+  const next = hasNew
+    ? lines.filter((l) => bare(l) !== OLD_CLAUDE_LINE)
+    : lines.map((l) =>
+        bare(l) === OLD_CLAUDE_LINE ? CLAUDE_LINE + l.slice(OLD_CLAUDE_LINE.length) : l,
+      );
+  return { text: next.join("\n"), state: "rewritten" };
+}
+
+/** Every `` `HITL.md` `` in a README block becomes `` `.hitl/HITL.md` ``; idempotent. */
+export function rewriteReadmeBlockPaths(block) {
+  return block.split("`HITL.md`").join("`.hitl/HITL.md`");
 }
 
 /** Merge the Stop hook entry into settings.json text; other hooks and keys are kept. Throws on bad JSON. */
@@ -353,12 +405,12 @@ export function readmeBlock(version, provider = "github") {
 
 Every feature and bugfix follows a human-in-the-loop chain: brainstorm → spec → cold spec
 review → plans → cold plan review → handover → stacked slice PRs, each implemented, reviewed
-and fixed by subagents, with a human deciding at every gate. The doctrine is \`HITL.md\`.
+and fixed by subagents, with a human deciding at every gate. The doctrine is \`.hitl/HITL.md\`.
 
 - Specs and plans live under \`docs/superpowers/\` for the life of a feature branch and
   leave through a generated wipe PR, merged last. The PR description is the durable record.
-- \`.claude/\` (agents, commands, hook) and \`HITL.md\` are reviewed like code: change them by
-  pull request.
+- \`.claude/\` (agents, commands, hook) and \`.hitl/\` (the doctrine, the reviewer context) are
+  reviewed like code: change them by pull request.
 - Installed by hitl ${version}. \`/hitl:diff\` shows what changed upstream since;
   \`/hitl:help\` explains the state of this install.
 - Prerequisites: Claude Code with the superpowers plugin, \`git\`, ${hostPrerequisite}; \`/grill-me\` from
@@ -393,13 +445,17 @@ export function gitignoreBlock() {
 .claude/worktrees/`;
 }
 
-/** Owned paths that already exist: directories for OWNED_DIRS, files for everything else. */
+/**
+ * Owned paths that already exist: directories for OWNED_DIRS, files for everything else, and
+ * any file still at the old path of a move (a doctrine or reviewer context from before 0.3.0).
+ */
 export function collisions(repoRoot, choices) {
   const hits = OWNED_DIRS.filter((d) => existsSync(join(repoRoot, d)));
   for (const f of ownedFiles(choices)) {
     const insideOwnedDir = OWNED_DIRS.some((d) => f.repoPath.startsWith(`${d}/`));
     if (!insideOwnedDir && existsSync(join(repoRoot, f.repoPath))) hits.push(f.repoPath);
   }
+  for (const m of MOVES) if (existsSync(join(repoRoot, m.from))) hits.push(m.from);
   return hits;
 }
 

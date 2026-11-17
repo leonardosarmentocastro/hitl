@@ -102,8 +102,8 @@ describe("knob anchors", () => {
     for (const a of found) expect(a.next.trim(), `${a.file}: ${a.id}`).not.toBe("");
   });
 
-  it("this repository's HITL.md carries the invariants section", () => {
-    const text = readFileSync(join(ROOT, "HITL.md"), "utf8");
+  it("this repository's .hitl/HITL.md carries the invariants section", () => {
+    const text = readFileSync(join(ROOT, ".hitl/HITL.md"), "utf8");
     expect(text).toContain("## Load-bearing invariants");
     expect(text).toContain(
       "The `**Review mode:**` header line of a spec — `/review-spec`, `/review-slice` and `/implement-stack`.",
@@ -128,6 +128,15 @@ describe("knob anchors", () => {
     const text = composeHitl(ROOT, ["e2e"]);
     expect(text).toContain("<!-- hitl:knob testing-rules -->\n## Testing and gates\n");
     expect(composeHitl(ROOT, [])).not.toContain("hitl:knob testing-rules");
+  });
+
+  it("/hitl:customize searches .hitl/ for anchors", () => {
+    const text = readFileSync(join(ROOT, "commands/customize.md"), "utf8");
+    const greps = text
+      .split("\n")
+      .filter((l) => l.includes('grep -rn --exclude-dir=worktrees "hitl:knob <id>"'));
+    expect(greps.length).toBeGreaterThan(0);
+    for (const g of greps) expect(g).toContain(".hitl/ AGENTS.md .claude/");
   });
 
   it("this repository's AGENTS.md carries the local-gates anchor (no pilots: testing is empty here)", () => {

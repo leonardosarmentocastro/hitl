@@ -4,13 +4,26 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { pluginVersion } from "../../installer/lib.mjs";
+import { MANIFEST_PATH, pluginVersion } from "../../installer/lib.mjs";
 
 const PLUGIN_ROOT = process.cwd();
 const CURRENT = pluginVersion(PLUGIN_ROOT);
 const RENDER = join(PLUGIN_ROOT, "installer/render.mjs");
 const SCRIPT = join(PLUGIN_ROOT, "installer/customize-testing.mjs");
 const WORKFLOW = ".github/workflows/wipe-superpowers-docs.yml";
+
+/** A repository installed before 0.3.0: the manifest at its old path, no `.hitl/`. */
+const OLD_INSTALL = {
+  ".claude/hitl.json": JSON.stringify({
+    version: "0.2.1",
+    provider: "github",
+    testing: [],
+    files: {},
+  }),
+  ".claude/agents/fixer.md": "x\n",
+  "HITL.md": "# HITL\n",
+  ".claude/review-context.md": "context\n",
+};
 
 function installedRepo(testing: string[] = []) {
   const dir = mkdtempSync(join(tmpdir(), "hitl-custom-"));
@@ -30,9 +43,8 @@ function customize(repo: string, testing: string, extra: string[] = []) {
   return { ...r, json: r.stdout ? JSON.parse(r.stdout) : null };
 }
 
-const manifestOf = (repo: string) =>
-  JSON.parse(readFileSync(join(repo, ".claude/hitl.json"), "utf8"));
-const hitlOf = (repo: string) => readFileSync(join(repo, "HITL.md"), "utf8");
+const manifestOf = (repo: string) => JSON.parse(readFileSync(join(repo, MANIFEST_PATH), "utf8"));
+const hitlOf = (repo: string) => readFileSync(join(repo, ".hitl/HITL.md"), "utf8");
 const agentsOf = (repo: string) => readFileSync(join(repo, "AGENTS.md"), "utf8");
 
 describe("customize-testing.mjs", () => {
@@ -48,8 +60,8 @@ describe("customize-testing.mjs", () => {
     const m = manifestOf(repo);
     expect(m.testing).toEqual(["e2e", "tiers"]);
     expect(m).not.toHaveProperty("ci");
-    expect(m.files["HITL.md"]).toBeDefined();
-    expect(r.json.wrote).toEqual(["HITL.md"]);
+    expect(m.files[".hitl/HITL.md"]).toBeDefined();
+    expect(r.json.wrote).toEqual([".hitl/HITL.md"]);
   });
 
   it("removes every fragment when asked for none", () => {
@@ -58,6 +70,18 @@ describe("customize-testing.mjs", () => {
     expect(r.status).toBe(0);
     expect(hitlOf(repo)).not.toContain("## Testing and gates");
     expect(manifestOf(repo).testing).toEqual([]);
+  });
+
+  it("refuses an old-layout repository", () => {
+    const repo = mkdtempSync(join(tmpdir(), "hitl-old-"));
+    for (const [rel, content] of Object.entries(OLD_INSTALL)) {
+      mkdirSync(join(repo, rel, ".."), { recursive: true });
+      writeFileSync(join(repo, rel), content);
+    }
+    const r = customize(repo, "tiers");
+    expect(r.status).toBe(3);
+    expect(r.json).toEqual({ refused: "old-layout" });
+    expect(readFileSync(join(repo, "HITL.md"), "utf8")).toBe("# HITL\n");
   });
 
   it("refuses a --ci argument as a usage error", () => {
@@ -69,20 +93,20 @@ describe("customize-testing.mjs", () => {
   it("drops a recorded ci and leaves an existing workflow file untouched", () => {
     const repo = installedRepo();
     const m = manifestOf(repo);
-    writeFileSync(join(repo, ".claude/hitl.json"), JSON.stringify({ ...m, ci: "github-actions" }));
+    writeFileSync(join(repo, MANIFEST_PATH), JSON.stringify({ ...m, ci: "github-actions" }));
     mkdirSync(join(repo, ".github/workflows"), { recursive: true });
     writeFileSync(join(repo, WORKFLOW), "name: old\n");
     const r = customize(repo, "e2e");
     expect(r.status).toBe(0);
     expect(manifestOf(repo)).not.toHaveProperty("ci");
     expect(readFileSync(join(repo, WORKFLOW), "utf8")).toBe("name: old\n");
-    expect(r.json.wrote).toEqual(["HITL.md"]);
+    expect(r.json.wrote).toEqual([".hitl/HITL.md"]);
     expect(r.json.kept).toEqual([]);
   });
 
   it("refuses when HITL.md was edited by hand", () => {
     const repo = installedRepo();
-    writeFileSync(join(repo, "HITL.md"), hitlOf(repo) + "\nlocal rule\n");
+    writeFileSync(join(repo, ".hitl/HITL.md"), hitlOf(repo) + "\nlocal rule\n");
     const before = hitlOf(repo);
     const r = customize(repo, "e2e");
     expect(r.status).toBe(3);
@@ -93,7 +117,7 @@ describe("customize-testing.mjs", () => {
   it("refuses when the manifest is behind the plugin", () => {
     const repo = installedRepo();
     const m = manifestOf(repo);
-    writeFileSync(join(repo, ".claude/hitl.json"), JSON.stringify({ ...m, version: "0.0.1" }));
+    writeFileSync(join(repo, MANIFEST_PATH), JSON.stringify({ ...m, version: "0.0.1" }));
     const r = customize(repo, "e2e");
     expect(r.status).toBe(3);
     expect(r.json).toEqual({ refused: "behind", recorded: "0.0.1", plugin: CURRENT });
@@ -102,7 +126,7 @@ describe("customize-testing.mjs", () => {
   it("refuses when the manifest is ahead of the plugin (stale plugin cache)", () => {
     const repo = installedRepo();
     const m = manifestOf(repo);
-    writeFileSync(join(repo, ".claude/hitl.json"), JSON.stringify({ ...m, version: "9.9.9" }));
+    writeFileSync(join(repo, MANIFEST_PATH), JSON.stringify({ ...m, version: "9.9.9" }));
     const r = customize(repo, "e2e");
     expect(r.status).toBe(3);
     expect(r.json).toEqual({ refused: "ahead", recorded: "9.9.9", plugin: CURRENT });
@@ -127,7 +151,7 @@ describe("customize-testing.mjs", () => {
     );
     const block = (text: string) => text.slice(text.indexOf("<!-- hitl:start -->"));
     expect(block(agents)).toBe(block(agentsOf(installedRepo(["e2e", "effective-date"]))));
-    expect(r.json.wrote).toEqual(expect.arrayContaining(["HITL.md", "AGENTS.md"]));
+    expect(r.json.wrote).toEqual(expect.arrayContaining([".hitl/HITL.md", "AGENTS.md"]));
   });
 
   it("does not add the pilots section twice", () => {
@@ -151,7 +175,7 @@ describe("customize-testing.mjs", () => {
 
   it("refuses when the repository has no manifest", () => {
     const repo = installedRepo();
-    rmSync(join(repo, ".claude/hitl.json"));
+    rmSync(join(repo, MANIFEST_PATH));
     const before = hitlOf(repo);
     const r = customize(repo, "e2e");
     expect(r.status).toBe(3);

@@ -176,8 +176,17 @@ describe("plugin Stop hook", () => {
 
   it("exits 0 in an installed repository even with a record", () => {
     const { wt } = featureWorktree();
-    write(wt, { ".claude/hitl.json": "{}\n", [SPEC]: UNREVIEWED });
+    write(wt, { ".hitl/manifest.json": "{}\n", [SPEC]: UNREVIEWED });
     expect(plugin(wt).status).toBe(0);
+  });
+
+  it("stays silent on an old-layout repository with an unreviewed spec", () => {
+    const { wt } = featureWorktree();
+    write(wt, { ".claude/hitl.json": "{}\n", [SPEC]: UNREVIEWED });
+    commitAll(wt);
+    const { status, stderr } = plugin(wt);
+    expect(status).toBe(0);
+    expect(stderr).toBe("");
   });
 
   it("exits 0 when there is no record for this path", () => {

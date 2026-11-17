@@ -1,16 +1,18 @@
 #!/usr/bin/env node
-// The `testing-rules` knob of /hitl:customize: re-compose HITL.md with a new fragment set and
+// The `testing-rules` knob of /hitl:customize: re-compose .hitl/HITL.md with a new fragment set and
 // record the new choices in the manifest so /hitl:diff stays exact. Refuses when the manifest
-// is behind the plugin or HITL.md was edited by hand. Exit: 0 ok · 1 usage · 3 refused.
+// is behind the plugin or the doctrine was edited by hand. Exit: 0 ok · 1 usage · 3 refused.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   BLOCK_END,
   BLOCK_START,
+  DOCTRINE_PATH,
   MANIFEST_PATH,
   TESTING_ORDER,
   agentsBlock,
   compareVersions,
+  layoutOf,
   composeHitl,
   manifestFor,
   parseArgs,
@@ -35,6 +37,7 @@ export function run(args) {
   ) {
     return { code: 1, out: { error: USAGE } };
   }
+  if (layoutOf(repo) === "old") return { code: 3, out: { refused: "old-layout" } };
   const testing = testingArg === "" ? [] : testingArg.split(",").map((s) => s.trim());
   for (const id of testing)
     if (!TESTING_ORDER.includes(id)) return { code: 3, out: { refused: "unknown-fragment", id } };
@@ -47,7 +50,7 @@ export function run(args) {
     return { code: 3, out: { refused, recorded: manifest.version, plugin } };
   }
 
-  const hitlPath = join(repo, "HITL.md");
+  const hitlPath = join(repo, DOCTRINE_PATH);
   const current = existsSync(hitlPath) ? readFileSync(hitlPath, "utf8") : null;
   if (current !== renderMode(composeHitl(pluginRoot, manifest.testing), "installed"))
     return { code: 3, out: { refused: "hitl-locally-edited" } };
@@ -61,8 +64,8 @@ export function run(args) {
   const wrote = [];
   const kept = [];
 
-  writeFileSync(hitlPath, rendered.get("HITL.md").content);
-  wrote.push("HITL.md");
+  writeFileSync(hitlPath, rendered.get(DOCTRINE_PATH).content);
+  wrote.push(DOCTRINE_PATH);
 
   // The effective-date fragment points at a pilots section in the AGENTS.md hitl block: add it
   // when missing; on removal leave the humans' list in place and report it.

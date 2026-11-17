@@ -18,7 +18,7 @@ read every one an APPLY row cites.
 
 ## Grounding — first action, one parallel batch
 
-Read together: `HITL.md` at the repo root (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/` and `.claude/worktrees/`), `CONTEXT.md` if
+Read together: `.hitl/HITL.md` (the workflow doctrine) and every `AGENTS.md` in the tree (excluding `node_modules/` and `.claude/worktrees/`), `CONTEXT.md` if
 present, the plan, the review file, and every file the APPLY findings name.
 
 ## Working rules

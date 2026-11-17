@@ -23,13 +23,17 @@ import {
   BLOCK_END,
   BLOCK_START,
   MANIFEST_PATH,
+  MOVES,
+  OLD_MANIFEST_PATH,
   compareVersions,
   gitignoreBlock,
   manifestFor,
   pluginVersion,
-  readManifest,
+  readManifestOf,
   renderAll,
   replaceMarkerBlock,
+  rewriteClaudeLine,
+  rewriteReadmeBlockPaths,
   sha256,
 } from "./lib.mjs";
 
@@ -103,12 +107,34 @@ function mergeThree(repoText, recordedText, latestText) {
   return { text: r.stdout, merged: r.status === 0 ? "clean" : "conflict" };
 }
 
+/** Raised by classify when the recorded render lacks the text a three-way merge needs. */
+class RecordedTextMissing extends Error {}
+
+/**
+ * One owned file's state from its three versions, and the outcome: the text that should sit at
+ * its path after an apply (the latest render, the repository's text, or the three-way merge).
+ * Throws RecordedTextMissing, or the merge's own error.
+ */
+function classify(repoText, recHash, recText, latest) {
+  if (repoText === null) return { state: "missing locally", content: latest.content };
+  const r = sha256(repoText);
+  const lat = sha256(latest.content);
+  if (r === recHash && recHash === lat) return { state: "unchanged", content: latest.content };
+  if (r === recHash) return { state: "upstream changed", content: latest.content };
+  if (recHash === lat) return { state: "locally edited", content: repoText };
+  if (r === lat) return { state: "already applied", content: repoText };
+  if (recText === undefined) throw new RecordedTextMissing();
+  const m = mergeThree(repoText, recText, latest.content);
+  return { state: "both", merged: m.merged, content: m.text };
+}
+
 export async function run(args) {
   const { repo, "plugin-root": pluginRoot, marketplace, apply } = args;
   if (!repo || !pluginRoot || !marketplace) return { code: 1, out: { error: USAGE } };
 
-  const manifest = readManifest(repo);
-  if (!manifest) return { code: 3, out: { refused: "no-manifest" } };
+  const found = readManifestOf(repo);
+  if (!found) return { code: 3, out: { refused: "no-manifest" } };
+  const { manifest, path: manifestPath, layout } = found;
   const choices = { provider: manifest.provider, testing: manifest.testing, gates: [] };
   // A manifest written before the CI wipe job was removed records `ci`: the recorded version's
   // renderer still needs it to own what it wrote. The latest render and the new manifest never do.
@@ -118,36 +144,81 @@ export async function run(args) {
   if (compareVersions(manifest.version, latestVersion) > 0) {
     return {
       code: 3,
-      out: { refused: "ahead", recorded: manifest.version, plugin: latestVersion },
+      out: { refused: "ahead", recorded: manifest.version, plugin: latestVersion, manifestPath },
     };
   }
   const latest = renderAll(pluginRoot, choices);
   const recorded = await recordedRender(manifest, pluginRoot, marketplace, recordedChoices);
   if (recorded === null)
-    return { code: 3, out: { refused: "tag-missing", tag: `v${manifest.version}` } };
+    return { code: 3, out: { refused: "tag-missing", tag: `v${manifest.version}`, manifestPath } };
 
   // Trust the recorded render only if it hashes to what the manifest recorded.
   const mismatch = [...recorded.keys()]
     .filter((p) => p in manifest.files && sha256(recorded.get(p).content) !== manifest.files[p])
     .sort();
   if (mismatch.length > 0)
-    return { code: 3, out: { refused: "manifest-mismatch", paths: mismatch } };
+    return { code: 3, out: { refused: "manifest-mismatch", paths: mismatch, manifestPath } };
 
   // A removal deletes a manifest path, so every path must be one the recorded version owned
   // (which also keeps it relative and inside the repository): a hand-edited key never is.
   const unowned = Object.keys(manifest.files)
     .filter((p) => isAbsolute(p) || p.split(/[\\/]/).includes("..") || !recorded.has(p))
     .sort();
-  if (unowned.length > 0) return { code: 3, out: { refused: "unowned-path", paths: unowned } };
+  if (unowned.length > 0)
+    return { code: 3, out: { refused: "unowned-path", paths: unowned, manifestPath } };
+
+  const readRepo = (p) => (existsSync(join(repo, p)) ? readFileSync(join(repo, p), "utf8") : null);
+  const mergeFailed = (e) => ({
+    code: 2,
+    out: { error: String(e.message), written: [], deleted: [], manifest: "untouched" },
+  });
 
   const files = [];
-  const writes = []; // { path, content, executable } or { path, delete: true }
-  const paths = [...new Set([...Object.keys(manifest.files), ...latest.keys()])].sort();
+  const writes = []; // { path, content, executable, removeFrom?, resume? } or { path, delete: true }
+
+  // A recorded `from` whose `to` the latest render owns is the repository's copy of `to`: one
+  // entry at `to`, classified against the record of `from`, always written (the move is a change).
+  const moves = MOVES.filter(
+    (m) => m.from in manifest.files && latest.has(m.to) && !latest.has(m.from),
+  );
+  for (const { from, to } of moves) {
+    const fromText = readRepo(from);
+    const toText = readRepo(to);
+    const lat = latest.get(to);
+    let c;
+    try {
+      // Only `to` on disk and it still carries conflict hunks from an earlier apply: its outcome
+      // is its own text, never a second merge on top of the first.
+      if (fromText === null && toText !== null && /^<<<<<<< this repository/m.test(toText))
+        c = { state: "both", merged: "conflict", content: toText };
+      else c = classify(fromText ?? toText, manifest.files[from], recorded.get(from)?.content, lat);
+    } catch (e) {
+      if (e instanceof RecordedTextMissing)
+        return { code: 3, out: { refused: "manifest-mismatch", paths: [from], manifestPath } };
+      return mergeFailed(e);
+    }
+    // Both on disk: resume only when `to` already holds what this move would write there.
+    const resume = fromText !== null && toText !== null;
+    if (resume && toText !== c.content)
+      return { code: 3, out: { refused: "move-collision", paths: [from, to], manifestPath } };
+    const entry = { path: to, movedFrom: from, state: c.state };
+    if (c.merged) entry.merged = c.merged;
+    files.push(entry);
+    const w = { path: to, content: c.content, executable: lat.executable };
+    if (fromText !== null) w.removeFrom = from;
+    else w.removedEarlier = from;
+    if (resume) w.resume = true;
+    writes.push(w);
+  }
+  const movedPaths = new Set(moves.flatMap((m) => [m.from, m.to]));
+
+  const paths = [...new Set([...Object.keys(manifest.files), ...latest.keys()])]
+    .filter((p) => !movedPaths.has(p))
+    .sort();
   for (const path of paths) {
     const inRecorded = path in manifest.files;
     const inLatest = latest.has(path);
-    const abs = join(repo, path);
-    const repoText = existsSync(abs) ? readFileSync(abs, "utf8") : null;
+    const repoText = readRepo(path);
     const entry = { path };
     if (!inRecorded) {
       entry.state = "new upstream";
@@ -159,36 +230,19 @@ export async function run(args) {
         entry.local = "same";
         writes.push({ path, delete: true });
       } else entry.local = "edited";
-    } else if (repoText === null) {
-      entry.state = "missing locally";
-      writes.push({ path, ...latest.get(path) });
     } else {
-      const r = sha256(repoText);
-      const rec = manifest.files[path];
-      const lat = sha256(latest.get(path).content);
-      if (r === rec && rec === lat) entry.state = "unchanged";
-      else if (r === rec) {
-        entry.state = "upstream changed";
-        writes.push({ path, ...latest.get(path) });
-      } else if (rec === lat) entry.state = "locally edited";
-      else if (r === lat) entry.state = "already applied";
-      else {
-        const recordedText = recorded.get(path)?.content;
-        if (recordedText === undefined)
-          return { code: 3, out: { refused: "manifest-mismatch", paths: [path] } };
-        let m;
-        try {
-          m = mergeThree(repoText, recordedText, latest.get(path).content);
-        } catch (e) {
-          return {
-            code: 2,
-            out: { error: String(e.message), written: [], deleted: [], manifest: "untouched" },
-          };
-        }
-        entry.state = "both";
-        entry.merged = m.merged;
-        writes.push({ path, content: m.text, executable: latest.get(path).executable });
+      let c;
+      try {
+        c = classify(repoText, manifest.files[path], recorded.get(path)?.content, latest.get(path));
+      } catch (e) {
+        if (e instanceof RecordedTextMissing)
+          return { code: 3, out: { refused: "manifest-mismatch", paths: [path], manifestPath } };
+        return mergeFailed(e);
       }
+      entry.state = c.state;
+      if (c.merged) entry.merged = c.merged;
+      if (["missing locally", "upstream changed", "both"].includes(c.state))
+        writes.push({ path, content: c.content, executable: latest.get(path).executable });
     }
     files.push(entry);
   }
@@ -198,9 +252,24 @@ export async function run(args) {
     .filter((f) => f.state === "removed upstream" && f.local === "edited")
     .map((f) => f.path)
     .sort();
-  const report = { recorded: manifest.version, latest: latestVersion, files, keptRemoved };
+  // An apply that stopped between writing the new manifest and removing the old one.
+  const leftovers =
+    layout === "current" && existsSync(join(repo, OLD_MANIFEST_PATH)) ? [OLD_MANIFEST_PATH] : [];
+  const report = {
+    recorded: manifest.version,
+    latest: latestVersion,
+    manifestPath,
+    files,
+    keptRemoved,
+    leftovers,
+  };
   if (!apply) return { code: 0, out: report };
-  if (writes.length === 0 && manifest.version === latestVersion)
+  if (
+    writes.length === 0 &&
+    manifest.version === latestVersion &&
+    layout === "current" &&
+    leftovers.length === 0
+  )
     return { code: 0, out: { nothing: true, ...report } };
 
   // Not transactional: on a failure, say exactly what already landed so the human can undo it.
@@ -209,6 +278,7 @@ export async function run(args) {
   let manifestWritten = false;
   let readmeBumped = false;
   let gitignoreRefreshed = false;
+  let claudeLine;
   try {
     for (const w of writes) {
       const abs = join(repo, w.path);
@@ -217,18 +287,36 @@ export async function run(args) {
         deleted.push(w.path);
         continue;
       }
-      mkdirSync(dirname(abs), { recursive: true });
-      writeFileSync(abs, w.content);
-      if (w.executable) chmodSync(abs, 0o755);
+      // A resumed move already holds its outcome at `to`: only `from` is left to remove. It is
+      // still named under `written`, as an old path an earlier run removed is under `deleted`,
+      // so what the command stages is always the whole move.
+      if (!w.resume) {
+        mkdirSync(dirname(abs), { recursive: true });
+        writeFileSync(abs, w.content);
+        if (w.executable) chmodSync(abs, 0o755);
+      }
       written.push(w.path);
+      // A move writes `to` and removes `from` back to back, so a stop leaves at most one pair.
+      if (w.removeFrom) {
+        unlinkSync(join(repo, w.removeFrom));
+        deleted.push(w.removeFrom);
+      } else if (w.removedEarlier) deleted.push(w.removedEarlier);
     }
+    // The record already moved and only the old one was left: the files moved in an earlier run.
+    if (leftovers.length > 0)
+      for (const { from, to } of MOVES) {
+        if (!latest.has(to) || latest.has(from)) continue;
+        if (existsSync(join(repo, to)) && !written.includes(to)) written.push(to);
+        if (!existsSync(join(repo, from)) && !deleted.includes(from)) deleted.push(from);
+      }
 
-    // The manifest describes the templates, never the repository's edits: a locally edited or
-    // conflicted file is recorded at the latest render's hash, which is what lets the next diff
-    // still classify it as locally edited rather than as unchanged.
-    const next = manifestFor(latestVersion, choices, latest);
-    writeFileSync(join(repo, MANIFEST_PATH), `${JSON.stringify(next, null, 2)}\n`);
-    manifestWritten = true;
+    // CLAUDE.md imports the doctrine at its new path; an absent import line is never added.
+    const claudePath = join(repo, "CLAUDE.md");
+    const claude = rewriteClaudeLine(
+      existsSync(claudePath) ? readFileSync(claudePath, "utf8") : null,
+    );
+    if (claude.state === "rewritten") writeFileSync(claudePath, claude.text);
+    claudeLine = claude.state;
 
     const readmePath = join(repo, "README.md");
     if (existsSync(readmePath)) {
@@ -236,9 +324,11 @@ export async function run(args) {
       const start = readme.indexOf(BLOCK_START);
       const end = readme.indexOf(BLOCK_END);
       if (start !== -1 && end > start) {
-        const block = readme
-          .slice(start, end)
-          .replace(`Installed by hitl ${manifest.version}`, `Installed by hitl ${latestVersion}`);
+        const block = rewriteReadmeBlockPaths(
+          readme
+            .slice(start, end)
+            .replace(`Installed by hitl ${manifest.version}`, `Installed by hitl ${latestVersion}`),
+        );
         writeFileSync(readmePath, readme.slice(0, start) + block + readme.slice(end));
         readmeBumped = true;
       }
@@ -252,17 +342,38 @@ export async function run(args) {
         gitignoreRefreshed = true;
       }
     }
+
+    // The manifest describes the templates, never the repository's edits: a locally edited or
+    // conflicted file is recorded at the latest render's hash, which is what lets the next diff
+    // still classify it as locally edited rather than as unchanged. It is relocated last, so an
+    // apply that stops anywhere before it leaves an old-layout repository whose re-run resumes.
+    const next = manifestFor(latestVersion, choices, latest);
+    mkdirSync(dirname(join(repo, MANIFEST_PATH)), { recursive: true });
+    writeFileSync(join(repo, MANIFEST_PATH), `${JSON.stringify(next, null, 2)}\n`);
+    manifestWritten = true;
+    if (existsSync(join(repo, OLD_MANIFEST_PATH))) {
+      unlinkSync(join(repo, OLD_MANIFEST_PATH));
+      deleted.push(OLD_MANIFEST_PATH);
+    }
   } catch (e) {
     const manifestState = manifestWritten ? "written" : "untouched";
     return {
       code: 2,
-      out: { error: String(e.message), written, deleted, manifest: manifestState },
+      out: { error: String(e.message), written, deleted, manifest: manifestState, claudeLine },
     };
   }
 
   return {
     code: 0,
-    out: { ...report, applied: true, written, deleted, readmeBumped, gitignoreRefreshed },
+    out: {
+      ...report,
+      applied: true,
+      written,
+      deleted,
+      claudeLine,
+      readmeBumped,
+      gitignoreRefreshed,
+    },
   };
 }
 

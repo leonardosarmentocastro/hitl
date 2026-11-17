@@ -63,17 +63,25 @@ Nothing else is written or asked.
 If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
 
 1. Run the prerequisite check above.
-2. Manifest present → "hitl is already initialised at <version>; run `/hitl:diff`." Stop.
+2. `.hitl/manifest.json` present → "hitl is already initialised at <version>; run `/hitl:diff`."
+   Stop. (A manifest from the earlier layout is step 4's `old layout` state.)
 3. Host only: `node "${CLAUDE_PLUGIN_ROOT}/installer/discover.mjs" --repo "$PWD"`. Apply
    "Refusing a host without a backend" above: `github` or `gitlab` → continue with
    `provider = <host>`; any other host → stop with its message.
 4. Before asking anything, run `help.mjs` (`--repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}"`).
    State `not installed` → "nothing to adopt: no hitl-owned file exists. Run `/hitl:init`."
-   Stop. Any other state without a manifest → continue. Then ask exactly one thing, with a
+   Stop. State `old layout` → print exactly, and stop:
+
+   ```
+   This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.
+   ```
+
+   Any other state without a manifest → continue. Then ask exactly one thing, with a
    recommendation:
-   - `testing`: "Which of the testing rules does this repository's `HITL.md` carry under
+   - `testing`: "Which of the testing rules does this repository's `.hitl/HITL.md` carry under
      `## Testing and gates`: e2e, tiers, ci, hooks, effective-date?" → a list, possibly empty
-     (recommend what `HITL.md` shows).
+     (recommend what `.hitl/HITL.md` shows).
+     If `.hitl/HITL.md` is absent, read `HITL.md` at the repository root instead: the move to `.hitl/` runs later, in step 5.
 5. Write the answers file `{ "provider": "<github|gitlab>", "testing": [...], "gates": [...] }`
    (`provider` from step 3) and run:
 
@@ -84,11 +92,22 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
    - exit `3`, `refused: "nothing-to-adopt"` → "nothing to adopt: no hitl-owned file exists.
      Run `/hitl:init`." Stop. (Unreachable after step 4's check; kept as the script's own
      guard.)
-   - exit `3`, `refused: "manifest-present"` → as step 2. Stop.
+   - exit `3`, `refused: "manifest-present"` → with `layout: "old"`, the upgrade message as in
+     § 2; otherwise as step 2. Stop.
    - exit `3`, `refused: "unknown-provider"` → "no backend for <provider>". Stop.
-   - exit `0` → report: "manifest written to `.claude/hitl.json` at hitl <version>. It records
-     the templates, not this repository's files: run `/hitl:diff` to see the drift." Nothing
-     else was touched. Never commit.
+   - exit `3`, `refused: "move-collision"` → with `paths` as `[<from>, <to>]`: "both <from> and
+     <to> exist; hitl will not choose. Keep the one you want at <to>, delete the other, and
+     re-run. Nothing was written." Stop.
+   - exit `2` → print `error`; list each entry of `moved` as "already moved: <from> → <to>";
+     then "no manifest was written. Fix the error and re-run `/hitl:init --adopt`: it continues
+     from here." Stop.
+   - exit `0` → report: "manifest written to `.hitl/manifest.json` at hitl <version>. It records
+     the templates, not this repository's files: run `/hitl:diff` to see the drift." Then one
+     line per entry of `moved`: "moved <from> → <to>". When `claudeLine` is `rewritten`:
+     "`CLAUDE.md` now imports `@.hitl/HITL.md`". When `claudeLine` is `absent`:
+     "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`."
+     When `moved` is not empty: "The agents and commands in `.claude/` still name the old paths. `/hitl:diff` shows them as locally edited: take the upstream text for those lines."
+     Nothing else was touched. Never commit.
 
 ## 2. Refuse early, then discover
 
@@ -96,12 +115,20 @@ If `$ARGUMENTS` contains `--adopt`, this path replaces steps 2 onward:
 node "${CLAUDE_PLUGIN_ROOT}/installer/render.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --mode check
 ```
 
-- exit `3`, `refused: "manifest-present"` → "hitl is already initialised at <version>; run
-  `/hitl:diff` to see what changed upstream." Stop.
+- exit `3`, `refused: "manifest-present"` → with `layout: "old"`, print exactly, in place of
+  the sentence below:
+
+  ```
+  This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.
+  ```
+
+  Otherwise: "hitl is already initialised at <version>; run `/hitl:diff` to see what changed
+  upstream." Stop.
 - exit `3`, `refused: "collision"` → list every path, then: "These files are owned by hitl and
   already exist. If this repository was ejected from an earlier hitl or from treasury-2, run
   `/hitl:init --adopt`. Otherwise remove them and re-run.
-  Nothing was written." Stop.
+  Nothing was written." When `paths` holds the doctrine at the repository root or the
+  reviewer context directly in `.claude/` (the two files' places before 0.3.0), add: "A doctrine or reviewer context from the earlier layout is in the way: `/hitl:init --adopt` moves it." Stop.
 - exit `3`, `refused: "settings-unparsable"` → print the error and "fix
   `.claude/settings.json` and re-run; nothing was written." Stop.
 - exit `0` → continue.
@@ -159,7 +186,7 @@ Exit `3`, `refused: "unknown-provider"` → "no backend for <provider>". Stop. A
 write if the human created a file meanwhile). Exit `2` with a `wrote` list means a write
 failed midway. Print the error, then say "init is not transactional", and:
 
-- list the files in `wrote` and say "remove these files, and `.claude/hitl.json` if it
+- list the files in `wrote` and say "remove these files, and `.hitl/manifest.json` if it
   exists, then re-run" — these are the only files to remove;
 - list the files in `appended` (if any) and say "a hitl block was added to these files;
   leave them as they are — a re-run sees the block and skips them";
@@ -176,13 +203,13 @@ ones left alone because their block was already there; the repository's own file
 beside hitl's under `.claude/` and left alone (`foreign`), if any; whether the Stop hook was
 added to `.claude/settings.json` or already present; the `## Testing and gates` rules adopted
 and the ones skipped, one line each; the local gates written to `AGENTS.md`; the manifest
-path `.claude/hitl.json`; and, when step 3 found a `## Local gates` of the repository's own in
+path `.hitl/manifest.json`; and, when step 3 found a `## Local gates` of the repository's own in
 `AGENTS.md`, the reminder to reconcile the two lists; and, after a GitLab render
 (`provider` is `gitlab`): "Opening PRs needs `GITLAB_TOKEN` (and `GITLAB_URL` for a
 self-hosted GitLab) in every shell that runs the workflow — `/hitl:help` checks them." End
 with:
 
-> Review the changes and open a pull request. From now on `.claude/` and `HITL.md` are
+> Review the changes and open a pull request. From now on `.claude/` and `.hitl/` are
 > reviewed like code. Nothing was committed.
 
 Never commit. Never open a PR.

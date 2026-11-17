@@ -95,14 +95,14 @@ You cannot end your turn while a spec or plan in the working tree lacks a
 
 ### Where things live
 
+`.hitl/HITL.md` (this doctrine) · `.hitl/review-context.md` (repo-specific reviewer
+context) · `.hitl/manifest.json` (install metadata written by `/hitl:init`; its presence tells
+the hitl plugin's commands and Stop hook that this repository is installed) ·
 `.claude/agents/` (reviewer, implementer, fixer, handover agents) · `.claude/commands/`
 (`/review-spec`, `/review-plan`, `/handover`, `/implement-stack`, `/umbrella-pr`) ·
 `.claude/hooks/` and `.claude/settings.json` (the Stop hook above, declared for everyone who
-clones the repo) · `.claude/review-context.md` (repo-specific reviewer context) ·
-`.claude/reviews/` (gitignored review output) · `.claude/worktrees/` (gitignored design-session worktrees) · `scripts/hitl/` (the PR shim and the wipe
-builder) · `.claude/hitl.json` (install metadata written by `/hitl:init`; its presence tells
-the hitl plugin's commands and Stop hook that this repository is installed) ·
-`docs/superpowers/` (transient specs, plans, handover).
+clones the repo) · `.claude/reviews/` (gitignored review output) · `.claude/worktrees/` (gitignored design-session worktrees) · `scripts/hitl/` (the PR shim and the wipe
+builder) · `docs/superpowers/` (transient specs, plans, handover).
 
 The scripts under `scripts/hitl/` need Node 20+.
 
@@ -261,7 +261,7 @@ finding as an attack.
 Round 2 runs only if triage changed the artefact. Never a third round: one is too few, two
 is good, three is too many. The reviewer's verdict is not a convergence signal; triage is.
 Review output is gitignored under `.claude/reviews/`; repo-specific reviewer context lives
-in `.claude/review-context.md`.
+in `.hitl/review-context.md`.
 
 ## Pull requests
 

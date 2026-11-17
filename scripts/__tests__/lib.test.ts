@@ -50,7 +50,7 @@ describe("installer/lib primitives", () => {
     const paths = ownedFiles({ provider: "github", testing: [], gates: [] }).map((f) => f.repoPath);
     expect(paths).toEqual(
       expect.arrayContaining([
-        "HITL.md",
+        ".hitl/HITL.md",
         ".claude/agents/spec-reviewer.md",
         ".claude/agents/plan-reviewer.md",
         ".claude/agents/slice-reviewer.md",
@@ -66,7 +66,7 @@ describe("installer/lib primitives", () => {
         ".claude/commands/implement-stack.md",
         ".claude/commands/umbrella-pr.md",
         ".claude/hooks/unreviewed-artifact.sh",
-        ".claude/review-context.md",
+        ".hitl/review-context.md",
         ".claude/fixtures/spec-fixture-design.md",
         ".claude/fixtures/spec-fixture-elaborate-design.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md",
@@ -95,14 +95,14 @@ describe("installer/lib primitives", () => {
     });
   });
 
-  it("marks the shell scripts executable and HITL.md as composed", () => {
+  it("marks the shell scripts executable and the doctrine as composed", () => {
     const list = ownedFiles({ provider: "github", testing: [], gates: [] });
     const byPath = Object.fromEntries(list.map((f) => [f.repoPath, f]));
     expect(byPath[".claude/hooks/unreviewed-artifact.sh"].executable).toBe(true);
     expect(byPath["scripts/hitl/wipe.mjs"].executable).toBe(true);
     expect(byPath["scripts/hitl/pr.sh"].executable).toBe(true);
     expect(byPath["scripts/hitl/backend.sh"].template).toBe("scripts/backends/github.sh");
-    expect(byPath["HITL.md"].template).toBeNull();
+    expect(byPath[".hitl/HITL.md"].template).toBeNull();
     expect(byPath[".claude/agents/fixer.md"].template).toBe("claude/agents/fixer.md");
   });
 
@@ -266,5 +266,104 @@ describe("renderMode", () => {
     expect(renderMode("`adversarial-reviewer` and `security-reviewer`", "no-install")).toBe(
       "`hitl:adversarial-reviewer` and `hitl:security-reviewer`",
     );
+  });
+});
+
+import {
+  MANIFEST_PATH,
+  collisions,
+  withClaudeLine,
+  ownedFiles as ownedFilesForLayout,
+} from "../../installer/lib.mjs";
+
+describe("the .hitl/ layout", () => {
+  it("owns the doctrine and the reviewer context under .hitl/", () => {
+    const paths = ownedFilesForLayout(DEFAULT_CHOICES).map((f) => f.repoPath);
+    expect(paths).toContain(".hitl/HITL.md");
+    expect(paths).toContain(".hitl/review-context.md");
+    expect(paths).not.toContain("HITL.md");
+    expect(paths).not.toContain(".claude/review-context.md");
+    expect(MANIFEST_PATH).toBe(".hitl/manifest.json");
+  });
+
+  it("appends the .hitl import line once", () => {
+    expect(withClaudeLine(null)).toEqual({ text: "@.hitl/HITL.md\n", changed: true });
+    expect(withClaudeLine("# x\n\n@.hitl/HITL.md\n").changed).toBe(false);
+  });
+
+  it("names the doctrine by its new path in the README block", () => {
+    const block = readmeBlock("0.3.0");
+    expect(block).toContain("`.hitl/HITL.md`");
+    expect(block).not.toMatch(/(?<!\.hitl\/)HITL\.md/);
+  });
+
+  it("counts a file at an old path as a collision", () => {
+    const repo = mkdtempSync(join(tmpdir(), "hitl-old-"));
+    writeFileSync(join(repo, "HITL.md"), "mine\n");
+    expect(collisions(repo, DEFAULT_CHOICES)).toEqual(["HITL.md"]);
+  });
+});
+
+import { layoutOf, readManifestOf } from "../../installer/lib.mjs";
+
+describe("layoutOf", () => {
+  it("tells the three layouts apart, current winning when both manifests exist", () => {
+    const manifest = JSON.stringify({ version: "0.2.0", files: {} });
+    const empty = mkdtempSync(join(tmpdir(), "hitl-layout-none-"));
+    const withOldManifest = mkdtempSync(join(tmpdir(), "hitl-layout-old-"));
+    mkdirSync(join(withOldManifest, ".claude"));
+    writeFileSync(join(withOldManifest, ".claude/hitl.json"), manifest);
+    const withBoth = mkdtempSync(join(tmpdir(), "hitl-layout-both-"));
+    mkdirSync(join(withBoth, ".claude"));
+    mkdirSync(join(withBoth, ".hitl"));
+    writeFileSync(join(withBoth, ".claude/hitl.json"), manifest);
+    writeFileSync(join(withBoth, ".hitl/manifest.json"), manifest);
+    expect(layoutOf(empty)).toBe("none");
+    expect(layoutOf(withOldManifest)).toBe("old");
+    expect(layoutOf(withBoth)).toBe("current");
+    expect(readManifestOf(withOldManifest)?.path).toBe(".claude/hitl.json");
+    expect(readManifestOf(withOldManifest)?.layout).toBe("old");
+    expect(readManifestOf(withOldManifest)?.manifest.version).toBe("0.2.0");
+    expect(readManifestOf(withBoth)?.path).toBe(".hitl/manifest.json");
+    expect(readManifestOf(empty)).toBeNull();
+  });
+});
+
+import { rewriteClaudeLine, rewriteReadmeBlockPaths } from "../../installer/lib.mjs";
+
+describe("moving the doctrine's references", () => {
+  it("rewrites the import line, drops a duplicate, and adds nothing", () => {
+    expect(rewriteClaudeLine("@HITL.md\n@AGENTS.md\n")).toEqual({
+      text: "@.hitl/HITL.md\n@AGENTS.md\n",
+      state: "rewritten",
+    });
+    expect(rewriteClaudeLine("@HITL.md\n@.hitl/HITL.md\n")).toEqual({
+      text: "@.hitl/HITL.md\n",
+      state: "rewritten",
+    });
+    expect(rewriteClaudeLine("@.hitl/HITL.md\n").state).toBe("current");
+    expect(rewriteClaudeLine("# notes about @HITL.md here\n")).toEqual({
+      text: "# notes about @HITL.md here\n",
+      state: "absent",
+    });
+    expect(rewriteClaudeLine(null)).toEqual({ text: null, state: "absent" });
+  });
+
+  it("reads a CRLF CLAUDE.md and keeps its line endings", () => {
+    expect(rewriteClaudeLine("@HITL.md\r\n@AGENTS.md\r\n")).toEqual({
+      text: "@.hitl/HITL.md\r\n@AGENTS.md\r\n",
+      state: "rewritten",
+    });
+    expect(rewriteClaudeLine("@HITL.md\r\n@.hitl/HITL.md\r\n")).toEqual({
+      text: "@.hitl/HITL.md\r\n",
+      state: "rewritten",
+    });
+    expect(rewriteClaudeLine("@.hitl/HITL.md\r\n").state).toBe("current");
+  });
+
+  it("rewrites the doctrine path in a README block exactly once", () => {
+    const once = rewriteReadmeBlockPaths("The doctrine is `HITL.md`. `.claude/` and `HITL.md` are");
+    expect(once).toBe("The doctrine is `.hitl/HITL.md`. `.claude/` and `.hitl/HITL.md` are");
+    expect(rewriteReadmeBlockPaths(once)).toBe(once);
   });
 });

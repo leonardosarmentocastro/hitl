@@ -6,6 +6,13 @@ description: Offer to remove the worktrees hitl design sessions left behind, onc
 node "${CLAUDE_PLUGIN_ROOT}/installer/cleanup.mjs" --repo "$PWD" --plugin-root "${CLAUDE_PLUGIN_ROOT}"
 ```
 
+- Exit 3, `refused: "old-layout"` → print exactly, and nothing else:
+
+  ```
+  This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.
+  ```
+
+  Stop.
 - Exit 2 → "Nothing can be offered: <error>." Stop. Exit 1 → print the error. Stop.
 - Say first, once: "Fetched origin with --prune (remote-tracking refs of branches the host
   deleted were removed)."

@@ -229,6 +229,15 @@ describe("the install prompts no longer ask about the CI wipe job", () => {
   }
 });
 
+describe("/hitl:init points an earlier-layout collision to --adopt", () => {
+  it("says adopt moves the doctrine or reviewer context in the way", () => {
+    const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
+    expect(text).toContain(
+      "A doctrine or reviewer context from the earlier layout is in the way: `/hitl:init --adopt` moves it.",
+    );
+  });
+});
+
 describe("/hitl:init accepts a GitLab repository", () => {
   it("checks the token, writes the provider and hints GITLAB_URL; no v1-only refusal", () => {
     const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
@@ -282,4 +291,63 @@ describe("the plugin runs on GitLab without an install", () => {
       expect(text).toContain(REFUSAL);
       expect(text).toContain("If the output also has a `problem`, print it");
     });
+});
+
+describe("/hitl:diff and the move to .hitl/", () => {
+  const text = readFileSync(join(ROOT, "commands/diff.md"), "utf8");
+  it("carries the fixed copy", () => {
+    expect(text).toContain("moved from <from>");
+    expect(text).toContain(
+      "hitl's files now live in `.hitl/`. Everyone working on this repository must update the hitl plugin to 0.3.0 or newer; an older plugin no longer recognises this repository as installed.",
+    );
+    expect(text).toContain(
+      "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`.",
+    );
+    expect(text).toContain('refused: "move-collision"');
+    expect(text).toContain("leftovers");
+  });
+});
+
+const UPGRADE = "This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.";
+
+describe("the old layout is refused with one message", () => {
+  for (const c of ["brainstorming", "customize", "cleanup", "help", "init"])
+    it(`/hitl:${c} carries it`, () => {
+      expect(readFileSync(join(ROOT, `commands/${c}.md`), "utf8")).toContain(UPGRADE);
+    });
+  it("/hitl:init --adopt stops on state `old layout` with it, before asking", () => {
+    const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
+    const adopt = text.slice(text.indexOf("## `--adopt`"), text.indexOf("## 2. "));
+    const step4 = adopt.slice(adopt.indexOf("\n4. "), adopt.indexOf("\n5. "));
+    expect(step4).toContain("State `old layout`");
+    expect(step4).toContain(UPGRADE);
+    expect(step4.indexOf("State `old layout`")).toBeLessThan(step4.indexOf("Any other state"));
+    const refusal = adopt.slice(adopt.indexOf('refused: "manifest-present"'));
+    expect(refusal.slice(0, refusal.indexOf("\n   - exit"))).toContain('`layout: "old"`');
+    expect(refusal.slice(0, refusal.indexOf("\n   - exit"))).toContain("the upgrade message");
+  });
+  it("/hitl:diff does not refuse", () => {
+    expect(readFileSync(join(ROOT, "commands/diff.md"), "utf8")).not.toContain(UPGRADE);
+  });
+});
+
+describe("/hitl:init --adopt and the move to .hitl/", () => {
+  const text = readFileSync(join(ROOT, "commands/init.md"), "utf8");
+  it("carries the fixed copy", () => {
+    expect(text).toContain('refused: "move-collision"');
+    expect(text).toContain("moved <from> → <to>");
+    expect(text).toContain(
+      "The agents and commands in `.claude/` still name the old paths. `/hitl:diff` shows them as locally edited: take the upstream text for those lines.",
+    );
+    expect(text).toContain(
+      "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`.",
+    );
+  });
+  it("asks the testing question from the doctrine at its old place when it has not moved yet", () => {
+    const adopt = text.slice(text.indexOf("## `--adopt`"), text.indexOf("## 2. "));
+    const step4 = adopt.slice(adopt.indexOf("\n4. "), adopt.indexOf("\n5. "));
+    expect(step4).toContain(
+      "If `.hitl/HITL.md` is absent, read `HITL.md` at the repository root instead: the move to `.hitl/` runs later, in step 5.",
+    );
+  });
 });

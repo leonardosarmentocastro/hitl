@@ -43,8 +43,8 @@ if [ -z "$root" ]; then
 fi
 cd "$root" 2>/dev/null || exit 0
 
-# An installed repository runs its own hook.
-[ -f .claude/hitl.json ] && exit 0
+# An installed repository runs its own hook — one still on the old layout (before 0.3.0) too.
+{ [ -f .hitl/manifest.json ] || [ -f .claude/hitl.json ]; } && exit 0
 
 # Only a registered worktree is guarded.
 command -v node >/dev/null 2>&1 || exit 0

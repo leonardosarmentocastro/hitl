@@ -220,14 +220,31 @@ describe("session.mjs start / get / end", () => {
 
   it("refuses an installed repository and changes nothing", () => {
     const { clones } = world();
-    mkdirSync(join(clones[0], ".claude"));
-    writeFileSync(join(clones[0], ".claude/hitl.json"), "{}\n");
+    mkdirSync(join(clones[0], ".hitl"));
+    writeFileSync(join(clones[0], ".hitl/manifest.json"), "{}\n");
     const before = existsSync(exclude(clones[0])) ? readFileSync(exclude(clones[0]), "utf8") : null;
     expect(
       cli("start", "--worktree", clones[0], "--topic", "t", "--base", "origin/develop"),
     ).toEqual({ status: 3, out: { refused: "installed" } });
     const after = existsSync(exclude(clones[0])) ? readFileSync(exclude(clones[0]), "utf8") : null;
     expect(after).toBe(before);
+    expect(existsSync(join(home, "projects"))).toBe(false);
+  });
+
+  it("refuses to register a worktree of an old-layout repository", () => {
+    const { clones } = world();
+    mkdirSync(join(clones[0], ".claude"), { recursive: true });
+    writeFileSync(join(clones[0], ".claude/hitl.json"), "{}\n");
+    const out = cli(
+      "start",
+      "--worktree",
+      clones[0],
+      "--topic",
+      "t",
+      "--base",
+      "origin/develop",
+    ).out;
+    expect(out).toEqual({ refused: "installed" });
     expect(existsSync(join(home, "projects"))).toBe(false);
   });
 

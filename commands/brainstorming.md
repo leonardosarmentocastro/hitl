@@ -43,13 +43,20 @@ Exit `2` → this folder is not a git repository (or hitl could not read it): sa
 its `error`, and stop. Otherwise read the JSON. A `base: null` with a `baseError` is not a
 failure here — step 4 resolves the base and stops there if it cannot:
 
+- **`layout: "old"`** → say exactly, as your only output, this message in a code block, and
+  stop. Create no worktree, write no record.
+
+  ```
+  This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.
+  ```
+
 - **`mode: "installed"`** → say exactly, as your first line:
 
   ```
   hitl is installed here — following this repository's rules.
   ```
 
-  Read the repository's `HITL.md`, create the worktree as it prescribes, invoke the
+  Read the repository's `.hitl/HITL.md`, create the worktree as it prescribes, invoke the
   superpowers brainstorming skill with `$ARGUMENTS`, and follow the repository's doctrine,
   commands and agents from there. Read nothing from this plugin's doctrine, write no
   active-feature record and read no project memory. This command's own steps end here.
