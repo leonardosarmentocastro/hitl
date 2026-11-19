@@ -4,7 +4,7 @@
 
 **Owns:** someone who upgrades an installed repository reads, in the upgrade report and the upgrade PR, the release notes for every version they skipped — starting with the note that `elaborate` no longer includes the security review.
 
-**Reviewed:** round 1 (2026-11-19).
+**Reviewed:** round 1 (2026-11-19) · round 2 (2026-11-19).
 
 **Goal:** A `CHANGELOG.md` at the plugin root; `installer/diff.mjs` reports the sections between the recorded and the latest version as `notes`; `/hitl:diff` prints them and puts them in the upgrade PR; a test fails a release that forgets to move `## Unreleased` under its version.
 
@@ -93,7 +93,7 @@ it("orders by version, not by position in the file", () => {
 - [ ] **Step 1: Write the failing tests**, reusing the file's fixture builders (the plugin root at `NEXT`, the marketplace at `CURRENT`):
   - "reports the notes for the versions being skipped": write a `CHANGELOG.md` into the fixture plugin root with `## Unreleased` (`- later`), `## ${NEXT}` (`- next`), `## ${CURRENT}` (`- current`) → `out.notes` equals `[{ version: NEXT, text: "- next" }]`.
   - "reports no notes without a changelog": the same fixture untouched → `out.notes` equals `[]` and `out.latest` is still `NEXT`.
-  - "reports no notes at the same version": the same-version describe's fixture, with that changelog written into its plugin root → `[]`.
+  - "reports no notes at the same version": a copy of the same-version describe's plugin root with that changelog written into the copy (the original is shared with other tests) → `[]`.
   - "--apply reports the notes too": the first fixture with `--apply` → the same `notes`.
 - [ ] **Step 2: Run** `pnpm test scripts/__tests__/diff.test.ts` — expect FAIL.
 - [ ] **Step 3: Implement.** Read the file with a guard for its absence; add `notes` to the report object next to `recorded` and `latest`, on both the plain and the `--apply` path. Update the file's header comment to mention it.
@@ -113,7 +113,7 @@ it("orders by version, not by position in the file", () => {
 - [ ] **Step 1: Write the failing tests** in a second describe, "this repository's CHANGELOG.md", reading the real file:
   - the first section is `Unreleased`; every other heading matches `/^\d+\.\d+\.\d+$/`, in strictly descending version order;
   - a `0.3.0` section exists;
-  - the `Unreleased` section contains `` `elaborate` no longer includes the security review `` and `` `complete` ``;
+  - exactly one section, whichever it is, contains `` `elaborate` no longer includes the security review `` and `` `complete` `` — the entry starts under `Unreleased` and moves under its version at release, and this test must pass on both sides of that commit;
   - "a release renames Unreleased": if the `Unreleased` body is not empty, `pluginVersion(ROOT)` equals the newest versioned heading;
   - "the two version files agree": `.claude-plugin/marketplace.json`'s `plugins[0].version` equals `pluginVersion(ROOT)`.
 - [ ] **Step 2: Run** — expect FAIL (no file).

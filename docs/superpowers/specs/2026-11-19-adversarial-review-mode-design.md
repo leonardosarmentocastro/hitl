@@ -173,8 +173,10 @@ parser's message instead.
 
 - Step c reads the mode once per slice; `complete` and `elaborate` both continue to c2 and
   d2; `simple` does not.
-- c2 checks every path line that is not `none`: `ADV` always, `SEC` in `complete`. A missing
-  review is the same STOP as today. The "security follow-up did not run" note applies only
+- c2 requires `ADV` always and `SEC` in `complete`, by the mode read at step c, never by
+  what the path lines say. A missing review is the same STOP as today; so is a `SEC:` line
+  that reads `none`, or is missing, in `complete`. A `SEC:` or `FOL:` line that is not `none`
+  in `elaborate` is the mode-change STOP below. The "security follow-up did not run" note applies only
   in `complete`.
 - If the mode word in the second step's printed mode line differs from the mode read at
   step c, or the step prints no mode line, or the step is refused — STOP: "slice <N>: the review mode changed during the slice" *(my call: today
@@ -328,6 +330,9 @@ no-install wording of the new round 2 is held by the pinned strings alone, on bo
 
 ## Decisions and declined alternatives
 
+- **Bubbled up from plan review (round 2)** — `/implement-stack` decides which reviews it
+  requires from the mode it read, so a `complete` slice whose second step reports no
+  security review stops instead of opening a PR.
 - **Bubbled up from plan review (round 1)** — the mode-line rule is kept outside the
   `pr-body-sections` knob anchors; `commands/help.md`'s line naming the accepted values moves
   to slice 1 with the parser; the changelog keeps an empty `## Unreleased` after a release
