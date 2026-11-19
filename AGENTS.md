@@ -47,6 +47,12 @@ so the plugin-drift test fails until they are rendered again; from the repositor
 node installer/render-plugin.mjs --plugin-root .
 ```
 
+**Releasing.** In one commit, bump `version` in `.claude-plugin/plugin.json` and
+`.claude-plugin/marketplace.json`, and rename `## Unreleased` in `CHANGELOG.md` to
+`## <version>`, leaving a new empty `## Unreleased` above it; then tag `v<version>`. A change
+that an installed repository or a no-install user will notice adds a bullet under
+`## Unreleased` in its own PR.
+
 ## Test-driven development, here
 
 - Everything under `scripts/`, `installer/`, `runtime/` and `.claude/hooks/` has behaviour of its own
