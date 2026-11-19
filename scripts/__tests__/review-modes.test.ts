@@ -216,6 +216,24 @@ describe("doctrine and plugin commands", () => {
     expect(read("templates/HITL.md")).toContain("### Review modes");
   });
 
+  it("the doctrine names three modes and the spec gate in each", () => {
+    const text = read("templates/HITL.md");
+    for (const s of [
+      "one of three modes",
+      "- **Complete**, at the spec gate",
+      "any `complete` wins, then any `elaborate`",
+      "and is the adversarial reviewer alone",
+    ])
+      expect(text).toContain(s);
+    expect(text.split("`simple`, `elaborate` or `complete`")).toHaveLength(3);
+    expect(text).not.toContain("one of two modes");
+  });
+
+  it("/hitl:help names the three values", () => {
+    expect(read("commands/help.md")).toContain("simple, elaborate or complete");
+    expect(read("commands/help.md")).not.toContain("simple or elaborate");
+  });
+
   it("/hitl:customize refuses the mode line and narrows the review-rounds knob", () => {
     const text = read("commands/customize.md");
     const refuse = text.slice(text.indexOf("## 1. Refuse an invariant"), text.indexOf("## 2."));

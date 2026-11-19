@@ -44,13 +44,17 @@ digraph chain {
 
 ### Review modes
 
-A feature is reviewed in one of two modes, set by the human once per spec in a
-`**Review mode:**` header line: `simple` or `elaborate`. `/hitl:review-spec` asks for it when a
+A feature is reviewed in one of three modes, set by the human once per spec in a
+`**Review mode:**` header line, one of three values: `simple`, `elaborate` or `complete`.
+Each mode is one step heavier than the last. `/hitl:review-spec` asks for it when a
 spec has no line and no review recorded yet; no agent sets or changes it otherwise. A spec
 with a round recorded and no line is simple.
 
 - **Simple** is the chain as described above.
 - **Elaborate**, at the spec gate: round 1 is the cold review. Round 2 always runs, whether
+  or not round 1 changed the spec, and is the adversarial reviewer alone, then its triage.
+  Two recorded rounds, never a third, whatever the round count has been tuned to.
+- **Complete**, at the spec gate: round 1 is the cold review. Round 2 always runs, whether
   or not round 1 changed the spec, and is an adversarial reviewer and a security reviewer
   in parallel, neither told about the other, then a short security follow-up on the
   adversarial findings, then one merged triage. Two recorded rounds, never a third,
@@ -63,7 +67,7 @@ with a round recorded and no line is simple.
   produced nothing is a STOP, never an approval. The PR's `## Review decisions` covers both
   steps.
 - `/hitl:implement-stack` reads the mode once per slice, from the spec(s) the handover document
-  lists: any `elaborate` wins, no line is simple, and an invalid value or a listed spec that
+  lists: any `complete` wins, then any `elaborate`, no line is simple, and an invalid value or a listed spec that
   does not exist is a STOP, never simple.
 
 ### The Stop hook
@@ -94,7 +98,7 @@ the feature are not checked. Do not fight the hook; run the loop.
 | "The reviewer said APPROVED, so we're done" | The verdict is noise across runs. Triage decides; the round rule decides. |
 | "This finding is accurate, so fold it in" | Accurate is not the bar. Scope, altitude and proportionality are. |
 | "The reviewer flagged a gap; fix it in this slice" | Check the stack table first. If a later slice owns it, it is DEFERRED. |
-| "The cold review was clean, skip the elaborate round" | Elaborate round 2 always runs. A clean cold review is why it was not the cold reviewer's job to find it. |
+| "The cold review was clean, skip round 2" | In elaborate and complete mode round 2 always runs. A clean cold review is why it was not the cold reviewer's job to find it. |
 | "The hook is blocking me for no reason" | It found an unreviewed artefact of this feature. Run the loop. |
 
 ### Where things live
@@ -217,8 +221,8 @@ documents.
 - Follow the plan task-by-task; keep Global Constraints in the plan aligned with
   this file, the repository's own standards files, when it has them, and the gates in the
   hitl context.
-- A spec may carry a **`**Review mode:**`** line in its header block — `simple` or
-  `elaborate` (see § Review modes). Case, surrounding whitespace and one trailing period are
+- A spec may carry a **`**Review mode:**`** line in its header block —
+  `simple`, `elaborate` or `complete` (see § Review modes). Case, surrounding whitespace and one trailing period are
   ignored; any other value is refused, never read as simple.
 - Every slice plan declares **`**Owns:**`** in its header block — the lines between
   the `#` title and the first `##` heading — stating the one capability that slice is
