@@ -1,6 +1,7 @@
 # Three review modes: simple, elaborate, complete — design
 
 **Issue:** #36
+**Review mode:** simple
 
 ## Intent
 
