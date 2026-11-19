@@ -37,7 +37,7 @@ Say the matching thing for `state`, then always end with the prerequisites.
     1. brainstorm → spec committed → /review-spec (≤2 rounds; simple, elaborate or complete) → human approves
     2. plans committed → /review-plan (≤2 rounds) → handover document
     3. new session: /implement-stack <handover>
-    4. per slice: implementer → /review-slice → fixer (twice in elaborate mode) → PR onto the parent
+    4. per slice: implementer → /review-slice → fixer (twice in elaborate and complete mode) → PR onto the parent
     5. draft umbrella PR; nothing merges — the human reviews the stack
 
   Plugin commands:   /hitl:init [--adopt] · /hitl:diff [--apply] · /hitl:help · /hitl:customize · /hitl:cleanup

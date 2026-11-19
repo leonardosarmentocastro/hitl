@@ -35,8 +35,9 @@ digraph chain {
   convergence the handover agent runs by itself and the session ends.
 - **Code gate.** The PR is the gate. The orchestrator (`/implement-stack`) and its reviewer
   (`/review-slice`) decide every code-level finding and record declines in the PR body
-  under `## Review decisions`, in plain words about what a user or the data would
-  experience — never code vocabulary.
+  under `## Review decisions`, which begins with the review mode in words, then the
+  declines, in plain words about what a user or the data would experience — never code
+  vocabulary.
 <!-- hitl:knob review-rounds -->
 - **Rounds.** One is too few, two is good, three is too many. Round 2 runs only if triage
   changed the artefact. Never a third.
@@ -60,6 +61,11 @@ with a round recorded and no line is simple.
   whatever the round count has been tuned to.
 
 - **Elaborate**, at the code gate, per slice: the cold slice review, its triage and the
+  fixer, as in simple mode; then the adversarial reviewer alone, on the slice's diff including those fixes; its triage; a second fix.
+  The second fixer's commits are not reviewed again — no third review. A second review that
+  produced nothing is a STOP, never an approval. The PR's `## Review decisions` covers both
+  steps.
+- **Complete**, at the code gate, per slice: the cold slice review, its triage and the
   fixer, as in simple mode; then the adversarial and the security reviewer, with the same
   follow-up, on the slice's diff including those fixes; one merged triage; a second fix.
   The second fixer's commits are not reviewed again — no third review. A second review that
@@ -233,7 +239,8 @@ The scripts under `scripts/hitl/` need Node 20+.
 
 ## Review gates
 
-Three cold reviewers plus, in elaborate mode, an adversarial and a security reviewer, all
+Three cold reviewers plus, in elaborate and complete mode, an adversarial reviewer and, in
+complete mode, a security reviewer, all
 Claude subagents under `.claude/agents/`, all reporting in one
 taxonomy of six types — MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED —
 plus DEFERRED, which is used only when reviewing a slice (a spec or plan review has no
@@ -253,10 +260,11 @@ minors listed one line each):
   stack table; run once per slice by `/implement-stack` before the PR opens. A gap a later
   slice owns is DEFERRED and is never fixed in the current slice.
 
-Two further reviewers, `adversarial-reviewer` and `security-reviewer`, run only in elaborate
-mode (see § Review modes), at the spec gate and again at the code gate on every slice. There,
-`/implement-stack` runs `/review-slice` twice per slice: the cold step, then a second step
-with these two. They use the same finding types, severities and reporting cap.
+Two further reviewers, `adversarial-reviewer` and `security-reviewer`, run only in the
+heavier modes (see § Review modes): the adversarial reviewer in elaborate and complete mode,
+the security reviewer in complete mode only, at the spec gate and again at the code gate on
+every slice. There, in elaborate and complete mode, `/implement-stack` runs `/review-slice`
+twice per slice: the cold step, then a second step with the mode's further reviewers. They use the same finding types, severities and reporting cap.
 The adversarial reviewer tries to make the design fail and states every finding as a
 concrete scenario; the security reviewer asks what an attacker gains and states every
 finding as an attack.
@@ -294,6 +302,11 @@ in `.hitl/review-context.md`.
   deferred review finding in plain words — the concern as a user or the data would
   experience it, the decision, the reason — never file, function or test names. A human
   overturns one by commenting on the PR.
+
+The `## Review decisions` section of a slice PR, and of every Review decisions comment a
+fix-up posts, begins with the review mode in words — the mode line `/review-slice` prints,
+verbatim — also when every finding was applied. It is the notice, read where no human
+watches the session, of which reviews the slice received.
 
 ## Delivery slices (small PRs)
 

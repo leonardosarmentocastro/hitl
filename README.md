@@ -67,7 +67,7 @@ apart.
                          ≤2 rounds)                        implementer  (TDD, local gates)
             ─▶ slice plans ─▶ /review-plan                 slice-reviewer (cold, vs plan)
                                (cold reviewer,             fixer        (applies findings)
-                                ≤2 rounds)                 (elaborate: + adversarial, security)
+                                ≤2 rounds)                 (elaborate, complete: + a second review)
                                                            PR ─▶ parent branch
             ─▶ handover document ─────────────────────▶  draft umbrella PR ─▶ YOU REVIEW
 ```
@@ -92,11 +92,13 @@ apart.
 Every review loop is capped: **one round is too few, two is good, three is too many.** The
 reviewer's "approved" means nothing on its own; what counts is the triage.
 
-Each feature is reviewed in one of two modes, chosen once when its spec is first reviewed:
-**simple**, the cold rounds above, or **elaborate**, where the spec's second round is an
-adversarial review that tries to break the design and a security review that asks what an
-attacker would gain. In elaborate mode each slice's code also gets those two reviews after
-the cold slice review and its fixes, and a second fix pass before its PR opens.
+Each feature is reviewed in one of three modes, chosen once when its spec is first reviewed,
+each one step heavier than the last. **simple** is the cold rounds above. **elaborate** makes
+the spec's second round an adversarial review that tries to break the design; each slice's
+code also gets an adversarial review after the cold slice review and its fixes, and a second
+fix pass before its PR opens. **complete** adds a security review that asks what an attacker
+would gain, at both places, alongside the adversarial one. Every slice PR says which mode
+reviewed it.
 
 ## Where you decide, and where the agents work
 

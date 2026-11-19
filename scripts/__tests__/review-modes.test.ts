@@ -313,6 +313,7 @@ describe("doctrine and plugin commands", () => {
     expect(refuse).toContain("the `**Review mode:**` line");
     const row = text.split("\n").find((l) => l.startsWith("| `review-rounds` |")) ?? "";
     expect(row).toContain("simple mode and the plan gate");
+    expect(row).toContain("elaborate and complete mode");
   });
 
   it("the doctrine describes the code gate's elaborate mode", () => {
@@ -321,8 +322,24 @@ describe("doctrine and plugin commands", () => {
     expect(text).toContain("second fix");
   });
 
+  it("the doctrine describes the code gate in each mode", () => {
+    const text = read("templates/HITL.md");
+    for (const s of [
+      "- **Complete**, at the code gate",
+      "then the adversarial reviewer alone, on the slice's diff including those fixes",
+      "begins with the review mode in words",
+      "the security reviewer in complete mode only",
+    ])
+      expect(text).toContain(s);
+  });
+
   it("/hitl:help shows the second review and fix per slice", () => {
-    expect(read("commands/help.md")).toContain("(twice in elaborate mode)");
+    expect(read("commands/help.md")).toContain("(twice in elaborate and complete mode)");
+  });
+
+  it("the README describes three modes", () => {
+    expect(read("README.md")).toContain("three modes");
+    expect(read("README.md")).toContain("**complete**");
   });
 
   it("/hitl:help and the README mention elaborate mode", () => {

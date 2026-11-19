@@ -25,7 +25,7 @@ rule. `grep -rn --exclude-dir=worktrees "hitl:knob <id>" .hitl/ AGENTS.md .claud
 
 | id | what it tunes | where | treasury default — and why |
 |---|---|---|---|
-| `review-rounds` | how many cold review rounds a spec or plan gets in simple mode and the plan gate; elaborate mode is always one cold round plus the adversarial and security round | `.hitl/HITL.md` § Gates and § Review gates; `review-spec.md` and `review-plan.md`, step 0 and step 5 | 2 — one is too few; three chases findings that are non-deterministic across runs |
+| `review-rounds` | how many cold review rounds a spec or plan gets in simple mode and the plan gate; elaborate and complete mode are always one cold round plus their own round | `.hitl/HITL.md` § Gates and § Review gates; `review-spec.md` and `review-plan.md`, step 0 and step 5 | 2 — one is too few; three chases findings that are non-deterministic across runs |
 | `severities` | what blocker / major / minor mean | the five reviewer agents (spec, plan, slice, adversarial, security) | blocker stops the merge or ships a wrong design; major is fixed before the next gate; minor is polish |
 | `reporting-cap` | how many findings a review lists | the five reviewer agents (spec, plan, slice, adversarial, security); `.hitl/HITL.md` § Review gates | every blocker, at most five majors, minors one line each — a longer list is not read |
 | `file-tripwire` | the file count that triggers a justification | `.hitl/HITL.md` § Delivery slices | ~20 files, a tripwire not a cap; never split horizontally to get under it |
