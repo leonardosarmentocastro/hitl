@@ -17,8 +17,11 @@ argument-hint: [--dry-run]
    `--dry-run`, add `--no-push` to the same call: nothing is pushed or opened. A
    `refused` or `error` in the output → stop and report it verbatim. Keep its `status` and
    `ref` for the stack block in step 2. The wipe branch is never a stack-table row.
-2. Build the body: everything from `Plan:` under `## Umbrella PR body` through the `## Notes`
-   section, with the `<!-- stack -->` table's PR column refreshed from
+2. Build the body: everything under the handover document's `## Umbrella PR body` heading,
+   stopping at the first `##` heading that is not `## TL;DR`, `## Why`, `## Slices` or `## Notes`,
+   or at the end of the document. Never reshape it: a body written in an earlier shape (a
+   `Plan:` line first, a `## Notes` section last) opens as it is, and a heading the feature
+   added to its handover document is never copied. The `<!-- stack -->` table's PR column is refreshed from
    `scripts/hitl/pr.sh list --head-prefix "<feature-branch>-slice-"` (every state; read
    `number`, `ref`, `head` and `state` from each record; a PR cell shows the record's `ref` —
    `#12` on GitHub, `!12` on GitLab).

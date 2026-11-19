@@ -69,7 +69,8 @@ describe("the plugin's no-install prompts", () => {
     expect(h).toContain('"Host:" is neither, do not run the PR shim');
     expect(h).not.toContain('"Host:" is not github');
     expect(h).toContain("constrains every branch name you derive");
-    expect(h).toContain('"Base:" line');
+    // The umbrella body no longer carries a Notes section, so no "Base:" line note either.
+    expect(h).not.toContain("## Notes");
   });
 
   for (const a of ["spec-reviewer", "plan-reviewer"])
@@ -250,9 +251,10 @@ describe("the umbrella PR body says where the documents go", () => {
   it("the installed handover agent no longer promises removal from main after merge", () => {
     const text = renderAll(ROOT, THIS_REPO_CHOICES).get(".claude/agents/handover.md")!.content;
     expect(text).not.toContain("removed from `main` after merge");
-    expect(text).toContain(
-      "leave through the generated wipe PR before\nthis feature merges into `main`",
-    );
+    // The umbrella body has no Notes section any more: it neither promises a removal nor
+    // calls itself the durable record.
+    expect(text).not.toContain("## Notes");
+    expect(text).not.toContain("durable record");
   });
 });
 

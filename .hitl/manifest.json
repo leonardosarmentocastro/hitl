@@ -5,7 +5,7 @@
   "files": {
     ".claude/agents/adversarial-reviewer.md": "9d9afb4fd2832211651940589f045ac5b69d82449da87a5e7b00e81288f7e9eb",
     ".claude/agents/fixer.md": "b1e4fd0003cd711c84b820702b492ea749038dc9ee7329cf06baff6b4f59fe97",
-    ".claude/agents/handover.md": "b64c5949e2c1b90b0a16ef77f8d900a7511f6738701229d778bcebaf9596d4b6",
+    ".claude/agents/handover.md": "3f8d530a7dc869139cf78ea913bea45996690b9edf11c92c194649f476b7c67b",
     ".claude/agents/implementer.md": "954d96f83d901ba1d5b99cf7a3a8811ced3840a2a9114b0049f292cfd0b3e924",
     ".claude/agents/plan-reviewer.md": "f703666be2f5f69a60df19f22c9c851001ce669b6aab1f3ff00c0fd1425944a3",
     ".claude/agents/security-reviewer.md": "910ed10c44e8a1b06ae62dcd5ac971070ea17e41ed50f7d62e2a5eb5e24abc19",
@@ -16,7 +16,7 @@
     ".claude/commands/review-plan.md": "0cf72f0076c0803641594105b7feaa91d632d90d293943296870641319cf7847",
     ".claude/commands/review-slice.md": "5aae1bbc0681d86736e55d6a78908dd929ec3b97d9e692805f2623bd82ebe7db",
     ".claude/commands/review-spec.md": "06a8d34d5260c5abf3ea762ec8caf59a609b8d1b89477c765cbc82ca1078c875",
-    ".claude/commands/umbrella-pr.md": "197d46f043f530bb72387f8d7f745b0de2dc2fbc9d073a0bd42ae7fad4e23a54",
+    ".claude/commands/umbrella-pr.md": "f998db21900b386183caba1a25a7c6927447482a32c44f5acff87dc407082656",
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md": "be55290b2a215fab748dbd4cbc5a2a3110c6f3516b797feb27d50534248bee2b",
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md": "4844682a12664356822133235d8c59ce3bdb8182a6b845d9caf39c861cecd0ec",
     ".claude/fixtures/slice/2026-09-06-slice-fixture-slice-1-tag-export.md": "a2aeed64d927b69fcc596ba04e4d32a99993b844c8b1899619d12672c7efc63b",

@@ -38,4 +38,26 @@ describe("PR body TL;DR (installed render)", () => {
     // A fix-up posts a comment, not a body: its Needs-you lines open that comment.
     expect(text).toContain("The comment opens with a `## Needs you` block when there is one");
   });
+
+  it("the umbrella body is TL;DR bullets, Why and Slices — no Plan line, no Notes, no fold", () => {
+    const installed = renderAll(ROOT, THIS_REPO_CHOICES);
+    const agent = installed.get(".claude/agents/handover.md")!.content;
+    // `## Fix-up` is also named in prose above the template: search from the umbrella heading.
+    const start = agent.indexOf("\n## Umbrella PR body\n");
+    const body = agent.slice(start, agent.indexOf("\n## Fix-up\n", start));
+    expect(body.length).toBeGreaterThan(0);
+    const i = (s: string) => body.indexOf(s);
+    expect(i("## TL;DR")).toBeGreaterThan(-1);
+    expect(i("## Why")).toBeGreaterThan(i("## TL;DR"));
+    expect(i("## Slices")).toBeGreaterThan(i("## Why"));
+    expect(i("<!-- stack -->")).toBeGreaterThan(i("## Slices"));
+    for (const gone of ["Plan:", "## Notes", "**What**", "**How**", "<details>", "durable record"])
+      expect(i(gone)).toBe(-1);
+    expect(body).toContain("never one bullet per slice");
+    const cmd = installed.get(".claude/commands/umbrella-pr.md")!.content;
+    expect(cmd).toContain("everything under the handover document's `## Umbrella PR body` heading");
+    expect(cmd).toContain("`## TL;DR`, `## Why`, `## Slices` or `## Notes`");
+    expect(cmd).toContain("opens as it is");
+    expect(cmd).not.toContain("everything from `Plan:`");
+  });
 });

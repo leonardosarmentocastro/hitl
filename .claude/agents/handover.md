@@ -75,16 +75,14 @@ Spec(s): <one path per line>
 
 ## Umbrella PR body
 
-Plan: <umbrella spec path>
-
 ## TL;DR
 
-**What** — <2–3 sentences: the deliverable, in plain words a newcomer follows.>
+- <what the feature changes, as someone using it would notice it: one line, about 15 words at most, a fragment and not a sentence>
+- <a second or third change, only if there is one; never more than three bullets, and never one bullet per slice>
 
-**Why** — <2–3 sentences: the problem it solves.>
+## Why
 
-**How** — <3–5 sentences: the approach and any decision a reviewer would otherwise have to
-reconstruct. No file, function or test names.>
+<2–3 sentences: the problem it solves, in plain words a newcomer follows.>
 
 ## Slices
 
@@ -93,11 +91,6 @@ reconstruct. No file, function or test names.>
 |---|---|---|
 | 1 | <slice title: the plan's H1 with its `<feature> — slice <N>:` prefix removed> | <the PR record's ref, or —> |
 <!-- /stack -->
-
-## Notes
-
-Spec, plans and this document are transient and leave through the generated wipe PR before
-this feature merges into `main`. This description is the durable record.
 
 ## Fix-up
 <only in fix-up mode; otherwise omit the section>
@@ -111,8 +104,9 @@ then <branch B> onto <branch A> (old parent tip: <sha of A before its fix-up com
 Record each old parent tip with `git rev-parse` at write time: the orchestrator needs it as
 the `rebase --onto` upstream, and it is gone once the parent moves.
 
-Write the What/Why/How from the spec's Goal and Design, in the register of explaining to a
-newcomer. Never paste plan text.
+Write the TL;DR and the Why from the spec's Goal, in the register of explaining to a
+newcomer. The TL;DR says only what changed — no why, no how, no risk; there is no What and no
+How. Never paste plan text.
 
 ## Commit and reply
 
