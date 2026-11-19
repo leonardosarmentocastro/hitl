@@ -1,6 +1,6 @@
 ---
 name: adversarial-reviewer
-description: Adversarial review of ONE design spec or ONE slice — tries to make the design or the code fail by breaking the assumptions it rests on. Invoked in elaborate mode by /review-spec with a spec path and an output path, and by /review-slice with a slice brief. Every finding is a concrete scenario; reports MISSING / UNCLEAR / CONFLICTS / BREAKS / UNPROVEN / MIS-SLICED findings under a reporting cap.
+description: Adversarial review of ONE design spec or ONE slice — tries to make the design or the code fail by breaking the assumptions it rests on. Invoked in elaborate and complete mode by /review-spec with a spec path and an output path, and by /review-slice with a slice brief. Every finding is a concrete scenario; reports MISSING / UNCLEAR / CONFLICTS / BREAKS / UNPROVEN / MIS-SLICED findings under a reporting cap.
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
 ---

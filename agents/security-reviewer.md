@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Security review of ONE design spec or ONE slice — asks what an attacker gains. Invoked in elaborate mode by /hitl:review-spec with a spec path and an output path and by /hitl:review-slice with a slice brief, each time once more as a follow-up that reads the adversarial review. Every finding carries its attack; reports MISSING / UNCLEAR / CONFLICTS / BREAKS / UNPROVEN / MIS-SLICED findings under a reporting cap.
+description: Security review of ONE design spec or ONE slice — asks what an attacker gains. Invoked in complete mode by /hitl:review-spec with a spec path and an output path and by /hitl:review-slice with a slice brief, each time once more as a follow-up that reads the adversarial review. Every finding carries its attack; reports MISSING / UNCLEAR / CONFLICTS / BREAKS / UNPROVEN / MIS-SLICED findings under a reporting cap.
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
 ---

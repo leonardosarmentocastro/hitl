@@ -75,6 +75,27 @@ describe("the reviewers' slice side", () => {
     });
 });
 
+describe("which mode invokes which reviewer", () => {
+  for (const [form, text] of bothForms("adversarial-reviewer"))
+    it(`adversarial-reviewer (${form}) runs in elaborate and complete mode`, () => {
+      expect(text).toContain("Invoked in elaborate and complete mode");
+      expect(text).not.toContain("several in elaborate mode");
+    });
+
+  for (const [form, text] of bothForms("security-reviewer"))
+    it(`security-reviewer (${form}) runs in complete mode`, () => {
+      expect(text).toContain("Invoked in complete mode");
+      expect(text).not.toContain("several in elaborate mode");
+    });
+
+  for (const [form, text] of bothForms("fixer"))
+    it(`fixer (${form}) names the review files per mode`, () => {
+      expect(text).toContain("or several in complete mode");
+      expect(text).toContain("in elaborate mode, after the second review, the adversarial review");
+      expect(text).not.toContain("several in elaborate mode");
+    });
+});
+
 describe("/review-spec", () => {
   const forms: [string, string | undefined][] = [
     ["installed", installed.get(".claude/commands/review-spec.md")?.content],
