@@ -2,7 +2,7 @@
 
 **Issue:** #36
 **Review mode:** simple
-**Reviewed:** round 1 (2026-11-19).
+**Reviewed:** round 1 (2026-11-19) · round 2 (2026-11-19).
 
 ## Intent
 
@@ -59,8 +59,7 @@ existing name.
 ## Constraints
 
 - The `**Review mode:**` header line is a load-bearing invariant: its parser
-  (`review-mode.sh`), the three commands that read it, the doctrine and `/hitl:customize`'s
-  refusal list change together. Across the stack that means: every line that says which
+  (`review-mode.sh`), the three commands that read it and the doctrine change together. Across the stack that means: every line that says which
   values the line accepts, or which mode wins, changes in the same slice as the parser
   (slice 1); text that describes what the code gate does in each mode follows in slice 2.
 - Everything lands in `templates/` and is rendered: this repository's `.claude/`,
@@ -187,8 +186,12 @@ parser's message instead.
   example "Review mode: elaborate — cold review, then an adversarial review. No security
   review."), in all three modes, also when nothing was declined. A fix-up's Review decisions
   comment begins with it too. This is the notice for the code gate, where the session runs
-  unattended and the PR is what the human reads.
-- Fix-up follows the same rules per slice section.
+  unattended and the PR is what the human reads. The mode line comes first; the declines,
+  or "None — every finding was applied.", follow it. `/review-slice --pr`, which reads a
+  PR's Review decisions and its comments as earlier declines, skips a line beginning
+  "Review mode:".
+- Fix-up follows the same rules per slice section; there the mode is the one read at the
+  start of that `### Slice <N>` section.
 
 The `fixer` brief wording ("several in elaborate mode") and the two reviewers' descriptions
 ("Invoked in elaborate mode") are reworded to match: the adversarial reviewer runs in
@@ -197,9 +200,12 @@ elaborate and complete, the security reviewer in complete only.
 ### Doctrine and reference text
 
 `templates/HITL.md` (§ Review modes, § Review gates, the rationalizations table, the
-`**Review mode:**` bullet under § Specs and plans, § Load-bearing invariants), `README.md`,
+`**Review mode:**` bullet under § Specs and plans, § Load-bearing invariants; and, for the
+mode line in the PR, § Pull requests and the Code gate bullet under § Gates and who decides,
+which define `## Review decisions`), `README.md`,
 `commands/help.md` and the `review-rounds` row of `commands/customize.md` describe three
-modes. The README's diagram line becomes mode-neutral or names both.
+modes. The README's diagram line becomes mode-neutral or names both. `/hitl:customize`'s
+refusal list already refuses the `**Review mode:**` line and does not change.
 
 ### Fixtures
 
@@ -216,11 +222,18 @@ strings in `review-modes.test.ts` only.
 
 **Who runs the dry runs, and what they must show** *(decided by the human)*. The
 `/implement-stack` session runs them itself, for this stack only, after the slice's last
-fixer and before the PR opens; the slice's plan states it as a step for the orchestrator and
-the handover document carries it. They are fixture runs, not slice reviews, so they do not
+fixer and before the PR opens. Nothing in the workflow carries a plan step to the
+orchestrator, and no command or agent is changed for this: once the handover agent has
+written the handover document, the design session appends a `## Dry runs (this stack only)`
+section to it by hand — the table below and these rules — and commits it. `/implement-stack`
+reads the whole document and acts on that section alone, adding `## Dry runs` to the PR body
+it writes. If a later handover run (resume, fix-up) rewrites the document without the
+section, or the orchestrator skips it, the slice PR has no `## Dry runs` section: that
+absence is the sign, and the human runs the missing dry runs before merging the slice. They are fixture runs, not slice reviews, so they do not
 count against "never review more often than the mode prescribes". A triage that reaches a
 design question is answered by the session — the fixture is throwaway. The scratch copy and
-the scratch branch are deleted afterwards. The result goes into the PR body as a checklist
+the scratch branch are deleted afterwards, and the session is back on the slice branch with
+a clean tree — that is itself a line of the checklist. The result goes into the PR body as a checklist
 under `## Dry runs`, one line per observation below, each ticked or marked failed; any
 failed line is a STOP for the slice.
 
@@ -232,17 +245,33 @@ failed line is a STOP for the slice.
 | 2 | `/review-slice`, `complete` | the complete mode line on both steps; after `--step second`, three real paths, `Lens` |
 | 2 | `/review-slice --step second`, `simple` | today's refusal |
 
+The dry-run convention exists only in the installed wording of `/review-spec`, so the
+no-install wording of the new round 2 is held by the pinned strings alone, on both renders.
+
+**Proof of the other two notices.**
+
+- *The slice PR's mode line:* the rule's sentence is pinned in `review-modes.test.ts` on both
+  renders of `/implement-stack` (slice 2), and observed once on this stack: slice 3 is
+  implemented with slice 2's command, so its PR's `## Review decisions` must begin with
+  "Review mode: simple — cold review only." — a line of slice 3's `## Dry runs` checklist.
+- *The upgrade notice:* `diff.mjs`'s `notes` is tested in `diff.test.ts`; `/hitl:diff`'s
+  "What changed:" heading and its "every section in range, verbatim" rule for the PR body
+  are pinned strings in a test of `commands/diff.md` (slice 3).
+
 ### The release note
 
 - A `CHANGELOG.md` at the plugin root. `## <version>` headings without a `v` (`## 0.4.0`),
   newest first, bullets underneath in plain words for someone who has hitl installed. Work
   not yet released sits under `## Unreleased`; the release commit renames that heading to
-  the version, and `AGENTS.md` says so.
+  the version.
 - The file starts with a one-line `## 0.3.0` section ("the first release with a changelog;
   earlier changes are not listed"), so there is always a newest released heading to compare
-  with. A test holds the rename: while `## Unreleased` has entries, the plugin's version in
-  `.claude-plugin/marketplace.json` must equal the newest versioned heading. A release
-  commit that bumps the version and forgets the rename fails `pnpm test`.
+  with. A test holds the rename: while `## Unreleased` has entries, the plugin's version
+  as `diff.mjs` reads it (`pluginVersion`, from `.claude-plugin/plugin.json`) must equal the
+  newest versioned heading. The same test holds `.claude-plugin/marketplace.json`'s version
+  equal to it, since nothing does today. A release commit that bumps the version and forgets
+  the rename fails `pnpm test`. The `AGENTS.md` release line names the three steps together:
+  bump both version files, rename the heading, tag `v<version>`.
 - `installer/diff.mjs` reads it from the plugin root and adds `notes` to its report: the
   sections for versions newer than the recorded one, up to the latest, newest first, each as
   `{ version, text }`. `## Unreleased` is never included. No file, or no matching section →
@@ -275,14 +304,16 @@ failed line is a STOP for the slice.
    fixture; the two spec-gate dry runs. To keep the code gate working in between, `/review-slice`
    and `/implement-stack` learn only to treat `complete` and `elaborate` alike, as today's
    second step — a slice in `elaborate` is briefly reviewed more heavily than it will be,
-   never less.
+   never less. Between slices 1 and 2 the doctrine therefore describes `elaborate` as
+   adversarial-only at the spec gate and adversarial plus security at the code gate: a known
+   interim state on the feature branch, gone before anything reaches `main`.
 2. **Code gate in three modes.** `/review-slice`'s mode line and second step,
    `/implement-stack`'s c2/d2, mode-change stop and the mode line in the PR body, the fixer
    and reviewer wording, the doctrine text describing what the code gate does per mode,
    README, help and the customize row; the three code-gate dry runs.
 3. **The upgrade says what changed.** `CHANGELOG.md`, `diff.mjs`'s `notes`, `/hitl:diff`'s
-   printing and PR body, the rename test, the `AGENTS.md` release line, and this feature's
-   entry.
+   printing and PR body with their pins, the rename test, the `AGENTS.md` release line, and
+   this feature's entry.
 
 ## Left to the builder
 
