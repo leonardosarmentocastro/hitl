@@ -34,8 +34,8 @@ existing name.
   on every slice.
 - `complete` behaves exactly as `elaborate` does before this change.
 - Someone whose spec already says `elaborate` learns that its meaning changed: at upgrade
-  time (a release note in the upgrade report and PR) and at review time (the command says the
-  mode in words).
+  time, where hitl is installed (a release note in the upgrade report and PR), and at review
+  time, everywhere (the command says the mode in words).
 
 ## Non-goals
 
@@ -49,7 +49,8 @@ existing name.
 
 - A spec marked `elaborate` silently losing its security review with nothing telling its
   owner. The parser cannot tell an old `elaborate` from a new one, so the telling is done by
-  the release note and by the commands' mode line — both are required, not polish.
+  the release note (installed repositories) and by the commands' mode line (everywhere) —
+  both are required, not polish.
 - The adversarial brief existing in more copies than it does today.
 
 ## Constraints
@@ -189,7 +190,14 @@ modes. The README's diagram line becomes mode-neutral or names both.
 `.claude/fixtures/spec-fixture-elaborate-design.md` keeps its name and its line, so a dry
 run on it now exercises the adversarial-only round. A copy,
 `spec-fixture-complete-design.md`, with `**Review mode:** complete`, exercises the full
-round; it is added to the installer's fixture list. Both paths are dry-run before their slice's PR opens.
+round; it is added to the installer's fixture list. Both are dry-run with `/review-spec`
+before slice 1's PR opens.
+
+The code gate gets no new fixture *(my call)*. Before slice 2's PR opens, `/review-slice` is
+dry-run by hand on the existing `.claude/fixtures/slice/` patch and plan, applied on a
+scratch branch with no handover document, answering the mode question once with `elaborate`
+and once with `complete`, cold step then `--step second`. `/implement-stack`'s c2/d2 and its
+mode-change stop are held by the pinned strings in `review-modes.test.ts` only.
 
 ### The release note
 
@@ -203,6 +211,12 @@ round; it is added to the installer's fixture list. Both paths are dry-run befor
   an empty list; never a refusal.
 - `/hitl:diff` prints the notes after its count line, under "What changed:", and uses them
   for the upgrade PR's **Why** in place of the fallback sentence when the list is not empty.
+- Someone running hitl without an install has no upgrade step: `/hitl:diff` refuses where
+  there is no manifest, and the new `elaborate` applies as soon as the plugin updates. For
+  them the mode line the commands print is the notice *(my call: no second delivery path, no
+  per-machine "already told" state)*.
+- The version bump and the rename of `## Unreleased` belong to the separate release commit,
+  outside this stack.
 - This feature's entry, under `## Unreleased`:
   "`elaborate` no longer includes the security review: it is now one cold review and one
   adversarial review. The mode that includes the security review is called `complete`. A
