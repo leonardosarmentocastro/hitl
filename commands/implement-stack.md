@@ -140,8 +140,9 @@ In elaborate mode: continue with c2.
 **c2. Second review (elaborate mode).** The second review runs even when the first triage had no APPLY rows. Run `/hitl:review-slice <handover path> --step second` on this branch as the
 first fixer left it, so the diff includes its commits; paste the stack table into the
 reviewers' briefs verbatim, as in c. It prints a triage table with a `Lens` column, a
-`## Review decisions` block, and a `## Needs you` block when there is one, and three lines `ADV: <path>`, `SEC: <path>` and
-`FOL: <path>`. Then the same checks as in c, on the `ADV:` and `SEC:` files:
+`## Review decisions` block, and a `## Needs you` block when there is one, and three lines
+`ADV: <path>`, `SEC: <path>` and `FOL: <path>`. Then the same checks as in c, on the `ADV:`
+and `SEC:` files:
 
 ```bash
 for f in "<ADV>" "<SEC>"; do

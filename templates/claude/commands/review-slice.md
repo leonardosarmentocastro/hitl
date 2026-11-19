@@ -246,9 +246,8 @@ raised from two lenses is one row naming both. In elaborate mode, triage `<ADV>`
 slice is declined again for the same reason and adds no new line to the block. The earlier
 declines are this session's earlier Review decisions block and, when `--pr <number>` is
 given, that PR's body `## Review decisions` and `## Needs you` and every Review decisions
-comment on it — a
-fix-up posts its decisions as a comment, and the shim's `view` returns the body and the
-comments. A line beginning "Review mode:" is not a decline and is skipped.
+comment on it — a fix-up posts its decisions as a comment, and the shim's `view` returns the
+body and the comments. A line beginning "Review mode:" is not a decline and is skipped.
 
 <!-- hitl:mode installed -->
 ```bash

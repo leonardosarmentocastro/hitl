@@ -151,11 +151,10 @@ In elaborate or complete mode: continue with c2.
 first fixer left it, so the diff includes its commits; paste the stack table into the
 reviewers' briefs verbatim, as in c. It prints its `Review mode:` line, a triage table (with
 a `Lens` column in complete mode), a `## Review decisions` block, a `## Needs you` block when
-there is one, and three lines
-`ADV: <path>`, `SEC: <path>` and `FOL: <path>` — in elaborate mode `SEC: none` and
-`FOL: none`. Which files must exist comes from the mode read at step c, never from what
-these lines say: `ADV` always; in complete mode `SEC` too. Then the same checks as in c, on
-each of those files. In elaborate mode, check `<ADV>` only:
+there is one, and three lines `ADV: <path>`, `SEC: <path>` and `FOL: <path>` — in elaborate
+mode `SEC: none` and `FOL: none`. Which files must exist comes from the mode read at step c,
+never from what these lines say: `ADV` always; in complete mode `SEC` too. Then the same
+checks as in c, on each of those files. In elaborate mode, check `<ADV>` only:
 
 ```bash
 [ -s "<ADV>" ] && grep -q '| Verdict |' "<ADV>" || echo "no review: <ADV>"
