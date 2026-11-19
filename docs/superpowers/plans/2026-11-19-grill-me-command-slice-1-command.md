@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-19).
+**Reviewed:** round 1 (2026-11-19) · round 2 (2026-11-19).
 
 **Owns:** the `/hitl:grill-me` entry command — a hitl design session that opens with a grill and hands its confirmed summary to the brainstorming skill — with its tests and its README and help text.
 
@@ -34,6 +34,8 @@ A prompt's behaviour is not exercised by unit tests; these are the conditions mo
 3. Claude proceeds to the brainstorm in the same turn as the summary → it must wait for the human's confirmation. Pinned in Task 1; dry run 1.
 4. The brainstorm re-asks what the grill settled → only the summary's open items are asked. Pinned sentence in Task 1; dry run 1.
 5. A later fix to `brainstorming.md` is not copied to `grill-me.md` → the drift test in Task 1 fails.
+
+Uncovered, knowingly: the stop when invoking the grill skill fails after the worktree exists has no pin and no dry run.
 
 ## File Structure
 
@@ -79,6 +81,9 @@ const MISSING_SKILL = [
 /** A block that exists only in grill-me.md, with the blank line after it. */
 const ONLY = /<!-- grill-me:only -->\n[\s\S]*?<!-- grill-me:end -->\n\n?/g;
 
+/** Sentence pins ignore line wraps: the prompt wraps at 100 columns, wherever that falls. */
+const flat = (t: string) => t.replace(/\s+/g, " ");
+
 /** The two places brainstorming.md starts the design conversation, and what grill-me.md says there. */
 const REPLACED: [string, string][] = [
   [
@@ -112,11 +117,12 @@ it("has exactly two grill-only blocks", () => {
 it("stops with the fixed message when no grill skill is available", () => {
   expect(grill).toContain(MISSING_SKILL);
   const prereq = grill.slice(grill.indexOf("## 1. "), grill.indexOf("## 2. "));
-  expect(prereq).toContain(MISSING_SKILL);
-  expect(prereq).toContain("named exactly `grilling`, or else one named exactly `grill-me`");
-  expect(prereq).toContain("this command itself (`hitl:grill-me`) never counts");
-  expect(prereq).toContain("A `grill-me` that only the human can trigger is not in that list.");
-  expect(prereq.indexOf("superpowers@")).toBeLessThan(prereq.indexOf("named exactly `grilling`"));
+  expect(prereq).toContain(MISSING_SKILL); // raw: the message's own line breaks are fixed copy
+  const p = flat(prereq);
+  expect(p).toContain("named exactly `grilling`, or else one named exactly `grill-me`");
+  expect(p).toContain("this command itself (`hitl:grill-me`) never counts");
+  expect(p).toContain("A `grill-me` that only the human can trigger is not in that list.");
+  expect(p.indexOf("named exactly `grilling`")).toBeGreaterThan(p.indexOf("superpowers@"));
 });
 
 it("sends both modes to the design conversation, never straight to the brainstorm", () => {
@@ -135,7 +141,7 @@ it("sends both modes to the design conversation, never straight to the brainstor
 });
 
 describe("the design conversation", () => {
-  const section = grill.slice(grill.indexOf("## The design conversation"));
+  const section = flat(grill.slice(grill.indexOf("## The design conversation")));
 
   it("grills before it hands over to the brainstorming skill", () => {
     const grillAt = section.indexOf("Invoke the grill skill found in step 1");
@@ -256,7 +262,7 @@ grill. When the grill outgrows them:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `pnpm test -- grill-me-command plugin-prompts old-paths`
-Expected: PASS. If the drift test fails on whitespace only, adjust blank lines around the markers in `grill-me.md` — never the regular expression's meaning, never `brainstorming.md`.
+Expected: PASS. The sentence pins compare whitespace-collapsed text, so the line wraps given in Step 3 stand as written. If the drift test fails on whitespace only, adjust blank lines around the markers in `grill-me.md` — never the regular expression's meaning, never `brainstorming.md`.
 
 - [ ] **Step 5: Prove the drift test bites**
 
@@ -315,7 +321,7 @@ Replace the sentence that begins `End with: "Recommended: ` (lines 78–79) with
 
 ```
 End with: "Recommended: `/hitl:grill-me` to start a feature whose shape is unclear — it needs
-`/grill-me` (Matt Pocock's skills, `npx skills add mattpocock/skills`)."
+Matt Pocock's skills (`npx skills add mattpocock/skills`)."
 ```
 
 - [ ] **Step 4: Run the gates**
@@ -338,6 +344,6 @@ The command is a prompt; these are run by a human in real sessions and ticked in
 
 1. **No-install, grill skill present.** The grill runs; at the summary no file exists under `docs/superpowers/`; Claude waits for confirmation; the brainstorm asks only about the summary's open items.
 2. **Installed (this repository).** First line is the installed message; the worktree is created; the same grill, summary wait and hand-over happen.
-3. **Nothing to build.** End the grill with "we should not build this": no spec is written, and Claude names `/hitl:cleanup` from the main checkout.
+3. **Nothing to build (no-install).** End the grill with "we should not build this": no spec is written, and Claude names `/hitl:cleanup` from the main checkout.
 4. **No grill skill.** Start a session with `grilling` and `grill-me` moved out of every skills folder the session reads (`~/.claude/skills/` and the repository's `.claude/skills/`): the missing-skill message prints and no worktree or branch exists afterwards.
-5. **Older install.** With only a `grill-me` skill present whose `SKILL.md` has no `disable-model-invocation` line and carries the grill text itself, and no `grilling`: the grill runs from `grill-me`.
+5. **Older install (no-install).** With only a `grill-me` skill present whose `SKILL.md` has no `disable-model-invocation` line and carries the grill text itself, and no `grilling`: the grill runs from `grill-me`.
