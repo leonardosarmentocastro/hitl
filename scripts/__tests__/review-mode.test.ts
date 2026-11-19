@@ -62,7 +62,7 @@ describe("review-mode.sh", () => {
   it("refuses another value", () => {
     expectRefused(
       run(spec("**Review mode:** thorough")),
-      "invalid value 'thorough' — use simple or elaborate",
+      "invalid value 'thorough' — use simple, elaborate or complete",
     );
   });
 
@@ -92,5 +92,43 @@ describe("review-mode.sh", () => {
       run(spec("**Review mode:** elaborate"), spec("**Review mode:** thorough")),
       "invalid value",
     );
+  });
+
+  it("reads complete", () => {
+    expectOk(run(spec("**Review mode:** complete")), "complete");
+  });
+
+  it("reads Complete. with a capital and a period", () => {
+    expectOk(run(spec("**Review mode:**  Complete. ")), "complete");
+  });
+
+  it("any complete wins", () => {
+    expectOk(
+      run(
+        spec("**Review mode:** simple"),
+        spec("**Review mode:** elaborate"),
+        spec("**Review mode:** complete"),
+      ),
+      "complete",
+    );
+    expectOk(
+      run(spec("**Review mode:** complete"), spec("**Review mode:** elaborate")),
+      "complete",
+    );
+  });
+
+  it("elaborate beats simple whatever the order", () => {
+    expectOk(run(spec("**Review mode:** elaborate"), spec("**Review mode:** simple")), "elaborate");
+  });
+
+  it("an invalid value beats complete", () => {
+    const bad = spec("**Review mode:** thorough");
+    const r = run(spec("**Review mode:** complete"), bad);
+    expectRefused(r, "invalid value");
+    expect(r.stderr).toContain(bad);
+  });
+
+  it("the refusal names the three values", () => {
+    expectRefused(run(spec("**Review mode:** thorough")), "use simple, elaborate or complete");
   });
 });

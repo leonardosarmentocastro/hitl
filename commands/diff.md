@@ -39,6 +39,8 @@ node "${CLAUDE_PLUGIN_ROOT}/installer/diff.mjs" --repo "$PWD" --plugin-root "${C
   part-way left behind, which `--apply` removes).
 
   After that line, and again after an `--apply` run's report, add these in plain words:
+  - first, when `notes` is not empty: print `What changed:`, then each entry, newest first
+    (the order `notes` already has): its version on one line, followed by its text, verbatim.
   - when any entry has `movedFrom`: "hitl's files now live in `.hitl/`. Everyone working on this repository must update the hitl plugin to 0.3.0 or newer; an older plugin no longer recognises this repository as installed."
   - after an `--apply` run, when `claudeLine` is `absent`: "`CLAUDE.md` has no `@HITL.md` line, so nothing there was changed; if the doctrine should load, add `@.hitl/HITL.md`."
   - when `.github/workflows/wipe-superpowers-docs.yml` or
@@ -131,8 +133,9 @@ The PR body (no `Plan:` line — an upgrade has no plan):
 **What** — hitl <recorded> → <latest>: the workflow files this repository installed from
 hitl, brought up to the plugin's current templates.
 
-**Why** — <one or two sentences from the plugin's release notes if present, else "upstream
-changed these files since this repository recorded hitl <recorded>".>
+**Why** — <the `notes`: every section in range, verbatim, each under its version — or,
+when `notes` is empty, "upstream changed these files since this repository recorded hitl
+<recorded>".>
 
 **How** — Each owned file was compared three ways (recorded template, this repository,
 latest template). Files this repository edited were kept; files both changed were merged.

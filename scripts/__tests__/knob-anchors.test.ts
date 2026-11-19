@@ -77,6 +77,7 @@ describe("knob anchors", () => {
       const paragraph: string[] = [];
       for (let j = i + 1; j < lines.length && lines[j].trim() !== ""; j++) paragraph.push(lines[j]);
       expect(paragraph.join("\n")).not.toMatch(/elaborate/i);
+      expect(paragraph.join("\n")).not.toMatch(/`complete`|complete mode/i);
     });
     expect(anchors).toBe(2);
   });
@@ -90,8 +91,38 @@ describe("knob anchors", () => {
       const paragraph: string[] = [];
       for (let j = i + 1; j < lines.length && lines[j].trim() !== ""; j++) paragraph.push(lines[j]);
       expect(paragraph.join("\n")).not.toMatch(/elaborate/i);
+      expect(paragraph.join("\n")).not.toMatch(/`complete`|complete mode/i);
     });
     expect(anchors).toBe(4);
+  });
+
+  it("the slice PR's mode line is outside the pr-body-sections anchors", () => {
+    const lines = readFileSync(
+      join(ROOT, "templates/claude/commands/implement-stack.md"),
+      "utf8",
+    ).split("\n");
+    let anchors = 0;
+    lines.forEach((line, i) => {
+      if (line !== "<!-- hitl:knob pr-body-sections -->") return;
+      anchors += 1;
+      const paragraph: string[] = [];
+      for (let j = i + 1; j < lines.length && lines[j].trim() !== ""; j++) paragraph.push(lines[j]);
+      expect(paragraph.join("\n")).not.toContain("begins with the mode line");
+    });
+    expect(anchors).toBeGreaterThan(0);
+  });
+
+  it("the doctrine's PR mode-line rule is outside the pr-body-sections anchors", () => {
+    const lines = readFileSync(join(ROOT, "templates/HITL.md"), "utf8").split("\n");
+    let anchors = 0;
+    lines.forEach((line, i) => {
+      if (line !== "<!-- hitl:knob pr-body-sections -->") return;
+      anchors += 1;
+      const paragraph: string[] = [];
+      for (let j = i + 1; j < lines.length && lines[j].trim() !== ""; j++) paragraph.push(lines[j]);
+      expect(paragraph.join("\n")).not.toContain("review mode in words");
+    });
+    expect(anchors).toBeGreaterThan(0);
   });
 
   it("every anchor in the templates names a listed knob", () => {

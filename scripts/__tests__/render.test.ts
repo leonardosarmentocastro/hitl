@@ -193,7 +193,7 @@ describe("render.mjs on an empty repository", () => {
     expect(manifest).not.toHaveProperty("ci");
     expect(manifest.testing).toEqual([]);
     expect(manifest).not.toHaveProperty("gates");
-    expect(Object.keys(manifest.files)).toHaveLength(27);
+    expect(Object.keys(manifest.files)).toHaveLength(28);
     expect(manifest.files[".hitl/HITL.md"]).toMatch(/^[0-9a-f]{64}$/);
     expect(Object.keys(manifest.files)).toEqual([...Object.keys(manifest.files)].sort());
   });

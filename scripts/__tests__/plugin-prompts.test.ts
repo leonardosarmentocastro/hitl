@@ -351,3 +351,13 @@ describe("/hitl:init --adopt and the move to .hitl/", () => {
     );
   });
 });
+
+describe("/hitl:diff shows the release notes", () => {
+  const text = readFileSync(join(ROOT, "commands/diff.md"), "utf8");
+  it("prints them and carries them in the upgrade PR", () => {
+    expect(text).toContain("What changed:");
+    expect(text).toContain("every section in range, verbatim");
+    expect(text).toContain("when `notes` is empty");
+    expect(text).not.toContain("one or two sentences from the plugin's release notes if present");
+  });
+});

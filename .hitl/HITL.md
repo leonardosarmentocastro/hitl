@@ -35,34 +35,44 @@ digraph chain {
   convergence the handover agent runs by itself and the session ends.
 - **Code gate.** The PR is the gate. The orchestrator (`/implement-stack`) and its reviewer
   (`/review-slice`) decide every code-level finding and record declines in the PR body
-  under `## Review decisions`, in plain words about what a user or the data would
-  experience — never code vocabulary.
+  under `## Review decisions`, which begins with the review mode in words, then the
+  declines, in plain words about what a user or the data would experience — never code
+  vocabulary.
 <!-- hitl:knob review-rounds -->
 - **Rounds.** One is too few, two is good, three is too many. Round 2 runs only if triage
   changed the artefact. Never a third.
 
 ### Review modes
 
-A feature is reviewed in one of two modes, set by the human once per spec in a
-`**Review mode:**` header line: `simple` or `elaborate`. `/review-spec` asks for it when a
+A feature is reviewed in one of three modes, set by the human once per spec in a
+`**Review mode:**` header line, one of three values: `simple`, `elaborate` or `complete`.
+Each mode is one step heavier than the last. `/review-spec` asks for it when a
 spec has no line and no review recorded yet; no agent sets or changes it otherwise. A spec
 with a round recorded and no line is simple.
 
 - **Simple** is the chain as described above.
 - **Elaborate**, at the spec gate: round 1 is the cold review. Round 2 always runs, whether
+  or not round 1 changed the spec, and is the adversarial reviewer alone, then its triage.
+  Two recorded rounds, never a third, whatever the round count has been tuned to.
+- **Complete**, at the spec gate: round 1 is the cold review. Round 2 always runs, whether
   or not round 1 changed the spec, and is an adversarial reviewer and a security reviewer
   in parallel, neither told about the other, then a short security follow-up on the
   adversarial findings, then one merged triage. Two recorded rounds, never a third,
   whatever the round count has been tuned to.
 
 - **Elaborate**, at the code gate, per slice: the cold slice review, its triage and the
+  fixer, as in simple mode; then the adversarial reviewer alone, on the slice's diff including those fixes; its triage; a second fix.
+  The second fixer's commits are not reviewed again — no third review. A second review that
+  produced nothing is a STOP, never an approval. The PR's `## Review decisions` covers both
+  steps.
+- **Complete**, at the code gate, per slice: the cold slice review, its triage and the
   fixer, as in simple mode; then the adversarial and the security reviewer, with the same
   follow-up, on the slice's diff including those fixes; one merged triage; a second fix.
   The second fixer's commits are not reviewed again — no third review. A second review that
   produced nothing is a STOP, never an approval. The PR's `## Review decisions` covers both
   steps.
 - `/implement-stack` reads the mode once per slice, from the spec(s) the handover document
-  lists: any `elaborate` wins, no line is simple, and an invalid value or a listed spec that
+  lists: any `complete` wins, then any `elaborate`, no line is simple, and an invalid value or a listed spec that
   does not exist is a STOP, never simple.
 
 ### The Stop hook
@@ -90,7 +100,7 @@ You cannot end your turn while a spec or plan in the working tree lacks a
 | "The reviewer said APPROVED, so we're done" | The verdict is noise across runs. Triage decides; the round rule decides. |
 | "This finding is accurate, so fold it in" | Accurate is not the bar. Scope, altitude and proportionality are. |
 | "The reviewer flagged a gap; fix it in this slice" | Check the stack table first. If a later slice owns it, it is DEFERRED. |
-| "The cold review was clean, skip the elaborate round" | Elaborate round 2 always runs. A clean cold review is why it was not the cold reviewer's job to find it. |
+| "The cold review was clean, skip round 2" | In elaborate and complete mode round 2 always runs. A clean cold review is why it was not the cold reviewer's job to find it. |
 | "The hook is blocking me for no reason" | It found an unreviewed artefact. Run the loop or mark the artefact. |
 
 ### Where things live
@@ -202,8 +212,8 @@ The scripts under `scripts/hitl/` need Node 20+.
   spec.
 - Follow the plan task-by-task; keep Global Constraints in the plan aligned with
   this file and `AGENTS.md`.
-- A spec may carry a **`**Review mode:**`** line in its header block — `simple` or
-  `elaborate` (see § Review modes). Case, surrounding whitespace and one trailing period are
+- A spec may carry a **`**Review mode:**`** line in its header block —
+  `simple`, `elaborate` or `complete` (see § Review modes). Case, surrounding whitespace and one trailing period are
   ignored; any other value is refused, never read as simple.
 - Every slice plan declares **`**Owns:**`** in its header block — the lines between
   the `#` title and the first `##` heading — stating the one capability that slice is
@@ -229,7 +239,8 @@ The scripts under `scripts/hitl/` need Node 20+.
 
 ## Review gates
 
-Three cold reviewers plus, in elaborate mode, an adversarial and a security reviewer, all
+Three cold reviewers plus, in elaborate and complete mode, an adversarial reviewer and, in
+complete mode, a security reviewer, all
 Claude subagents under `.claude/agents/`, all reporting in one
 taxonomy of six types — MISSING · UNCLEAR · CONFLICTS · BREAKS · UNPROVEN · MIS-SLICED —
 plus DEFERRED, which is used only when reviewing a slice (a spec or plan review has no
@@ -249,10 +260,11 @@ minors listed one line each):
   stack table; run once per slice by `/implement-stack` before the PR opens. A gap a later
   slice owns is DEFERRED and is never fixed in the current slice.
 
-Two further reviewers, `adversarial-reviewer` and `security-reviewer`, run only in elaborate
-mode (see § Review modes), at the spec gate and again at the code gate on every slice. There,
-`/implement-stack` runs `/review-slice` twice per slice: the cold step, then a second step
-with these two. They use the same finding types, severities and reporting cap.
+Two further reviewers, `adversarial-reviewer` and `security-reviewer`, run only in the
+heavier modes (see § Review modes): the adversarial reviewer in elaborate and complete mode,
+the security reviewer in complete mode only, at the spec gate and again at the code gate on
+every slice. There, in elaborate and complete mode, `/implement-stack` runs `/review-slice`
+twice per slice: the cold step, then a second step with the mode's further reviewers. They use the same finding types, severities and reporting cap.
 The adversarial reviewer tries to make the design fail and states every finding as a
 concrete scenario; the security reviewer asks what an attacker gains and states every
 finding as an attack.
@@ -290,6 +302,11 @@ in `.hitl/review-context.md`.
   deferred review finding in plain words — the concern as a user or the data would
   experience it, the decision, the reason — never file, function or test names. A human
   overturns one by commenting on the PR.
+
+The `## Review decisions` section of a slice PR, and of every Review decisions comment a
+fix-up posts, begins with the review mode in words — the mode line `/review-slice` prints,
+verbatim — also when every finding was applied. It is the notice, read where no human
+watches the session, of which reviews the slice received.
 
 ## Delivery slices (small PRs)
 

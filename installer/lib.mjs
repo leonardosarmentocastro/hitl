@@ -68,6 +68,7 @@ const COMMANDS = [
 const FIXTURES = [
   "spec-fixture-design.md",
   "spec-fixture-elaborate-design.md",
+  "spec-fixture-complete-design.md",
   "plans/2026-09-06-spec-fixture-slice-1-schema.md",
   "plans/2026-09-06-spec-fixture-slice-2-api.md",
   "slice/slice-fixture.patch",
@@ -148,6 +149,39 @@ export function compareVersions(a, b) {
     if (x !== y) return x < y ? -1 : 1;
   }
   return 0;
+}
+
+/**
+ * A changelog's `## ` sections, in file order: `version` is the heading text trimmed, `text`
+ * the body up to the next `## ` heading, trimmed. Lines before the first heading are ignored.
+ */
+export function changelogSections(text) {
+  const sections = [];
+  let current = null;
+  for (const line of text.split("\n")) {
+    if (line.startsWith("## ")) {
+      current = { version: line.slice(3).trim(), lines: [] };
+      sections.push(current);
+    } else if (current) current.lines.push(line);
+  }
+  return sections.map((s) => ({ version: s.version, text: s.lines.join("\n").trim() }));
+}
+
+/**
+ * The released sections after `recorded` up to and including `latest`, newest first, empty
+ * bodies dropped. `Unreleased` and any heading that is not a plain x.y.z version are left out.
+ */
+export function notesBetween(sections, recorded, latest) {
+  return sections
+    .filter(
+      (s) =>
+        /^\d+\.\d+\.\d+$/.test(s.version) &&
+        s.text !== "" &&
+        compareVersions(s.version, recorded) > 0 &&
+        compareVersions(s.version, latest) <= 0,
+    )
+    .sort((a, b) => compareVersions(b.version, a.version))
+    .map((s) => ({ version: s.version, text: s.text }));
 }
 
 export function readManifest(repoRoot) {

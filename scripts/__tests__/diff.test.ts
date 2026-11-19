@@ -331,6 +331,63 @@ describe("diff.mjs at the same version reads the plugin root, not the tag", () =
   });
 });
 
+describe("diff.mjs release notes", () => {
+  const CHANGELOG = `# Changelog\n\n## Unreleased\n\n- later\n\n## ${NEXT}\n\n- next\n\n## ${CURRENT}\n\n- current\n`;
+  // Its own fixture, so the changelog written into it never reaches the shared plugin root.
+  let notesMk: string;
+  let notesPlugin: string;
+  beforeAll(() => {
+    ({ mk: notesMk, plugin: notesPlugin } = fixtureMarketplace());
+  });
+
+  it("reports no notes without a changelog", () => {
+    const repo = installedRepo(notesMk);
+    const r = diff(repo, notesPlugin, notesMk);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.json.notes).toEqual([]);
+    expect(r.json.latest).toBe(NEXT);
+  });
+
+  it("reports the notes for the versions being skipped", () => {
+    writeFileSync(join(notesPlugin, "CHANGELOG.md"), CHANGELOG);
+    const repo = installedRepo(notesMk);
+    const r = diff(repo, notesPlugin, notesMk);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.json.notes).toEqual([{ version: NEXT, text: "- next" }]);
+  });
+
+  it("--apply reports the notes too", () => {
+    writeFileSync(join(notesPlugin, "CHANGELOG.md"), CHANGELOG);
+    const repo = installedRepo(notesMk);
+    const r = diff(repo, notesPlugin, notesMk, true);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.json.applied).toBe(true);
+    expect(r.json.notes).toEqual([{ version: NEXT, text: "- next" }]);
+  });
+
+  it("reports no notes when the changelog cannot be read", () => {
+    const { mk: dirMk, plugin: dirPlugin } = fixtureMarketplace();
+    mkdirSync(join(dirPlugin, "CHANGELOG.md"));
+    const repo = installedRepo(dirMk);
+    const r = diff(repo, dirPlugin, dirMk);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.json.notes).toEqual([]);
+    expect(r.json.latest).toBe(NEXT);
+  });
+
+  it("reports no notes at the same version", () => {
+    const copy = mkdtempSync(join(tmpdir(), "hitl-samever-"));
+    cpSync(mk, copy, { recursive: true });
+    writeFileSync(join(copy, "CHANGELOG.md"), CHANGELOG);
+    const repo = installedRepo(mk);
+    const notAClone = mkdtempSync(join(tmpdir(), "hitl-notaclone-"));
+    const r = diff(repo, copy, notAClone);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.json.latest).toBe(CURRENT);
+    expect(r.json.notes).toEqual([]);
+  });
+});
+
 describe("diff.mjs and the GitLab backend", () => {
   const GITLAB_FILES = [
     "scripts/hitl/backend.sh",

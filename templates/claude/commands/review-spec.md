@@ -1,5 +1,5 @@
 ---
-description: Review the current feature's design spec with a cold spec-reviewer subagent — and, in elaborate mode, an adversarial and a security reviewer — then triage the findings with the human.
+description: Review the current feature's design spec with a cold spec-reviewer subagent — and, in elaborate mode, an adversarial reviewer; in complete mode, a security reviewer too — then triage the findings with the human.
 ---
 
 Run the spec review loop for the current feature's umbrella spec.
@@ -46,7 +46,8 @@ TOPIC=$(basename "$SPEC" .md | sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}-//; s/-desi
 ### Mode
 
 The spec's `**Review mode:**` header line says how it is reviewed: `simple` (the cold rounds
-below) or `elaborate` (one cold round, then an adversarial and security round). Read it:
+below), `elaborate` (one cold round, then an adversarial round) or `complete` (one cold round,
+then an adversarial and security round). Read it:
 
 <!-- hitl:mode installed -->
 ```bash
@@ -59,13 +60,13 @@ scripts/hitl/review-mode.sh "$SPEC"
 <!-- hitl:mode end -->
 
 - Exit 2 → print its message, review nothing, and stop. The human fixes the line.
-- `elaborate` or `simple` → that is the mode.
+- `complete`, `elaborate` or `simple` → that is the mode.
 - `absent` → the mode is `simple` and nothing is asked, **unless** no `**Reviewed:** round`
   is recorded in the spec header and this is not a dry run. Then ask the human once,
-  "simple or elaborate?", with these two lines:
+  "simple, elaborate or complete?", with these three lines:
   - simple: two cold rounds, as always;
-  - elaborate: one cold round, then an adversarial and a security review of the spec, and
-    the same again on every slice's code — about three more reviewer runs per gate.
+  - elaborate: one cold round, then an adversarial review of the spec, and the same on every slice's code — one more reviewer run and one more fix per slice;
+  - complete: one cold round, then an adversarial and a security review of the spec, and the same again on every slice's code — about three more reviewer runs per gate.
 
   Write `**Review mode:** <answer>` in the spec's header block (between the `#` title and
   the first `##`) and commit it alone:
@@ -76,7 +77,15 @@ scripts/hitl/review-mode.sh "$SPEC"
 
   No other case sets or changes the line: the human edits it by hand, in a commit.
 
-In elaborate mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to. Count the recorded rounds as the next paragraph describes, ignoring its limit. If two are recorded, stop, and add to the stop message: "this command cannot tell whether the adversarial and security round ran; if the mode was changed to elaborate after two cold rounds, it did not, and nothing is rerun."
+The mode line, one per mode, exactly:
+
+- `Review mode: simple — cold review only.`
+- `Review mode: elaborate — cold review, then an adversarial review. No security review.`
+- `Review mode: complete — cold review, then an adversarial and a security review.`
+
+Print the mode line once per run, as soon as the mode is known: after the answer to the one-time question has been written and committed, when one was asked; on a dry run; and before the "two rounds have run" stop. On the script's exit 2, print its message instead.
+
+In elaborate and complete mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to. Count the recorded rounds as the next paragraph describes, ignoring its limit. If two are recorded, stop, and add to the stop message: "this command cannot tell whether round 2 was a second cold round or this mode's own round; if the mode line was changed after two cold rounds, the adversarial round did not run, and nothing is rerun."
 
 <!-- hitl:knob review-rounds -->
 Count existing `**Reviewed:** round N` entries in the spec header, ignoring any marked
@@ -84,7 +93,7 @@ Count existing `**Reviewed:** round N` entries in the spec header, ignoring any 
 already 2, stop: "two rounds have run; no third round", and hand back per step 6.
 
 The round that runs follows the mode line as it reads now: with no round recorded, § 1 in
-either mode; with round 1 recorded, elaborate → § 1E; simple → § 1.
+every mode; with round 1 recorded, elaborate or complete → § 1E; simple → § 1.
 
 ## 1. Run the reviewer (cold)
 
@@ -107,24 +116,28 @@ no summary of the spec, no hints, no mention of earlier rounds:
 followed by the hitl context block, verbatim.
 <!-- hitl:mode end -->
 
-## 1E. Elaborate round 2 — adversarial and security
+## 1E. Round 2 — adversarial, and security in complete mode
 
-Only in elaborate mode, with round 1 recorded. Three output paths sharing one stamp:
+Only in elaborate or complete mode, with round 1 recorded. The output paths share one stamp;
+`ADV` is set in both modes, `SEC` and `FUP` only in complete mode:
 
 ```bash
 mkdir -p .claude/reviews
 STAMP=$(date +%Y-%m-%d-%H%M%S)
 ADV=.claude/reviews/$STAMP-$TOPIC-spec-adversarial.md
+# complete mode only:
 SEC=.claude/reviews/$STAMP-$TOPIC-spec-security.md
 FUP=.claude/reviews/$STAMP-$TOPIC-spec-security-followup.md
 ```
 
 <!-- hitl:mode installed -->
-In ONE message, spawn the `adversarial-reviewer` agent and the `security-reviewer` agent,
-each with its brief and nothing else — nothing about round 1, nothing about each other, no
-summary of the spec:
+In elaborate mode, spawn the `adversarial-reviewer` agent alone, with its brief below and nothing else — nothing about round 1, no summary of the spec:
 
 > Adversarial review of the spec at `<SPEC>`. Write your review to `<ADV>`. Reply with at most three lines.
+
+In complete mode, in ONE message, spawn the `adversarial-reviewer` agent with its brief above
+and the `security-reviewer` agent with the brief below, each with nothing else — nothing about
+round 1, nothing about each other, no summary of the spec:
 
 > Security review of the spec at `<SPEC>`. Write your review to `<SEC>`. Reply with at most three lines.
 
@@ -133,15 +146,19 @@ nothing else:
 
 > Security follow-up on the spec at `<SPEC>`. Adversarial review: `<ADV>`. Write your review to `<FUP>`. Reply with at most three lines.
 <!-- hitl:mode no-install -->
-In ONE message, spawn the `adversarial-reviewer` agent and the `security-reviewer` agent,
-each with its brief, the hitl context block, and nothing else — nothing about round 1,
-nothing about each other, no summary of the spec:
+In elaborate mode, spawn the `adversarial-reviewer` agent alone, with its brief below and nothing else but the hitl context block — nothing about round 1, no summary of the spec:
 
 > Adversarial review of the spec at `<SPEC>`. Write your review to `<ADV>`. Reply with at most three lines.
 
+followed by the hitl context block, verbatim.
+
+In complete mode, in ONE message, spawn the `adversarial-reviewer` agent with its brief above
+and the `security-reviewer` agent with the brief below, each with the hitl context block and
+nothing else — nothing about round 1, nothing about each other, no summary of the spec:
+
 > Security review of the spec at `<SPEC>`. Write your review to `<SEC>`. Reply with at most three lines.
 
-each followed by the hitl context block, verbatim. When both have returned, spawn the
+each brief followed by the hitl context block, verbatim. When both have returned, spawn the
 `security-reviewer` agent again with this brief, followed by the hitl context block,
 verbatim, and nothing else:
 
@@ -169,8 +186,13 @@ and tell the human; they decide whether to rerun. A failed attempt does not cons
 step 0 ignores a `failed` entry when counting, so a rerun carries the same round number.
 Do not continue to triage.
 
-After § 1E, append ` · round 2 (<YYYY-MM-DD>)` only if `<ADV>` and `<SEC>` each exist and
-contain a `| Verdict |` row. Otherwise write `round 2 failed (<YYYY-MM-DD>) — <which
+After § 1E in elaborate mode, append ` · round 2 (<YYYY-MM-DD>)` only if `<ADV>` exists and
+contains a `| Verdict |` row. Otherwise write
+`round 2 failed (<YYYY-MM-DD>) — adversarial reviewer, <why>`, tell the human, and do not
+continue to triage; a rerun runs § 1E again.
+
+After § 1E in complete mode, append ` · round 2 (<YYYY-MM-DD>)` only if `<ADV>` and `<SEC>`
+each exist and contain a `| Verdict |` row. Otherwise write `round 2 failed (<YYYY-MM-DD>) — <which
 reviewer, why>`, tell the human, and do not continue to triage; a rerun runs all of § 1E
 again. A follow-up file `<FUP>` that is missing or has no verdict row does not fail the
 round: carry on, and say "the security follow-up did not run" in step 6. A follow-up that
@@ -199,10 +221,12 @@ Present the triage as one table (`# · Sev · Type · Finding · Verdict`) first
 YOUR CALL items one at a time. Judge each finding on accuracy, scope, altitude and
 proportionality; the reviewer is built to return findings and will wander.
 
-After § 1E, triage `<ADV>`, `<SEC>` and `<FUP>` as one list. The table gains a `Lens`
-column (`# · Sev · Type · Lens · Finding · Verdict`), whose value is `adversarial`,
-`security` or `chained` (the follow-up). The same problem raised from two lenses is one row
-naming both.
+After § 1E in complete mode, triage `<ADV>`, `<SEC>` and `<FUP>` as one list. The table
+gains a `Lens` column (`# · Sev · Type · Lens · Finding · Verdict`), whose value is
+`adversarial`, `security` or `chained` (the follow-up). The same problem raised from two
+lenses is one row naming both.
+
+After § 1E in elaborate mode, triage `<ADV>` alone. In elaborate mode the table has no `Lens` column.
 
 ## 4. Fold in and record
 
@@ -225,7 +249,7 @@ One is too few, two is good, three is too many:
 - If round 2 ended with a blocker you accepted and could not resolve → stop and say so.
   Nothing downstream runs until the human resolves it.
 
-Elaborate mode replaces the rule above. Round 2 always runs in elaborate mode, whether or not round 1 changed the spec. After round 1 → § 1E. After round 2 → stop; never a third round. A round-2 blocker you accepted and could not resolve stops everything downstream, as above.
+Elaborate and complete mode replace the rule above. Round 2 always runs in elaborate and complete mode, whether or not round 1 changed the spec. After round 1 → § 1E. After round 2 → stop; never a third round. A round-2 blocker you accepted and could not resolve stops everything downstream, as above.
 
 ## 6. Hand back
 
