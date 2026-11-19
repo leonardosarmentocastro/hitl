@@ -251,12 +251,16 @@ describe("/implement-stack in elaborate mode", () => {
         "the mode word in its `Review mode:` line differs from the mode read at step c, or it prints no such line",
         "The `## Review decisions` section begins with the mode line for the mode read at step c, verbatim",
         "In complete mode only: a `FOL:` file missing",
+        "In a fix-up, the mode read at step c means the mode read at the start of that `### Slice <N>` section, in this step and its stops.",
+        "In elaborate mode, check `<ADV>` only:",
+        'for f in "<ADV>" "<SEC>"; do',
         "Review mode: simple — cold review only.",
         "Review mode: elaborate — cold review, then an adversarial review. No security review.",
         "Review mode: complete — cold review, then an adversarial and a security review.",
       ])
         expect(text).toContain(s);
       expect(text).not.toMatch(/^No second review\. The fixer's commits ship as they are\./m);
+      expect(text).not.toContain("for f in <");
     });
 
     it(`(${form}) reads complete as its own mode`, () => {
