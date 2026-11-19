@@ -21,7 +21,9 @@ describe("PR body TL;DR (installed render)", () => {
     expect(i("## Why")).toBeGreaterThan(i("## TL;DR"));
     expect(i("## Needs you")).toBeGreaterThan(i("## Why"));
     expect(i("<details>")).toBeGreaterThan(i("## Needs you"));
-    expect(i("<summary>For agents — skip when reviewing</summary>")).toBeGreaterThan(i("<details>"));
+    expect(i("<summary>For agents — skip when reviewing</summary>")).toBeGreaterThan(
+      i("<details>"),
+    );
     expect(i("\nPlan: <plan path>\n")).toBeGreaterThan(i("<summary>"));
     expect(i("## Review decisions")).toBeGreaterThan(i("\nPlan: <plan path>\n"));
     expect(i("</details>")).toBeGreaterThan(i("## Review decisions"));
