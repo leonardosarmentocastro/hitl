@@ -1,5 +1,7 @@
 # PR bodies a human can read in seconds — design
 
+**Review mode:** simple
+
 ## Goal
 
 A reviewer flooded with AI-written PRs decides in seconds whether a PR deserves a real
