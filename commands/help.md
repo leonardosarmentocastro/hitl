@@ -75,5 +75,5 @@ the code host's line by `provider`:
 
 A missing one gets its install line (superpowers: `claude plugin marketplace add
 obra/superpowers-marketplace` then `claude plugin install superpowers@superpowers-marketplace`).
-End with: "Recommended: `/grill-me` (Matt Pocock's skills, `npx skills add mattpocock/skills`)
-to start a feature whose shape is unclear."
+End with: "Recommended: `/hitl:grill-me` to start a feature whose shape is unclear — it needs
+Matt Pocock's skills (`npx skills add mattpocock/skills`)."

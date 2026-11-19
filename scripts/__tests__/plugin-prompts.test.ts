@@ -311,7 +311,7 @@ describe("/hitl:diff and the move to .hitl/", () => {
 const UPGRADE = "This repository uses an older hitl layout. Run /hitl:diff --apply to upgrade it.";
 
 describe("the old layout is refused with one message", () => {
-  for (const c of ["brainstorming", "customize", "cleanup", "help", "init"])
+  for (const c of ["brainstorming", "grill-me", "customize", "cleanup", "help", "init"])
     it(`/hitl:${c} carries it`, () => {
       expect(readFileSync(join(ROOT, `commands/${c}.md`), "utf8")).toContain(UPGRADE);
     });

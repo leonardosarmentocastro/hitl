@@ -186,6 +186,11 @@ the plugin: reviewed spec, reviewed plans, a handover, then `/hitl:implement-sta
 session for the stacked draft PRs and the umbrella PR. Nothing hitl-owned is committed; only
 the feature's own documents under `docs/superpowers/`, as always.
 
+When you cannot see the feature's shape yet, type `/hitl:grill-me` instead. It is the same
+start, but the design conversation opens with a grill
+([Matt Pocock's skills](https://github.com/mattpocock/skills), `npx skills add mattpocock/skills`):
+you confirm a summary of what the grill settled, and the brainstorm writes the spec from it.
+
 - **Memory lives on your machine**, in `~/.hitl/projects/<host>/<owner>/<repo>/`: the
   local gates, what reviewers should know, extra PR sections. hitl asks before it remembers
   anything, and every worktree and clone of the project reads the same memory.
@@ -198,8 +203,8 @@ the feature's own documents under `docs/superpowers/`, as always.
 - **`/hitl:cleanup`** removes a finished feature's worktree and branches, and tells you if
   the documents reached your main branch because the wipe PR did not merge first.
 
-In a repository that did run `/hitl:init`, `/hitl:brainstorming` follows that repository's
-own rules instead.
+In a repository that did run `/hitl:init`, `/hitl:brainstorming` and `/hitl:grill-me` follow
+that repository's own rules instead.
 
 ## Make it yours, keep it current
 
@@ -236,7 +241,8 @@ This repository's own `.claude/`, `.hitl/HITL.md` and `scripts/hitl/` are render
 together. See `AGENTS.md` for refreshing the install manifest.
 
 Pairs well with [Matt Pocock's skills](https://github.com/mattpocock/skills): `/grill-me` is
-a good way to start a feature whose shape you can't see yet.
+a good way to start a feature whose shape you can't see yet, and `/hitl:grill-me` starts the
+whole chain from it.
 
 ## License
 
