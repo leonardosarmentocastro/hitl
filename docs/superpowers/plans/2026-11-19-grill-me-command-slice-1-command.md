@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-19).
+
 **Owns:** the `/hitl:grill-me` entry command — a hitl design session that opens with a grill and hands its confirmed summary to the brainstorming skill — with its tests and its README and help text.
 
 **Goal:** Add `commands/grill-me.md`, a second hand-written entry command that equals `commands/brainstorming.md` except for the enumerated grill differences, pinned by tests.
@@ -19,7 +21,8 @@
 - The grill skill is matched by the exact un-namespaced names `grilling`, else `grill-me`. `hitl:grill-me` never counts.
 - Exact copy fixed by the spec (the missing-skill message) is copied verbatim from this plan.
 - Local gates before the PR: `pnpm test` and `pnpm format:check`.
-- TDD: each test is written and seen failing before the text that satisfies it.
+- TDD: each test is written and seen failing before the text that satisfies it. Task 1 writes all its pins before the one copied prompt file they describe: the file is a single unit, created in one step, so the pins fail together and pass together.
+- The slice PR body carries the five dry runs of § Dry runs as an unticked checklist under `## Dry runs`; the human ticks them.
 - Files touched: 5 (2 created, 3 modified) plus this plan and the spec — far below the ~20-file tripwire.
 
 ## Review Focus
@@ -73,6 +76,9 @@ const MISSING_SKILL = [
   "Or start with /hitl:brainstorming, which needs no extra skill.",
 ].join("\n");
 
+/** A block that exists only in grill-me.md, with the blank line after it. */
+const ONLY = /<!-- grill-me:only -->\n[\s\S]*?<!-- grill-me:end -->\n\n?/g;
+
 /** The two places brainstorming.md starts the design conversation, and what grill-me.md says there. */
 const REPLACED: [string, string][] = [
   [
@@ -91,8 +97,16 @@ const REPLACED: [string, string][] = [
 ```ts
 it("names itself in its usage and its re-run messages", () => {
   expect(grill).toMatch(/^---\ndescription: .*Usage: \/hitl:grill-me <what to design>\n/);
-  expect(grill).toContain("Install it, then re-run /hitl:grill-me:");
+  expect(grill).toMatch(/\nargument-hint: <what to design>\n---\n/);
+  // only the superpowers stop message can satisfy this one
+  expect(grill).toContain("artefacts this workflow reviews). Install it, then re-run /hitl:grill-me:");
   expect(grill).toContain("then re-run /hitl:grill-me.");
+  // outside the grill-only blocks, the other command is never named
+  expect(grill.replace(ONLY, "")).not.toContain("/hitl:brainstorming");
+});
+
+it("has exactly two grill-only blocks", () => {
+  expect(grill.match(ONLY)?.length).toBe(2);
 });
 
 it("stops with the fixed message when no grill skill is available", () => {
@@ -101,6 +115,7 @@ it("stops with the fixed message when no grill skill is available", () => {
   expect(prereq).toContain(MISSING_SKILL);
   expect(prereq).toContain("named exactly `grilling`, or else one named exactly `grill-me`");
   expect(prereq).toContain("this command itself (`hitl:grill-me`) never counts");
+  expect(prereq).toContain("A `grill-me` that only the human can trigger is not in that list.");
   expect(prereq.indexOf("superpowers@")).toBeLessThan(prereq.indexOf("named exactly `grilling`"));
 });
 
@@ -154,7 +169,7 @@ describe("drift from /hitl:brainstorming", () => {
       expected = expected.replace(from, to);
     }
     const actual = body(grill)
-      .replace(/<!-- grill-me:only -->\n[\s\S]*?<!-- grill-me:end -->\n\n?/g, "")
+      .replace(ONLY, "")
       .replaceAll("/hitl:grill-me", "/hitl:brainstorming");
     expect(actual.trimEnd()).toBe(expected.trimEnd());
   });
@@ -185,8 +200,9 @@ description: Start a hitl design session from a grill — its own worktree on a 
 ````
 <!-- grill-me:only -->
 and that a grill skill is available: the skills this session can invoke include one named
-exactly `grilling`, or else one named exactly `grill-me`. Only these two un-namespaced names
-count: a namespaced entry never does, and this command itself (`hitl:grill-me`) never counts.
+exactly `grilling`, or else one named exactly `grill-me`. A `grill-me` that only the human can
+trigger is not in that list. Only these two un-namespaced names count: a namespaced entry
+never does, and this command itself (`hitl:grill-me`) never counts.
 Check superpowers first; when both are missing, print the superpowers message. If neither
 grill skill is there, stop and print exactly:
 
@@ -323,5 +339,5 @@ The command is a prompt; these are run by a human in real sessions and ticked in
 1. **No-install, grill skill present.** The grill runs; at the summary no file exists under `docs/superpowers/`; Claude waits for confirmation; the brainstorm asks only about the summary's open items.
 2. **Installed (this repository).** First line is the installed message; the worktree is created; the same grill, summary wait and hand-over happen.
 3. **Nothing to build.** End the grill with "we should not build this": no spec is written, and Claude names `/hitl:cleanup` from the main checkout.
-4. **No grill skill.** Start a session with `grilling` and `grill-me` moved out of `~/.claude/skills/`: the missing-skill message prints and no worktree or branch exists afterwards.
+4. **No grill skill.** Start a session with `grilling` and `grill-me` moved out of every skills folder the session reads (`~/.claude/skills/` and the repository's `.claude/skills/`): the missing-skill message prints and no worktree or branch exists afterwards.
 5. **Older install.** With only a `grill-me` skill present whose `SKILL.md` has no `disable-model-invocation` line and carries the grill text itself, and no `grilling`: the grill runs from `grill-me`.
