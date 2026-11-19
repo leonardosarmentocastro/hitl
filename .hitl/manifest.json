@@ -14,7 +14,7 @@
     ".claude/commands/handover.md": "00bc02245ee543fd9470a0e421b6cfe27f3f85f12c04935b817ddb13a9e90571",
     ".claude/commands/implement-stack.md": "975e7149468dd7888f39882e208a9c14cf3c6efdd2382c1a7b7046cc0af1c443",
     ".claude/commands/review-plan.md": "0cf72f0076c0803641594105b7feaa91d632d90d293943296870641319cf7847",
-    ".claude/commands/review-slice.md": "41f014cc5d23f06dea814b04dc795e0f8f44ecf0bfb952217cff56b74ca42843",
+    ".claude/commands/review-slice.md": "578be0b1f142a72e7d262dc27806859b76902786b5feab460eb7fb590265adc5",
     ".claude/commands/review-spec.md": "3546c702f4e424eff705e67c80870bfd6d7fdd499bf1e89ceb196441e565b90b",
     ".claude/commands/umbrella-pr.md": "197d46f043f530bb72387f8d7f745b0de2dc2fbc9d073a0bd42ae7fad4e23a54",
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md": "be55290b2a215fab748dbd4cbc5a2a3110c6f3516b797feb27d50534248bee2b",

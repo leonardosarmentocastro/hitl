@@ -136,10 +136,10 @@ describe("/review-slice --step second", () => {
   ];
 
   for (const [form, text] of forms)
-    it(`(${form}) runs the second step in elaborate mode and refuses it in simple mode`, () => {
+    it(`(${form}) runs the second step in elaborate and complete mode and refuses it in simple mode`, () => {
       for (const s of [
         "--step cold|second",
-        "## 1S. Second step — adversarial and security",
+        "## 1S. Second step — adversarial, and security in complete mode",
         "-code-adversarial.md",
         "-code-security.md",
         "-code-security-followup.md",
@@ -150,15 +150,52 @@ describe("/review-slice --step second", () => {
         "Pass every path listed under `Spec(s):` to the script in one call.",
         "is declined again for the same reason and adds no new line",
         "--pr <number>",
+        "Review mode: simple — cold review only.",
+        "Review mode: elaborate — cold review, then an adversarial review. No security review.",
+        "Review mode: complete — cold review, then an adversarial and a security review.",
+        "simple, elaborate or complete?",
+        'ask only "elaborate or complete?"',
+        "In elaborate mode, spawn the",
+        "agent alone, with the brief below and nothing else",
+        "SEC: none",
+        "FOL: none",
+        "In elaborate mode the table has no `Lens` column.",
+        'A line beginning "Review mode:" is not a decline and is skipped.',
       ])
         expect(text).toContain(s);
+      expect(text).not.toContain("taken as elaborate");
+      expect(text).not.toContain("Here `complete` runs the same second step as `elaborate`.");
+      expect(text!.split("Adversarial review of the slice on branch")).toHaveLength(2);
     });
 
   for (const [form, text] of forms)
-    it(`(${form}) reads complete and runs the same second step as elaborate`, () => {
+    it(`(${form}) reads complete as its own mode`, () => {
       expect(text).toContain("`complete`, `elaborate` or `simple` → that is the mode. ");
-      expect(text).toContain("Here `complete` runs the same second step as `elaborate`.");
     });
+
+  it("(installed) spawns the adversarial reviewer alone in elaborate mode", () => {
+    expect(forms[0][1]).toContain(
+      "In elaborate mode, spawn the `adversarial-reviewer` agent alone, with the brief below and nothing else",
+    );
+  });
+
+  it("(plugin) spawns the adversarial reviewer alone in elaborate mode", () => {
+    expect(forms[1][1]).toContain(
+      "In elaborate mode, spawn the `hitl:adversarial-reviewer` agent alone, with the brief below and nothing else",
+    );
+  });
+
+  it("(installed) tells the human to run the second step after the cold one", () => {
+    expect(forms[0][1]).toMatch(
+      /^.*`<mode>` mode: after the fixes, run .*`\/review-slice --step second`.*$/m,
+    );
+  });
+
+  it("(plugin) tells the human to run the second step after the cold one", () => {
+    expect(forms[1][1]).toMatch(
+      /^.*`<mode>` mode: after the fixes, run .*`\/hitl:review-slice --step second`.*$/m,
+    );
+  });
 
   it("runs the installed scripts in the installed form", () => {
     expect(forms[0][1]).toContain("scripts/hitl/review-mode.sh");

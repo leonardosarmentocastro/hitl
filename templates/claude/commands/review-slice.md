@@ -1,5 +1,5 @@
 ---
-description: Review the current slice branch's diff against its parent, plan and stack table with a cold slice-reviewer subagent — and, in elaborate mode, a second step with an adversarial and a security reviewer; print the triage table (APPLY / DECLINE). Usage: /review-slice [<handover path>] [--parent <ref>] [--step cold|second] [--pr <number>]
+description: Review the current slice branch's diff against its parent, plan and stack table with a cold slice-reviewer subagent — and a second step: in elaborate mode with an adversarial reviewer, in complete mode with an adversarial and a security reviewer; print the triage table (APPLY / DECLINE). Usage: /review-slice [<handover path>] [--parent <ref>] [--step cold|second] [--pr <number>]
 argument-hint: [docs/superpowers/handover/<feature>.md] [--parent <ref>] [--step cold|second] [--pr <number>]
 ---
 
@@ -56,17 +56,25 @@ scripts/hitl/review-mode.sh <every Spec(s): path>
 <!-- hitl:mode end -->
 
 - Exit 2 → print its message and stop. An invalid value or a missing spec file is a refusal, never simple.
-- `complete`, `elaborate` or `simple` → that is the mode. `absent` → `simple`. Here `complete` runs the same second step as `elaborate`.
-- With no handover document, after asking for the parent and the plan, also ask "simple or
-  elaborate?" — unless `--step second` was given, which is taken as elaborate and asks
-  nothing.
+- `complete`, `elaborate` or `simple` → that is the mode. `absent` → `simple`.
+- With no handover document, after asking for the parent and the plan, also ask
+  "simple, elaborate or complete?" — unless `--step second` was given: then ask only "elaborate or complete?" and nothing else.
 - `--step second` in simple mode → print
   `refused: this feature is in simple mode — there is no second step` and stop.
+
+The mode line, one per mode, exactly:
+
+- `Review mode: simple — cold review only.`
+- `Review mode: elaborate — cold review, then an adversarial review. No security review.`
+- `Review mode: complete — cold review, then an adversarial and a security review.`
+
+Print the mode line once per run, as soon as the mode is known. On the script's exit 2,
+print its message instead.
 
 ### The diff
 
 The block below is shared by both steps. For the cold step `OUT` is one path; for the second
-step it is the three paths below it.
+step it is the paths below it.
 
 ```bash
 PARENT=<parent from the row, or the --parent override>
@@ -86,10 +94,12 @@ git diff "$BASE...HEAD" -- . ':(exclude)pnpm-lock.yaml' > "$DIFF"
 CHANGED=$(git diff --name-only "$BASE...HEAD" -- . ':(exclude)pnpm-lock.yaml')
 ```
 
-With `--step second`, in place of `OUT`:
+With `--step second`, in place of `OUT` — `ADV` in both modes, `SEC` and `FOL` only in
+complete mode:
 
 ```bash
 ADV=.claude/reviews/$STAMP-<feature>-slice-<N>-code-adversarial.md
+# complete mode only:
 SEC=.claude/reviews/$STAMP-<feature>-slice-<N>-code-security.md
 FOL=.claude/reviews/$STAMP-<feature>-slice-<N>-code-security-followup.md
 ```
@@ -114,14 +124,13 @@ Spawn `slice-reviewer` with this brief:
 followed by the hitl context block, verbatim.
 <!-- hitl:mode end -->
 
-## 1S. Second step — adversarial and security
+## 1S. Second step — adversarial, and security in complete mode
 
-Only in elaborate mode, with `--step second`, on the branch as the first fixer left it.
+Only in elaborate or complete mode, with `--step second`, on the branch as the first fixer
+left it.
 
 <!-- hitl:mode installed -->
-In ONE message, spawn the `adversarial-reviewer` agent and the `security-reviewer` agent,
-each with its brief and nothing else — nothing about the cold review, its triage or each
-other:
+In elaborate mode, spawn the `adversarial-reviewer` agent alone, with the brief below and nothing else — nothing about the cold review or its triage:
 
 > Adversarial review of the slice on branch `<branch>` against parent `<PARENT>`. Diff:
 > `<DIFF>`. Plan: `<plan path>`. Changed files (read each in full): <CHANGED, one per line>.
@@ -131,18 +140,21 @@ other:
 > STACK TABLE (this slice is <N>):
 > <the `## Stack` table copied verbatim from the handover document>
 
+In complete mode, in ONE message, spawn the `adversarial-reviewer` agent with its brief above
+and the `security-reviewer` agent with the brief below, each with nothing else — nothing
+about the cold review, its triage or each other:
+
 > Security review of the slice on branch `<branch>` against parent `<PARENT>`. <the rest as
-> above, with `<SEC>` as the output path>
+> the adversarial brief above, with `<SEC>` as the output path>
 
 When both have returned, spawn the `security-reviewer` agent again with this brief and
 nothing else:
 
 > Security follow-up on the slice on branch `<branch>` against parent `<PARENT>`.
-> Adversarial review: `<ADV>`. <the rest as above, with `<FOL>` as the output path>
+> Adversarial review: `<ADV>`. <the rest as the adversarial brief above, with `<FOL>` as the
+> output path>
 <!-- hitl:mode no-install -->
-In ONE message, spawn the `adversarial-reviewer` agent and the `security-reviewer` agent,
-each with its brief, the hitl context block, and nothing else — nothing about the cold
-review, its triage or each other:
+In elaborate mode, spawn the `adversarial-reviewer` agent alone, with the brief below and nothing else but the hitl context block — nothing about the cold review or its triage:
 
 > Adversarial review of the slice on branch `<branch>` against parent `<PARENT>`. Diff:
 > `<DIFF>`. Plan: `<plan path>`. Changed files (read each in full): <CHANGED, one per line>.
@@ -152,18 +164,31 @@ review, its triage or each other:
 > STACK TABLE (this slice is <N>):
 > <the `## Stack` table copied verbatim from the handover document>
 
-> Security review of the slice on branch `<branch>` against parent `<PARENT>`. <the rest as
-> above, with `<SEC>` as the output path>
+followed by the hitl context block, verbatim.
 
-each followed by the hitl context block, verbatim. When both have returned, spawn the
+In complete mode, in ONE message, spawn the `adversarial-reviewer` agent with its brief above
+and the `security-reviewer` agent with the brief below, each with the hitl context block and
+nothing else — nothing about the cold review, its triage or each other:
+
+> Security review of the slice on branch `<branch>` against parent `<PARENT>`. <the rest as
+> the adversarial brief above, with `<SEC>` as the output path>
+
+each brief followed by the hitl context block, verbatim. When both have returned, spawn the
 `security-reviewer` agent again with this brief, followed by the hitl context block,
 verbatim, and nothing else:
 
 > Security follow-up on the slice on branch `<branch>` against parent `<PARENT>`.
-> Adversarial review: `<ADV>`. <the rest as above, with `<FOL>` as the output path>
+> Adversarial review: `<ADV>`. <the rest as the adversarial brief above, with `<FOL>` as the
+> output path>
 <!-- hitl:mode end -->
 
-Then check each review:
+Then check each review. In elaborate mode, check `<ADV>` only:
+
+```bash
+[ -s "<ADV>" ] && grep -q '| Verdict |' "<ADV>" || echo "no review: <ADV>"
+```
+
+In complete mode, as follows:
 
 ```bash
 for f in "<ADV>" "<SEC>"; do
@@ -172,18 +197,26 @@ done
 [ -s "<FOL>" ] && grep -q '| Verdict |' "<FOL>" || echo "the security follow-up did not run"
 ```
 
-- `no review: <which>` — the adversarial or the security file is missing, empty, or has no
-  verdict row → print that line, then the three path lines below, and stop without a triage
-  table.
-- `the security follow-up did not run` → print it and carry on; triage the two reviews.
+- `no review: <which>` — a checked file is missing, empty, or has no verdict row → print
+  that line, then the three path lines below, and stop without a triage table.
+- `the security follow-up did not run` (complete mode only) → print it and carry on; triage
+  the two reviews.
 
 Whatever happens in this step, its output ends with these three lines, which
-`/implement-stack` reads:
+`/implement-stack` reads. In complete mode:
 
 ```
 ADV: <ADV>
 SEC: <SEC>
 FOL: <FOL>
+```
+
+In elaborate mode, with no security review and no follow-up:
+
+```
+ADV: <ADV>
+SEC: none
+FOL: none
 ```
 
 ## 2. Triage — no YOUR CALL at code level
@@ -204,15 +237,15 @@ block, the `## Review decisions` section for the PR body: every DECLINE and DEFE
 plain words — the concern as a user or the data would experience it, the decision, the
 reason. No file, function or test names.
 
-**The second step.** Triage `<ADV>`, `<SEC>` and `<FOL>` as one list. The table gains a
-`Lens` column (`# · Sev · Type · Lens · Finding · Verdict · one-line reason`), whose value
-is `adversarial`, `security` or `chained` (the follow-up). The same problem raised from two
-lenses is one row naming both. A finding that repeats something already declined for this
+**The second step.** In complete mode, triage `<ADV>`, `<SEC>` and `<FOL>` as one list. The
+table gains a `Lens` column (`# · Sev · Type · Lens · Finding · Verdict · one-line reason`),
+whose value is `adversarial`, `security` or `chained` (the follow-up). The same problem
+raised from two lenses is one row naming both. In elaborate mode, triage `<ADV>` alone. In elaborate mode the table has no `Lens` column. In both modes, a finding that repeats something already declined for this
 slice is declined again for the same reason and adds no new line to the block. The earlier
 declines are this session's earlier Review decisions block and, when `--pr <number>` is
 given, that PR's body `## Review decisions` and every Review decisions comment on it — a
 fix-up posts its decisions as a comment, and the shim's `view` returns the body and the
-comments:
+comments. A line beginning "Review mode:" is not a decline and is skipped.
 
 <!-- hitl:mode installed -->
 ```bash
@@ -231,5 +264,4 @@ Without `--pr`, only this session's block is used. Print the triage table and th
 
 Do not fix anything. The fixer (via `/implement-stack`) or the human acts on the table.
 
-After the cold step in elaborate mode, always print: "elaborate mode: after the fixes, run
-`/review-slice --step second`".
+After the cold step in elaborate or complete mode, always print, with `<mode>` the mode word: "`<mode>` mode: after the fixes, run `/review-slice --step second`".
