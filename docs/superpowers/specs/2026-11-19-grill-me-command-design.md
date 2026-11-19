@@ -1,5 +1,7 @@
 # `/hitl:grill-me` — start a hitl design session from a grill
 
+**Review mode:** simple
+
 ## Intent
 
 `/hitl:brainstorming` is the entry point that starts a hitl design session in any repository:
