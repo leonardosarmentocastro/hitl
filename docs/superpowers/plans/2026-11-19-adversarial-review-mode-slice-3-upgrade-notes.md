@@ -4,6 +4,8 @@
 
 **Owns:** someone who upgrades an installed repository reads, in the upgrade report and the upgrade PR, the release notes for every version they skipped — starting with the note that `elaborate` no longer includes the security review.
 
+**Reviewed:** round 1 (2026-11-19).
+
 **Goal:** A `CHANGELOG.md` at the plugin root; `installer/diff.mjs` reports the sections between the recorded and the latest version as `notes`; `/hitl:diff` prints them and puts them in the upgrade PR; a test fails a release that forgets to move `## Unreleased` under its version.
 
 **Architecture:** Two pure functions in `installer/lib.mjs` parse the changelog and pick the range; `diff.mjs` calls them and adds one field to its report. The command prompt only prints what the script returns.
@@ -21,7 +23,6 @@
 - The version bump and the rename of `## Unreleased` belong to the separate release commit; this slice does neither.
 - `commands/diff.md` and `AGENTS.md` are hand-written; nothing under `templates/` changes, so no re-render is needed.
 - Local gates before the PR: `pnpm test` and `pnpm format:check`. Markdown is never formatted.
-- Observation for this slice's own PR (run by the `/implement-stack` session, per the handover's dry-run section): its `## Review decisions` begins with `Review mode: simple — cold review only.`
 
 ## Review Focus
 

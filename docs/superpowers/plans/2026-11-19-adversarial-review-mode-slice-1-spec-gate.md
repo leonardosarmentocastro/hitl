@@ -4,6 +4,8 @@
 
 **Owns:** a spec is reviewed in one of three modes — `simple`, `elaborate` (round 2 is the adversarial reviewer alone) or `complete` (round 2 is adversarial, security and the follow-up) — and `/review-spec` says which, in words.
 
+**Reviewed:** round 1 (2026-11-19).
+
 **Goal:** `review-mode.sh` accepts `complete` and ranks the three values; `/review-spec` asks for one of three, prints the mode line, and runs an adversarial-only round 2 in `elaborate`; the doctrine names the three values.
 
 **Architecture:** One second-round section in `/review-spec` (§ 1E) that always spawns the adversarial reviewer and, only in `complete`, also the security reviewer and its follow-up. The code-gate commands learn nothing new yet: they treat `complete` like `elaborate`, so nothing breaks between this slice and the next.
@@ -50,9 +52,9 @@
   - "reads Complete. with a capital and a period": `**Review mode:**  Complete. ` → `complete`
   - "any complete wins": specs `simple`, `elaborate`, `complete` in that order → `complete`; and `complete` then `elaborate` → `complete`
   - "elaborate beats simple whatever the order": `elaborate` then `simple` → `elaborate`
-  - "an invalid value beats complete": `complete` then `thorough` → refused, `invalid value`
+  - "an invalid value beats complete": `complete` then `thorough` → refused, `invalid value`, and stderr names the `thorough` spec's path
   - "the refusal names the three values": `**Review mode:** thorough` → stderr contains `use simple, elaborate or complete`
-- [ ] **Step 2: Run** `pnpm test scripts/__tests__/review-mode.test.ts` — expect the new tests to FAIL.
+- [ ] **Step 2: Run** `pnpm test scripts/__tests__/review-mode.test.ts` — expect FAIL for the tests that read `complete` or the new refusal text. "elaborate beats simple whatever the order" and "an invalid value beats complete" pass against today's script (today `complete` is itself invalid); they are regression guards, not red tests.
 - [ ] **Step 3: Edit the script.** A third `case` arm and a rank so a lighter value never overwrites a heavier one; the new refusal text; the header comment describes three values and "the heaviest wins".
 - [ ] **Step 4: Re-render, run** `pnpm test` — expect PASS.
 - [ ] **Step 5: Commit** `feat(review-mode): accept complete; the heaviest mode wins`.
@@ -67,7 +69,7 @@
 - Consumes: Task 1's four output words.
 - Produces: in `elaborate`, round 2 writes exactly one file, `.claude/reviews/<stamp>-<topic>-spec-adversarial.md`; in `complete`, the three files it writes today. Both record ` · round 2 (<date>)`.
 
-- [ ] **Step 1: Update the pinned strings** on both renders. Replace `simple or elaborate?` with `simple, elaborate or complete?`; replace the § 1E heading pin with `## 1E. Round 2 — adversarial, and security in complete mode`; replace the two elaborate-only sentences with `Round 2 always runs in elaborate and complete mode, whether or not round 1 changed the spec.` and `In elaborate and complete mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to.` Add: the three mode lines; `Print the mode line once per run, as soon as the mode is known`; `In elaborate mode, spawn the \`adversarial-reviewer\` agent alone`; `round 2 failed (<YYYY-MM-DD>) — adversarial reviewer, <why>`; `In elaborate mode the table has no \`Lens\` column.` Keep every other existing pin (`-spec-security.md`, `-spec-security-followup.md`, `Lens`, `docs(spec): record review mode`). In `knob-anchors.test.ts`, the review-spec anchor test also rejects `/complete mode/i` inside an anchored paragraph.
+- [ ] **Step 1: Update the pinned strings** on both renders. Replace `simple or elaborate?` with `simple, elaborate or complete?`; replace the § 1E heading pin with `## 1E. Round 2 — adversarial, and security in complete mode`; replace the two elaborate-only sentences with `Round 2 always runs in elaborate and complete mode, whether or not round 1 changed the spec.` and `In elaborate and complete mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to.` Add: the three mode lines; `Print the mode line once per run, as soon as the mode is known`; `In elaborate mode, spawn the \`adversarial-reviewer\` agent alone`; `round 2 failed (<YYYY-MM-DD>) — adversarial reviewer, <why>`; `In elaborate mode the table has no \`Lens\` column.` Keep every other existing pin (`-spec-security.md`, `-spec-security-followup.md`, `Lens`, `docs(spec): record review mode`). One count assertion: `Adversarial review of the spec at` occurs exactly once in each render. In `knob-anchors.test.ts`, the review-spec anchor test also rejects `/complete mode/i` inside an anchored paragraph.
 - [ ] **Step 2: Run** `pnpm test scripts/__tests__/review-modes.test.ts` — expect FAIL.
 - [ ] **Step 3: Edit the template**, in both the installed and no-install wording where a block has both:
   - Frontmatter description: "and, in elaborate mode, an adversarial reviewer; in complete mode, a security reviewer too".
@@ -99,18 +101,19 @@
 ### Task 4: the doctrine names three values
 
 **Files:**
-- Modify: `templates/HITL.md` (rendered to `.hitl/HITL.md`, `doctrine/HITL.md`)
+- Modify: `templates/HITL.md` (rendered to `.hitl/HITL.md`, `doctrine/HITL.md`), `commands/help.md`
 - Test: `scripts/__tests__/review-modes.test.ts` (describe "doctrine and plugin commands"), `scripts/__tests__/knob-anchors.test.ts`
 
-- [ ] **Step 1: Write the failing tests** on `templates/HITL.md`: contains `one of three modes`, `` `simple`, `elaborate` or `complete` `` (twice: § Review modes and § Specs and plans), `- **Complete**, at the spec gate`, `any \`complete\` wins, then any \`elaborate\``; does not contain `one of two modes`. In `knob-anchors.test.ts` the doctrine anchor test also rejects `/complete mode/i`; its anchor count stays 4.
+- [ ] **Step 1: Write the failing tests** on `templates/HITL.md`: contains `one of three modes`, `- **Complete**, at the spec gate`, `any \`complete\` wins, then any \`elaborate\``, `and is the adversarial reviewer alone`; the phrase `` `simple`, `elaborate` or `complete` `` occurs exactly twice (count with `split`), so each occurrence must sit on one line; does not contain `one of two modes`. `commands/help.md` contains `simple, elaborate or complete` and no longer `simple or elaborate`. In `knob-anchors.test.ts` the doctrine anchor test also rejects `/complete mode/i`; its anchor count stays 4.
 - [ ] **Step 2: Run** — expect FAIL.
 - [ ] **Step 3: Edit the doctrine**, only these places:
   - § Review modes opener: three modes, three values.
-  - "**Elaborate**, at the spec gate": round 2 always runs and is the adversarial reviewer alone, then triage. Add "**Complete**, at the spec gate" carrying today's elaborate text (adversarial and security in parallel, the follow-up, one merged triage). Both: two recorded rounds, never a third.
+  - "**Elaborate**, at the spec gate": round 2 always runs "and is the adversarial reviewer alone" (pinned), then triage. Add "**Complete**, at the spec gate" carrying today's elaborate text (adversarial and security in parallel, the follow-up, one merged triage). Both: two recorded rounds, never a third.
   - The `/implement-stack` precedence bullet: "any `complete` wins, then any `elaborate`, no line is simple", STOP rule unchanged.
   - The rationalizations row: "The cold review was clean, skip round 2" / "In elaborate and complete mode round 2 always runs. …".
   - § Specs and plans, the `**Review mode:**` bullet: three values.
-  - Leave the "**Elaborate**, at the code gate" bullet, § Review gates and § Pull requests untouched — slice 2 owns them.
+  - `commands/help.md`, the spec-review line: "(≤2 rounds; simple, elaborate or complete)". It names the accepted values, so it changes with the parser; the per-slice line stays for slice 2.
+  - Leave the "**Elaborate**, at the code gate" bullet, § Review gates and § Pull requests untouched — slice 2 owns them. Known interim on the feature branch, as the spec's § Delivery slices says: until slice 2, § Review gates still says both extra reviewers run "only in elaborate mode" at both gates.
 - [ ] **Step 4: Re-render, run** `pnpm test` — expect PASS.
 - [ ] **Step 5: Commit** `docs(doctrine): three review modes; the spec gate in each`.
 

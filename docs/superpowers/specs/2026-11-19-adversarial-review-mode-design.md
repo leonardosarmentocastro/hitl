@@ -186,7 +186,9 @@ parser's message instead.
   example "Review mode: elaborate — cold review, then an adversarial review. No security
   review."), in all three modes, also when nothing was declined. A fix-up's Review decisions
   comment begins with it too. This is the notice for the code gate, where the session runs
-  unattended and the PR is what the human reads. The mode line comes first; the declines,
+  unattended and the PR is what the human reads. The sentences that state this rule, in the
+  command and in the doctrine, sit outside the `pr-body-sections` knob anchors, so
+  `/hitl:customize` cannot tune the notice away. The mode line comes first; the declines,
   or "None — every finding was applied.", follow it. `/review-slice --pr`, which reads a
   PR's Review decisions and its comments as earlier declines, skips a line beginning
   "Review mode:".
@@ -251,9 +253,9 @@ no-install wording of the new round 2 is held by the pinned strings alone, on bo
 **Proof of the other two notices.**
 
 - *The slice PR's mode line:* the rule's sentence is pinned in `review-modes.test.ts` on both
-  renders of `/implement-stack` (slice 2), and observed once on this stack: slice 3 is
-  implemented with slice 2's command, so its PR's `## Review decisions` must begin with
-  "Review mode: simple — cold review only." — a line of slice 3's `## Dry runs` checklist.
+  renders of `/implement-stack` (slice 2). It is not observed on this stack: the session that
+  implements it loaded `/implement-stack` before slice 2 changed it. The first feature
+  implemented after this one merges shows it.
 - *The upgrade notice:* `diff.mjs`'s `notes` is tested in `diff.test.ts`; `/hitl:diff`'s
   "What changed:" heading and its "every section in range, verbatim" rule for the PR body
   are pinned strings in a test of `commands/diff.md` (slice 3).
@@ -263,7 +265,9 @@ no-install wording of the new round 2 is held by the pinned strings alone, on bo
 - A `CHANGELOG.md` at the plugin root. `## <version>` headings without a `v` (`## 0.4.0`),
   newest first, bullets underneath in plain words for someone who has hitl installed. Work
   not yet released sits under `## Unreleased`; the release commit renames that heading to
-  the version.
+  the version and leaves a new empty `## Unreleased` above it. `AGENTS.md` also gains the
+  standing rule that feeds it: a change an installed repository or a no-install user will
+  notice adds a bullet under `## Unreleased` in its own PR *(my call)*.
 - The file starts with a one-line `## 0.3.0` section ("the first release with a changelog;
   earlier changes are not listed"), so there is always a newest released heading to compare
   with. A test holds the rename: while `## Unreleased` has entries, the plugin's version
@@ -300,7 +304,8 @@ no-install wording of the new round 2 is held by the pinned strings alone, on bo
    (asking, the mode line, round 2, recording, triage, round rule); every doctrine line
    that says which values the mode line accepts and which mode wins (the § Review modes
    opener and its `/implement-stack` precedence bullet, the `**Review mode:**` bullet under
-   § Specs and plans) and the doctrine's spec-gate text, with their pins; the `complete`
+   § Specs and plans, the spec-review line of `commands/help.md`) and the doctrine's
+   spec-gate text, with their pins; the `complete`
    fixture; the two spec-gate dry runs. To keep the code gate working in between, `/review-slice`
    and `/implement-stack` learn only to treat `complete` and `elaborate` alike, as today's
    second step — a slice in `elaborate` is briefly reviewed more heavily than it will be,
@@ -323,6 +328,11 @@ no-install wording of the new round 2 is held by the pinned strings alone, on bo
 
 ## Decisions and declined alternatives
 
+- **Bubbled up from plan review (round 1)** — the mode-line rule is kept outside the
+  `pr-body-sections` knob anchors; `commands/help.md`'s line naming the accepted values moves
+  to slice 1 with the parser; the changelog keeps an empty `## Unreleased` after a release
+  and `AGENTS.md` says when to add to it; the slice PR's mode line is proven by its pin only,
+  because this stack's own session cannot show it.
 - A third value named `adversarial`, leaving `elaborate` unchanged — declined by the human
   in favour of the simple / elaborate / complete ladder, accepting that `elaborate` changes
   meaning, with a release note.
