@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-19).
+
 **Owns:** the shape of the slice PR body and the umbrella PR body — bullet TL;DR, Why, Needs you, the agent fold — and the doctrine rules that state it. Not the ticket line.
 
 **Goal:** Every PR hitl writes opens with a 1–3 bullet TL;DR and a Why, shows the human only what asks something of them, and folds what only agents read.
@@ -24,13 +26,14 @@
   ```
   and commit the renders with the template change.
 - Keep every `<!-- hitl:mode … -->` marker pair intact; text that differs between installed and no-install mode stays inside its markers.
-- A `<!-- hitl:knob pr-body-sections -->` anchor makes the paragraph right under it tunable. The TL;DR/Why wording and the Review decisions wording stay under an anchor. The reader rule, the Needs-you list and the exemptions must NOT be the paragraph right under an anchor.
+- A `<!-- hitl:knob pr-body-sections -->` anchor makes tunable everything from the line after it to the next blank line or the next anchor line (`commands/customize.md` § 3). Only the TL;DR/Why wording and the Review decisions wording may sit in such a block. The reader rule, the Needs-you list, the fold rule and the exemptions sit outside every block.
+- Tripwire: with the renders (`.claude/`, `.hitl/`, `commands/`, `agents/`, `doctrine/`, the manifest) this slice touches about 20 files. Justified: five sources and two test files; every other file is a mechanical re-render the drift tests demand.
 - Summary text, exactly: `For agents — skip when reviewing`.
 - TL;DR limits, exactly: 1 to 3 bullets; one line each; about 15 words at most; a fragment, not a sentence.
 - The Needs-you list is closed: (1) a deferred gap the reviewer marked 🟠; (2) `The security follow-up did not run for this slice.`; (3) each allowed plan edit the implementer made.
 - No ticket line in this slice: slice 2 owns it.
 - Local gates before the slice is done: `pnpm test` and `pnpm format:check`.
-- The slice PR body carries a `## Dry runs` checklist (Task 4), above the fold: its reader is the human.
+- Task 4 is a rehearsal by the implementer, reported in its reply. A failed check means the slice is `blocked`, not done. Nothing about it is written into the PR body.
 
 ## Review Focus
 
@@ -45,7 +48,7 @@
 ### Task 1: The slice PR body
 
 **Files:**
-- Modify: `templates/claude/commands/implement-stack.md` (the body block after `Body (write it`; the `FOL:` bullet in step c2)
+- Modify: `templates/claude/commands/implement-stack.md` (the body block after `Body (write it`; steps c and c2; § Fix-up step 3)
 - Modify: `templates/claude/commands/review-slice.md` (§ 2 Triage: the DEFERRED bullet and the two "print the block" sentences)
 - Test: `scripts/__tests__/pr-body.test.ts`, `scripts/__tests__/plugin-prompts.test.ts`
 
@@ -74,6 +77,8 @@ it("the slice body is TL;DR bullets, Why, Needs you, then the agent fold", () =>
   const slice = installed.get(".claude/commands/review-slice.md")!.content;
   expect(slice).toMatch(/marked\s+it 🟠, tell the human under the PR body's `## Needs you`/);
   expect(slice).toContain("`## Needs you` block");
+  // A fix-up posts a comment, not a body: its Needs-you lines open that comment.
+  expect(text).toContain("The comment opens with a `## Needs you` block when there is one");
 });
 ```
 
@@ -135,9 +140,9 @@ Nothing else is ever written there. The fold's label addresses the human: an age
 read the PR body reads the fold.
 ```
 
-In step c2, the `FOL:` bullet's ending changes from `add the line "The security follow-up did not run for this slice." to the PR body's Review decisions.` to `add the line "The security follow-up did not run for this slice." under the PR body's `## Needs you`.` The fix-up step that appends Review decisions as a PR comment is left untouched.
+In step c2, the `FOL:` bullet's ending changes from `add the line "The security follow-up did not run for this slice." to the PR body's Review decisions.` to `add the line "The security follow-up did not run for this slice." under the PR body's `## Needs you`.` In steps c and c2, where the text says `/review-slice` prints "the triage table and the `## Review decisions` block" (c2: "a triage table with a `Lens` column, a `## Review decisions` block"), add ``, and a `## Needs you` block when there is one``. In § Fix-up step 3, after the sentence "Append the Review decisions to the PR with … `comment <number> --body-file <tmp>`." (both mode variants end the same sentence; add once, after the `<!-- hitl:mode end -->` that closes them) add: ``The comment opens with a `## Needs you` block when there is one — the same three kinds of line as in the body — then the Review decisions. The PR body is not rewritten.``
 
-- [ ] **Step 4: Edit `templates/claude/commands/review-slice.md` § 2.** The DEFERRED bullet's last sentence becomes: ``If the reviewer marked it 🟠, tell the human under the PR body's `## Needs you` — it is a resequencing question.`` After the sentence that ends "No file, function or test names." add: ``Then, only if a 🟠 DEFERRED exists, a `## Needs you` block with one line for each; those lines are left out of the Review decisions block.`` The second step's closing sentence ("Print the triage table and the `## Review decisions` block as above") needs no change: "as above" carries it.
+- [ ] **Step 4: Edit `templates/claude/commands/review-slice.md` § 2.** The DEFERRED bullet's last sentence becomes: ``If the reviewer marked it 🟠, tell the human under the PR body's `## Needs you` — it is a resequencing question.`` After the sentence that ends "No file, function or test names." add: ``Then, only if a 🟠 DEFERRED exists, a `## Needs you` block with one line for each; those lines are left out of the Review decisions block.`` The second step's closing sentence becomes: ``Print the triage table, the `## Review decisions` block and, when there is one, the `## Needs you` block as above, then the three path lines of § 1S.``
 
 - [ ] **Step 5: Re-render** (Global Constraints), then run `pnpm test` — Expected: PASS, including the drift, self-manifest and plugin-drift tests.
 
@@ -161,7 +166,10 @@ git commit -m "feat(pr-body): slice PRs open with a bullet TL;DR and fold what a
 it("the umbrella body is TL;DR bullets, Why and Slices — no Plan line, no Notes, no fold", () => {
   const installed = renderAll(ROOT, THIS_REPO_CHOICES);
   const agent = installed.get(".claude/agents/handover.md")!.content;
-  const body = agent.slice(agent.indexOf("## Umbrella PR body"), agent.indexOf("## Fix-up"));
+  // `## Fix-up` is also named in prose above the template: search from the umbrella heading.
+  const start = agent.indexOf("\n## Umbrella PR body\n");
+  const body = agent.slice(start, agent.indexOf("\n## Fix-up\n", start));
+  expect(body.length).toBeGreaterThan(0);
   const i = (s: string) => body.indexOf(s);
   expect(i("## TL;DR")).toBeGreaterThan(-1);
   expect(i("## Why")).toBeGreaterThan(i("## TL;DR"));
@@ -178,7 +186,7 @@ it("the umbrella body is TL;DR bullets, Why and Slices — no Plan line, no Note
 });
 ```
 
-- [ ] **Step 2: Run** `pnpm test -- pr-body` — Expected: the new test FAILS.
+- [ ] **Step 2: Run** `pnpm test -- pr-body` — Expected: the new test FAILS on `## Why` not found (`-1`), not on the body being empty.
 
 - [ ] **Step 3: Edit `templates/claude/agents/handover.md`.** Between the `## Umbrella PR body` heading and `## Slices`, the template reads exactly:
 
@@ -215,6 +223,7 @@ The rest of step 2 and steps 3–5 are untouched.
 
 **Files:**
 - Modify: `templates/HITL.md` § Pull requests
+- Modify: `installer/lib.mjs` (the `AGENTS.md` block, near line 411: delete the sentence "The PR description is the durable record."; no PR body records the approach any more)
 - Modify: `commands/customize.md` (hand-written, not rendered: the `pr-body-sections` row)
 - Test: `scripts/__tests__/pr-body.test.ts`
 
@@ -232,17 +241,30 @@ it("the doctrine states the shape, and tuning cannot remove the reader rule", ()
   expect(pr).toContain("The umbrella PR carries no `Plan:` line");
   expect(pr).not.toContain("**How**");
   expect(pr).not.toContain("human reviewers");
-  // The paragraph right under a knob anchor is the tunable one.
+  // What /hitl:customize may rewrite: from the line after an anchor to the next blank line
+  // or the next anchor line.
+  const ANCHOR = "<!-- hitl:knob pr-body-sections -->";
   const lines = readFileSync(join(ROOT, "templates/HITL.md"), "utf8").split("\n");
-  const tunable = lines
-    .map((l, n) => (l === "<!-- hitl:knob pr-body-sections -->" ? (lines[n + 1] ?? "") : null))
-    .filter((l): l is string => l !== null);
-  expect(tunable).toHaveLength(2);
-  for (const l of tunable) {
-    expect(l).not.toContain("names its reader");
-    expect(l).not.toContain("Needs you");
-  }
+  const blocks: string[] = [];
+  lines.forEach((l, n) => {
+    if (l !== ANCHOR) return;
+    let end = n + 1;
+    while (end < lines.length && lines[end] !== "" && lines[end] !== ANCHOR) end += 1;
+    blocks.push(lines.slice(n + 1, end).join("\n"));
+  });
+  expect(blocks).toHaveLength(2);
+  expect(blocks[0]).toContain("`## TL;DR`");
+  expect(blocks[1]).toContain("`## Review decisions`");
+  for (const b of blocks)
+    for (const fixed of [
+      "Needs you",
+      "only if it has a reader",
+      "For agents — skip when reviewing",
+      "Exempt",
+    ])
+      expect(b).not.toContain(fixed);
   expect(pr).toContain("A section enters a PR body only if it has a reader");
+  expect(readFileSync(join(ROOT, "installer/lib.mjs"), "utf8")).not.toContain("durable record");
   expect(readFileSync(join(ROOT, "commands/customize.md"), "utf8")).toContain(
     "TL;DR bullets plus Why",
   );
@@ -253,7 +275,7 @@ it("the doctrine states the shape, and tuning cannot remove the reader rule", ()
 
 - [ ] **Step 2: Run** `pnpm test -- pr-body` — Expected: the new test FAILS.
 
-- [ ] **Step 3: Rewrite `templates/HITL.md` § Pull requests.** The section reads, in this order (keep the two anchor lines exactly where shown; everything else has no anchor above it):
+- [ ] **Step 3: Rewrite `templates/HITL.md` § Pull requests.** The section reads, in this order. Each anchor is followed by exactly one bullet, and that bullet is followed by a blank line, so the tunable block is that bullet alone:
 
 ```
 - Every slice PR body includes a line pointing to the slice's plan, for the agents that check
@@ -269,8 +291,16 @@ it("the doctrine states the shape, and tuning cannot remove the reader rule", ()
   How section.
 - Exempt from this section's rules: the generated wipe PR, whose body is written by
   `wipe.mjs`, and the upgrade PR `/hitl:diff --apply` opens, whose body is a merge report.
+- A slice PR shows `## Needs you` after `## Why` only when one of these happened, one line
+  each, and nothing else is ever written there: a deferred gap the reviewer marked 🟠; "The
+  security follow-up did not run for this slice."; an allowed plan edit the implementer made.
+  In a fix-up, the same lines open the comment the fix-up posts.
+- A slice PR ends with one `<details>` block whose summary is exactly
+  `For agents — skip when reviewing`. The label addresses the human; an agent told to read
+  the PR body reads the fold. It holds the `Plan:` line and `## Review decisions`.
+
 <!-- hitl:knob pr-body-sections -->
-- Every PR body opens with `## TL;DR`: 1 to 3 bullets, each one line of about 15 words at
+- Every PR body has a `## TL;DR`: 1 to 3 bullets, each one line of about 15 words at
   most, a fragment and not a sentence, saying only what changed as someone using the thing
   would notice it — no why, no how, no risk, no file, function or test names. A change nobody
   using the thing would notice says `No visible change: <what was reorganised>`. Then
@@ -278,12 +308,7 @@ it("the doctrine states the shape, and tuning cannot remove the reader rule", ()
   realistic — do not invent rationale to fill space; one honest line is fine for a trivial
   change. An umbrella PR summarises the feature, never one bullet per slice, and then lists
   its slices.
-- A slice PR shows `## Needs you` after `## Why` only when one of these happened, one line
-  each, and nothing else is ever written there: a deferred gap the reviewer marked 🟠; "The
-  security follow-up did not run for this slice."; an allowed plan edit the implementer made.
-- A slice PR ends with one `<details>` block whose summary is exactly
-  `For agents — skip when reviewing`. The label addresses the human; an agent told to read
-  the PR body reads the fold. It holds the `Plan:` line and `## Review decisions`.
+
 <!-- hitl:knob pr-body-sections -->
 - A PR opened by `/implement-stack` carries `## Review decisions` inside the fold: every
   declined or deferred review finding in plain words — the concern as a user or the data
@@ -291,7 +316,7 @@ it("the doctrine states the shape, and tuning cannot remove the reader rule", ()
   overturns one by commenting on the PR.
 ```
 
-The no-install doctrine is rendered from the same file: if the old section had `<!-- hitl:mode … -->` variants inside it, keep each variant's mode-specific wording (the wipe sentence differs by mode) and apply the same changes to both.
+The blank lines around the anchors are inside one Markdown list and render as a loose list; that is accepted. Then delete "The PR description is the durable record." from the `AGENTS.md` block in `installer/lib.mjs`, and update any test that asserts that sentence.
 
 - [ ] **Step 4: Edit the `pr-body-sections` row of `commands/customize.md`.** "Where" column: `` `.hitl/HITL.md` § Pull requests (the TL;DR and Why bullet and the Review decisions bullet, both anchored); `implement-stack.md`, the body block ``. Default column: `TL;DR bullets plus Why, with Review decisions in the agent fold — a newcomer can follow it`.
 
@@ -299,11 +324,13 @@ The no-install doctrine is rendered from the same file: if the old section had `
 
 - [ ] **Step 6: Commit** — `git commit -m "docs(doctrine): a PR section names its reader"` (same `git add` as Task 1, plus `commands/customize.md`).
 
-### Task 4: Dry run and gates
+### Task 4: Rehearsal and gates
 
 **Files:** none committed.
 
-- [ ] **Step 1: Umbrella dry run.** Following the re-rendered `.claude/agents/handover.md` as the handover agent would, write the `## Umbrella PR body` section for the fixture spec `.claude/fixtures/spec-fixture-design.md` and the fixture plans under `.claude/fixtures/plans/` into a scratch file outside the repository (never under `docs/superpowers/`). Then build the PR body from it by the re-rendered `.claude/commands/umbrella-pr.md` step 2 rule, without calling the PR script. Check: 1 to 3 one-line bullets under `## TL;DR`; `## Why`; `## Slices` with the stack markers; no What, How, Notes, `Plan:` or `<details>`.
+This is a rehearsal: the implementer follows the re-rendered prompts by hand, because it cannot spawn the handover agent or run a slash command. It checks that the prompts can be followed to the right shape, not that another writer will. Any check that fails → reply `blocked` with what was produced instead.
+
+- [ ] **Step 1: Umbrella rehearsal.** Following the re-rendered `.claude/agents/handover.md` as the handover agent would, write the `## Umbrella PR body` section for the fixture spec `.claude/fixtures/spec-fixture-design.md` and the fixture plans under `.claude/fixtures/plans/` into a scratch file outside the repository (never under `docs/superpowers/`). Then build the PR body from it by the re-rendered `.claude/commands/umbrella-pr.md` step 2 rule, without calling the PR script. Check: 1 to 3 one-line bullets under `## TL;DR`; `## Why`; `## Slices` with the stack markers; no What, How, Notes, `Plan:` or `<details>`.
 
 - [ ] **Step 2: Old-shape dry run.** Apply the same step 2 rule to `git show main:.claude/agents/handover.md`'s body shape filled for the same fixture (a `Plan:` line first, `## Notes` last), followed by a made-up `## My note` heading. Check: the body is copied whole, `Plan:` and `## Notes` included, and `## My note` is not.
 
@@ -311,4 +338,9 @@ The no-install doctrine is rendered from the same file: if the old section had `
 
 - [ ] **Step 4: Run the gates** — `pnpm test` and `pnpm format:check`, both PASS.
 
-- [ ] **Step 5: Report.** In the reply, give a `## Dry runs` checklist with one `- [x]` line per check above (or `- [ ]` with what was seen instead), for the slice PR body. A check that could not be run is reported as not run, never ticked.
+- [ ] **Step 5: Report.** In the reply, one line per check above: passed, or what was seen instead. A check that could not be run is reported as not run, never as passed.
+
+## Review decisions
+
+- Round 1 — the acceptance dry run cannot be run by the implementer as the spec first described it (it cannot spawn the handover agent): applied as a rehearsal with a `blocked` outcome, and bubbled up to the spec's Acceptance section.
+- Round 1 — a fix-up round's Needs-you lines had nowhere to go: applied (they open the fix-up comment) and bubbled up to the spec.

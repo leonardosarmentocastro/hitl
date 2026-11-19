@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-19).
+
 **Owns:** the ticket link — the `**Ticket:**` spec header line, the question that records it, the script that reads it, and the clickable title above the TL;DR in slice and umbrella PR bodies.
 
 **Goal:** A feature that has a ticket shows it as a clickable title, first line of every PR body; a feature without one shows nothing and is asked once.
@@ -31,7 +33,8 @@
 - The PR line, exactly: `### [<label>](<url>)`, first line of the body, followed by a blank line.
 - Tests that read the disk use a temp directory, never `docs/superpowers/`.
 - Local gates before the slice is done: `pnpm test` and `pnpm format:check`.
-- The slice PR body carries a `## Dry runs` checklist (Task 5), above the fold.
+- Task 5 is a rehearsal by the implementer, reported in its reply. A failed check means the slice is `blocked`, not done. Nothing about it is written into the PR body.
+- Tripwire: with the renders this slice touches about 25 files. Justified: one new script, six sources and up to six test files (file-list expectations); the rest are the script's two installed copies and mechanical re-renders the drift tests demand.
 
 ## Review Focus
 
@@ -72,6 +75,7 @@
 | same URL twice, first label wins | `L`, `[other](https://acme.atlassian.net/browse/PROJ-1)` | 0 | `L` only | empty |
 | a ticket and a none | `L`, `none` | 0 | `L` | empty |
 | refuses free text | `**Ticket:** PROJ-1` | 2 | empty | `invalid value 'PROJ-1'` |
+| refuses an empty value | `**Ticket:**` with nothing after it | 2 | empty | `invalid value ''` |
 | refuses a non-http URL | `[x](ftp://a/b)`, `[x](javascript:alert(1))` | 2 | empty | `invalid value` |
 | refuses a URL with a space or `)` | `[x](https://a/b c)`, `[x](https://a/b)c)` | 2 | empty | `invalid value` |
 | refuses `]`, `@`, backtick in the label | `[a]b](https://a/b)`, `[hi @sam](https://a/b)`, ``[a`b](https://a/b)`` | 2 | empty | `invalid value` |
@@ -130,6 +134,9 @@ it("/review-spec asks for the ticket once and checks the answer before writing",
     expect(s).toContain("ask again");
     expect(s).toContain("capital letters and digits, a dash, digits");
     expect(s).toContain("`@` and backticks are dropped");
+    expect(s).toContain("`[` and `]` are written as `(` and `)`");
+    expect(s).toContain("Never fetch anything from the tracker");
+    expect(s).toContain("remove the line, commit nothing");
     expect(s).toContain("not a dry run");
   }
   expect(installed).toContain('scripts/hitl/ticket.sh "$SPEC"');
@@ -177,7 +184,8 @@ scripts/hitl/ticket.sh "$SPEC"
     same question, not a second one. Write nothing until the answer is usable.
 
   Write `**Ticket:** <value>` in the spec's header block (between the `#` title and the first
-  `##`), run the script again — it must accept the line — and commit it alone:
+  `##`) and run the script again. If it refuses the line, remove the line, commit nothing,
+  say why and ask again. Otherwise commit it alone:
 
   ```bash
   git commit -m "docs(spec): record ticket" -- "$SPEC"
@@ -213,8 +221,10 @@ it("both PR bodies start with the ticket line, and a refusal never stops the run
   expect(stack).toContain("scripts/hitl/ticket.sh <every Spec(s): path>");
   expect(stack).toContain("is never a STOP");
   const agent = installed.get(".claude/agents/handover.md")!.content;
-  const umbrella = agent.slice(agent.indexOf("## Umbrella PR body"));
+  const umbrella = agent.slice(agent.indexOf("\n## Umbrella PR body\n"));
+  expect(umbrella.indexOf("### <ticket line>")).toBeGreaterThan(-1);
   expect(umbrella.indexOf("### <ticket line>")).toBeLessThan(umbrella.indexOf("## TL;DR"));
+  expect(agent).toContain("the body starts at `## TL;DR`");
   expect(agent).toContain("scripts/hitl/ticket.sh <every Spec(s): path>");
   expect(agent).toContain("report the refusal in your reply");
   const plugin = renderPlugin(ROOT);
@@ -301,7 +311,7 @@ it("the doctrine defines the Ticket line and names it load-bearing", () => {
       it. hitl never fetches from the tracker. A malformed line is refused at the spec gate and
       skipped, with a report, when a PR body is written — it never stops an implementation run.
     ```
-  - § Pull requests, as a bullet with no knob anchor above it, right after the exemptions bullet:
+  - § Pull requests: in slice 1's anchored bullet, "Every PR body has a `## TL;DR`" stays as it is (it does not say the TL;DR is first). Add, outside every anchor block, right after the exemptions bullet:
     ```
     - When the feature's spec has a ticket, every slice PR and the umbrella PR open with it as a
       clickable title above `## TL;DR`: `### [<label>](<url>)`. No ticket, no line.
@@ -313,13 +323,15 @@ it("the doctrine defines the Ticket line and names it load-bearing", () => {
 
 - [ ] **Step 4: Edit `commands/customize.md` § 1**: in the list of invariants, after "the `**Review mode:**` line," add "the `**Ticket:**` line,".
 
-- [ ] **Step 5: Re-render**, run `pnpm test` — Expected: PASS, slice 1's anchor test included (the new bullet is not right under an anchor).
+- [ ] **Step 5: Re-render**, run `pnpm test` — Expected: PASS, slice 1's anchor test included (the new bullet is in no anchor block).
 
 - [ ] **Step 6: Commit** — `git commit -m "docs(doctrine): the Ticket line of a spec"`.
 
-### Task 5: Dry run and gates
+### Task 5: Rehearsal and gates
 
 **Files:** none committed.
+
+This is a rehearsal: the implementer follows the re-rendered prompts by hand, because it cannot spawn the handover agent or run a slash command. Any check that fails → reply `blocked` with what was produced instead.
 
 - [ ] **Step 1: With a ticket.** Copy `.claude/fixtures/spec-fixture-design.md` to a scratch directory outside the repository and add `**Ticket:** [PROJ-123: Short TL;DR](https://acme.atlassian.net/browse/PROJ-123)` to its header. Run the rendered `scripts/hitl/ticket.sh` on it: it prints that link. Following the re-rendered `.claude/agents/handover.md`, write the umbrella body for it: the first line is `### [PROJ-123: Short TL;DR](https://acme.atlassian.net/browse/PROJ-123)`, then a blank line, then `## TL;DR`. Following the re-rendered `implement-stack.md` body block, the slice body starts the same way.
 
@@ -329,4 +341,8 @@ it("the doctrine defines the Ticket line and names it load-bearing", () => {
 
 - [ ] **Step 4: Run the gates** — `pnpm test` and `pnpm format:check`, both PASS.
 
-- [ ] **Step 5: Report.** In the reply, give a `## Dry runs` checklist with one `- [x]` line per check above (or `- [ ]` with what was seen instead), for the slice PR body. The label rules in `/review-spec` are prompt text exercised by no dry run (the question is skipped in a dry run): say so in one line.
+- [ ] **Step 5: Report.** In the reply, one line per check above: passed, or what was seen instead. The label rules in `/review-spec` are prompt text no rehearsal exercises (the question is skipped in a dry run): say so in one line.
+
+## Review decisions
+
+- Round 1 — the acceptance dry run cannot be run by the implementer as the spec first described it: applied as a rehearsal with a `blocked` outcome, and bubbled up to the spec's Acceptance section.

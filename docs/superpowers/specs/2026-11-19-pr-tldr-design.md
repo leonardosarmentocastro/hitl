@@ -101,7 +101,9 @@ No `Plan:` line, no `## Notes`, no fold: nothing in the umbrella body is for age
   for this slice."; and each allowed plan edit the implementer made. They are written as
   one line each under `## Needs you`, after `## Why`, and are not repeated in the fold.
   The section is written only when at least one such line exists, and holds nothing else:
-  these three cases are the whole list, and a fourth is a change to the doctrine. This is
+  these three cases are the whole list, and a fourth is a change to the doctrine. In a
+  fix-up, which posts a comment and does not rewrite the body, the same lines open that
+  comment under `## Needs you`, before its Review decisions. This is
   not the situation report under Non-goals: it is existing content keeping its reader.
 - **How is deleted**, from the slice PR, the umbrella PR and the doctrine. It does not move
   into the fold: it has no reader. The umbrella's old Notes called its description "the
@@ -208,6 +210,8 @@ by `/umbrella-pr` later.
 - `templates/claude/agents/handover.md` and `templates/claude/commands/umbrella-pr.md` — the
   umbrella body and how it is delimited.
 - `templates/claude/commands/review-spec.md` — the ticket question.
+- `installer/lib.mjs` — the `AGENTS.md` block it writes no longer says "The PR description
+  is the durable record."
 - `commands/customize.md` — the `pr-body-sections` knob row and the invariant list in
   § "Refuse an invariant". This file is written by hand, not rendered.
 - The new ticket script under `templates/scripts/`, registered in `installer/lib.mjs`.
@@ -265,10 +269,11 @@ by `/umbrella-pr` later.
 ## Acceptance
 
 The tests on template text prove the templates ask for the new shape, not that a writer
-produces it. Each slice is also proven by one dry run, observed by a human as `AGENTS.md`
-prescribes for prompts, and reported in the slice PR:
+produces it. Each slice is also checked by a rehearsal: the implementer follows the changed
+prompts by hand on a fixture and reports each check in its reply. A failed check blocks the
+slice. Nothing about it is written into the PR body, which has no section without a reader:
 
-- Slice 1: the handover agent and `/umbrella-pr --dry-run` on a fixture produce an umbrella
+- Slice 1: the handover agent's template and `/umbrella-pr`'s body rule, followed on a fixture, produce an umbrella
   body with 1 to 3 one-line bullets, `## Why`, and no What, How, Notes or `Plan:`; a slice
   body written from the new template has the fold last, with `Plan:` at column 0 inside
   it, and no `## Needs you` when none of the three cases applies.
@@ -286,6 +291,14 @@ prescribes for prompts, and reported in the slice PR:
 - Round 2, YOUR CALL — the fold would also hide lines that ask something of the human.
   The human chose to show them under `## Needs you`; folding them too was declined,
   because a short body would stop meaning "this PR is routine".
+- **Bubbled up from plan review (round 1)** — a fix-up round's Needs-you lines open the
+  fix-up comment; before, they were removed from the Review decisions and written nowhere.
+- **Bubbled up from plan review (round 1)** — the acceptance check is a rehearsal by the
+  implementer that blocks the slice when it fails, not a human-observed dry run reported in
+  the PR: the implementer cannot run the real prompts, and a report section in the PR body
+  would have no reader.
+- **Bubbled up from plan review (round 1)** — the installer's `AGENTS.md` block also called
+  the PR description "the durable record"; that sentence goes.
 
 ## Left to the builder
 
