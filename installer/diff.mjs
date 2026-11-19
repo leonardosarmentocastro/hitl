@@ -261,13 +261,16 @@ export async function run(args) {
     layout === "current" && existsSync(join(repo, OLD_MANIFEST_PATH)) ? [OLD_MANIFEST_PATH] : [];
   // The release notes for the versions this upgrade skips; never a reason to refuse.
   const changelogPath = join(pluginRoot, "CHANGELOG.md");
-  const notes = existsSync(changelogPath)
-    ? notesBetween(
-        changelogSections(readFileSync(changelogPath, "utf8")),
-        manifest.version,
-        latestVersion,
-      )
-    : [];
+  let changelog = null;
+  try {
+    changelog = readFileSync(changelogPath, "utf8");
+  } catch {
+    // No file, or one that cannot be read: no notes.
+  }
+  const notes =
+    changelog === null
+      ? []
+      : notesBetween(changelogSections(changelog), manifest.version, latestVersion);
   const report = {
     recorded: manifest.version,
     latest: latestVersion,

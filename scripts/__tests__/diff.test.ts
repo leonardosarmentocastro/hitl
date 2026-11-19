@@ -365,6 +365,16 @@ describe("diff.mjs release notes", () => {
     expect(r.json.notes).toEqual([{ version: NEXT, text: "- next" }]);
   });
 
+  it("reports no notes when the changelog cannot be read", () => {
+    const { mk: dirMk, plugin: dirPlugin } = fixtureMarketplace();
+    mkdirSync(join(dirPlugin, "CHANGELOG.md"));
+    const repo = installedRepo(dirMk);
+    const r = diff(repo, dirPlugin, dirMk);
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.json.notes).toEqual([]);
+    expect(r.json.latest).toBe(NEXT);
+  });
+
   it("reports no notes at the same version", () => {
     const copy = mkdtempSync(join(tmpdir(), "hitl-samever-"));
     cpSync(mk, copy, { recursive: true });
