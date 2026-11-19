@@ -1,6 +1,7 @@
 # `/hitl:grill-me` — start a hitl design session from a grill
 
 **Review mode:** simple
+**Reviewed:** round 1 (2026-11-19).
 
 ## Intent
 
@@ -102,8 +103,12 @@ Decided with the human, one at a time.
    to re-run (the superpowers stop message, the `GITLAB_TOKEN` message) names `/hitl:grill-me`.
    Mentions of the *superpowers brainstorming skill* are unchanged.
 3. **One more prerequisite, in step 1**, checked in the same batch as the others and before
-   anything is created. The session's available skills must include `grilling`, or else an
-   invocable `grill-me`. If neither is there, stop and print exactly:
+   anything is created. The session's available skills must include a skill named exactly
+   `grilling`, or else one named exactly `grill-me` that Claude can invoke. Only these two
+   un-namespaced names count: a namespaced entry never does, and in particular this command
+   itself (`hitl:grill-me`) never does — the command text says so in those words. The
+   superpowers check comes first: when both are missing, the superpowers message prints. If
+   neither grill skill is there, stop and print exactly:
 
    ```
    /hitl:grill-me needs the grill-me skill from Matt Pocock's skills. Install it, then re-run /hitl:grill-me:
@@ -117,30 +122,51 @@ Decided with the human, one at a time.
    `mode: "installed"` branch in step 2). Where `brainstorming.md` invokes the superpowers
    brainstorming skill with `$ARGUMENTS`, this command does three things in order:
    1. Invoke `grilling` (or the invocable `grill-me` found in step 1) with `$ARGUMENTS`. The
-      grill runs to its own end condition: the human confirms a shared understanding. The
-      command says not to end it early and not to write a spec during it.
+      grill ends when the human confirms a shared understanding, or when the human asks to
+      stop it ("enough, write it up"); Claude never ends it on its own, and writes no spec
+      during it. Branches the human stopped before answering are open items.
    2. Write out, in the conversation, the shared understanding: every decision reached, in the
-      human's terms, and anything left open. The human can correct it.
-   3. Invoke the superpowers brainstorming skill with `$ARGUMENTS` and that summary, under the
-      doctrine. The decisions in the summary are settled: the brainstorm does not reopen them.
-      It still lays out the approaches and writes the spec, and the doctrine governs from
-      there.
+      human's terms, and every open item. Then stop and wait: the human confirms the summary
+      or corrects it, and the next sub-step does not start before that.
+   3. Invoke the superpowers brainstorming skill with `$ARGUMENTS` and the confirmed summary,
+      under the doctrine. Where the two disagree, the summary wins. Its decisions are settled:
+      the brainstorm does not reopen them. Its open items are the brainstorm's questions. The
+      brainstorm still lays out the approaches and writes the spec, and the doctrine governs
+      from there.
 
 Everything else — the mode check, the old-layout refusal, the host rules, the doctrine read,
 the worktree procedure, `session.mjs start`, gates, remembering, the context block — is
 word-for-word `brainstorming.md`. In particular the worktree is created before the grill
 starts, as the doctrine requires for "a brainstorm, a grill, a design discussion".
 
+### What the grill can change
+
+The topic, the branch prefix and the worktree are chosen from the request, before the grill.
+The command states what happens when the grill outgrows them:
+
+- **The name no longer fits.** It stays. Nothing is renamed.
+- **Nothing to build.** The session ends there: no summary hand-over, no spec. The command
+  points the human to `/hitl:cleanup` for the worktree.
+- **Two features.** The session continues with one, the human's choice; the summary names
+  the other as out of scope.
+
+The summary lives only in the conversation. A session that ends between the grill and the
+spec has no resume: re-running the command finds the topic's worktree and grills again. That
+is accepted.
+
 ### Tests
 
 - `scripts/__tests__/grill-me-command.test.ts`: the same pins as
   `brainstorming-command.test.ts` against `commands/grill-me.md`, plus: the exact
-  missing-skill message; that the grill is invoked before the brainstorming skill in both the
-  installed branch and the design-session step; and that the hand-over states the decisions
-  are settled.
-- A drift test in the same file: steps 1–6 of the two commands are equal once the command's
-  own name is normalised and the grill prerequisite is removed. A fix made to one file and not
-  the other fails it.
+  missing-skill message; the sentence that `hitl:grill-me` never counts as the grill skill;
+  that the grill is invoked before the brainstorming skill in both the installed branch and
+  the design-session step; the wait for the human's confirmation of the summary; and that the
+  hand-over states the decisions are settled.
+- A drift test in the same file, defined by exclusion: the two commands are equal everywhere
+  except the enumerated differences — the frontmatter, the command's own name, the grill
+  prerequisite, the installed-branch sentence that starts the design conversation, the
+  design-session paragraph that does the same in step 7, and the "What the grill can change"
+  text. A fix made to any other part of one file and not the other fails it.
 - `plugin-prompts.test.ts`: `grill-me` joins the commands that must carry the old-layout
   upgrade message.
 
@@ -162,8 +188,26 @@ starts, as the doctrine requires for "a brainstorm, a grill, a design discussion
 ## Validation
 
 `pnpm test` and `pnpm format:check`. The command is a prompt: a dry run of `/hitl:grill-me`
-in a no-install repository and in this (installed) one, checking that the missing-skill stop
-fires before any worktree exists and that the brainstorm starts from the grill's summary.
+in a no-install repository and in this (installed) one, checking that the command waits for
+the summary to be confirmed and that the brainstorm starts from it. The missing-skill stop is
+dry-run in a session started with the grill skills moved out of the skills folder, checking
+that it fires before any worktree exists.
+
+## Decisions and declined alternatives
+
+- **The name chosen from the request stays** (human, spec review round 1). Declined: asking
+  to rename the branch, worktree and session record after the grill — new machinery about the
+  size of the feature; asking for the name before the worktree — still before the grill, and
+  a difference from `/hitl:brainstorming`.
+- **Declined, out of scope:** the no-install doctrine names `/hitl:brainstorming` as the
+  command that registers a worktree and that the Stop hook follows. With a second entry point
+  that wording is incomplete. Fixing it is a template change and a re-render, outside this
+  feature's non-goals; it is a known inaccuracy until a follow-up.
+- *Forwarded to the plan gate:* the dry run must also cover an older install — an invocable
+  `grill-me` and no `grilling`.
+- *Forwarded to the plan gate:* the "grill before brainstorm" test must anchor on the two
+  invocation sentences, because the superpowers stop message in step 1 already names the
+  brainstorming skill before any grill text.
 
 ## Delivery slices
 
