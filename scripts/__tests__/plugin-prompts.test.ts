@@ -152,12 +152,10 @@ describe("the plugin's no-install prompts", () => {
     expect(stack).toContain("pr-section fact");
     expect(stack).toContain("_not captured_");
     for (const a of ["implementer", "fixer"]) expect(stack).toContain("`hitl:" + a + "`");
-    expect(stack.indexOf("## TL;DR")).toBeGreaterThan(stack.indexOf("Plan: <plan path>"));
-    const body = stack.slice(stack.indexOf("Plan: <plan path>"));
+    const body = stack.slice(stack.indexOf("Body (write it"));
     const section = body.indexOf("<one section per pr-section fact");
-    expect(section).toBeGreaterThan(body.indexOf("## TL;DR"));
-    expect(section).toBeGreaterThan(body.indexOf("How —"));
-    expect(section).toBeLessThan(body.indexOf("## Review decisions"));
+    expect(section).toBeGreaterThan(body.indexOf("## Needs you"));
+    expect(section).toBeLessThan(body.indexOf("<details>"));
     expect(stack.indexOf("--require no-install,host,gates")).toBeGreaterThan(-1);
     expect(stack.indexOf("--require no-install,host,gates")).toBeLessThan(
       stack.indexOf("git fetch"),

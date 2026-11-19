@@ -116,7 +116,7 @@ scripts/hitl/review-mode.sh <every Spec(s): path>
 - `complete`, `elaborate` or `simple` → that is the mode for this slice. `absent` → `simple`.
 
 Run `/review-slice <handover path>` on this branch. It prints the triage
-table and the `## Review decisions` block.
+table and the `## Review decisions` block, and a `## Needs you` block when there is one.
 
 Paste the `## Stack` table from the handover document on this branch into the reviewer's
 brief **verbatim**. That table is the reviewer's only authority on which slice owns what — it
@@ -150,7 +150,8 @@ In elaborate or complete mode: continue with c2.
 **c2. Second review (elaborate and complete modes).** The second review runs even when the first triage had no APPLY rows. In a fix-up, the mode read at step c means the mode read at the start of that `### Slice <N>` section, in this step and its stops. Run `/review-slice <handover path> --step second` on this branch as the
 first fixer left it, so the diff includes its commits; paste the stack table into the
 reviewers' briefs verbatim, as in c. It prints its `Review mode:` line, a triage table (with
-a `Lens` column in complete mode), a `## Review decisions` block, and three lines
+a `Lens` column in complete mode), a `## Review decisions` block, a `## Needs you` block when
+there is one, and three lines
 `ADV: <path>`, `SEC: <path>` and `FOL: <path>` — in elaborate mode `SEC: none` and
 `FOL: none`. Which files must exist comes from the mode read at step c, never from what
 these lines say: `ADV` always; in complete mode `SEC` too. Then the same checks as in c, on
@@ -174,7 +175,7 @@ done
 - The mode changed → **STOP**: "slice <N>: the review mode changed during the slice", with
   what `/review-slice` printed, and ask the human. That is: `/review-slice` refuses the
   second step (the spec now says simple, or its value is now invalid); or the mode word in its `Review mode:` line differs from the mode read at step c, or it prints no such line; or it prints a `SEC:` or `FOL:` line that is not `none` in elaborate mode.
-- In complete mode only: a `FOL:` file missing or without a verdict row is not a stop: add the line "The security follow-up did not run for this slice." to the PR body's Review decisions.
+- In complete mode only: a `FOL:` file missing or without a verdict row is not a stop: add the line "The security follow-up did not run for this slice." under the PR body's `## Needs you`.
 
 **d2. Second fix (elaborate and complete modes).** As in d, on the second triage's APPLY
 rows, with the review file paths: the adversarial review in elaborate mode; the
@@ -218,22 +219,33 @@ Body (write it in the register of explaining to a newcomer; no file, function or
 outside the `Plan:` line):
 
 ```
-Plan: <plan path>
-
 ## TL;DR
 
-What — <2–3 sentences>
-Why — <2–3 sentences>
-How — <2–5 sentences; the approach and any real choice made>
+- <what changed, as someone using it would notice it: one line, about 15 words at most, a fragment and not a sentence>
+- <a second or third change, only if there is one; never more than three bullets>
+
+## Why
+
+<2–3 sentences: the problem this solves>
+
+## Needs you
+
+<one line per case in the list below; omit the whole section when there is none>
 <!-- hitl:mode no-install -->
 
 <one section per pr-section fact in the hitl context block's project memory, written as that fact describes; none if there is no such fact>
 <!-- hitl:mode end -->
 
+<details>
+<summary>For agents — skip when reviewing</summary>
+
+Plan: <plan path>
+
 ## Review decisions
 <the mode line for the mode read at step c>
-<the blocks from both steps of /review-slice, plus both fixers' not-reproduced items; or "None — every finding was applied.">
-<any allowed plan edit the implementer made, one line each>
+<the blocks from both steps of /review-slice, plus both fixers' not-reproduced items, minus the Needs-you lines; or "None — every finding was applied.">
+
+</details>
 ```
 <!-- hitl:mode no-install -->
 
@@ -246,6 +258,16 @@ The `## Review decisions` section begins with the mode line for the mode read at
 - `Review mode: simple — cold review only.`
 - `Review mode: elaborate — cold review, then an adversarial review. No security review.`
 - `Review mode: complete — cold review, then an adversarial and a security review.`
+
+The TL;DR says only what changed — no why, no how, no risk. A change nobody using the thing
+would notice says so in its one bullet: `No visible change: <what was reorganised>`. There is
+no What and no How section.
+
+`## Needs you` holds only these, one line each, and they are not repeated in the fold: a
+deferred gap the reviewer marked 🟠 (it is a question about reordering the slices); "The
+security follow-up did not run for this slice."; each allowed plan edit the implementer made.
+Nothing else is ever written there. The fold's label addresses the human: an agent told to
+read the PR body reads the fold.
 
 Update the row in the handover document on this branch: status `open #<number>`, and — if a
 plan header changed — its `owns`. Commit `docs(handover): slice <N> open <ref>` and push.
@@ -300,6 +322,8 @@ For each `### Slice <N>` section under `## Fix-up`, in order:
 <!-- hitl:mode no-install -->
    `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" comment <number> --body-file <tmp>`.
 <!-- hitl:mode end -->
+   The comment opens with a `## Needs you` block when there is one — the same three kinds of
+   line as in the body — then the Review decisions. The PR body is not rewritten.
 Then follow `### Restack order`: for each `<B> onto <A> (old parent tip: <sha>)`,
 `git checkout <B> && git rebase --onto <A> <sha>` — the sha is recorded in the handover's
 Fix-up section by the handover agent, never recomputed here. Before ANY force-push, stop
