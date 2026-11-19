@@ -153,6 +153,12 @@ describe("/review-slice --step second", () => {
         expect(text).toContain(s);
     });
 
+  for (const [form, text] of forms)
+    it(`(${form}) reads complete and runs the same second step as elaborate`, () => {
+      expect(text).toContain("`complete`, `elaborate` or `simple` → that is the mode. ");
+      expect(text).toContain("Here `complete` runs the same second step as `elaborate`.");
+    });
+
   it("runs the installed scripts in the installed form", () => {
     expect(forms[0][1]).toContain("scripts/hitl/review-mode.sh");
     expect(forms[0][1]).toContain("scripts/hitl/pr.sh view");
@@ -183,6 +189,11 @@ describe("/implement-stack in elaborate mode", () => {
       ])
         expect(text).toContain(s);
       expect(text).not.toMatch(/^No second review\. The fixer's commits ship as they are\./m);
+    });
+
+    it(`(${form}) treats complete like elaborate`, () => {
+      expect(text).toContain("`complete`, `elaborate` or `simple` → that is the mode for this slice. ");
+      expect(text).toContain("A slice in complete mode runs every step an elaborate one runs.");
     });
 
     it(`(${form}) never reviews more often than the mode prescribes`, () => {

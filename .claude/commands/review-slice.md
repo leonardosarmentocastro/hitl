@@ -29,7 +29,7 @@ scripts/hitl/review-mode.sh <every Spec(s): path>
 ```
 
 - Exit 2 → print its message and stop. An invalid value or a missing spec file is a refusal, never simple.
-- `elaborate` or `simple` → that is the mode. `absent` → `simple`.
+- `complete`, `elaborate` or `simple` → that is the mode. `absent` → `simple`. Here `complete` runs the same second step as `elaborate`.
 - With no handover document, after asking for the parent and the plan, also ask "simple or
   elaborate?" — unless `--step second` was given, which is taken as elaborate and asks
   nothing.

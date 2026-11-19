@@ -63,7 +63,7 @@ scripts/hitl/review-mode.sh <every Spec(s): path>
 ```
 
 - Exit 2 → **STOP**: "slice <N>: <the script's message>", and ask the human. An invalid value or a missing spec file is a STOP, never simple.
-- `elaborate` or `simple` → that is the mode for this slice. `absent` → `simple`.
+- `complete`, `elaborate` or `simple` → that is the mode for this slice. `absent` → `simple`. A slice in complete mode runs every step an elaborate one runs.
 
 Run `/review-slice <handover path>` on this branch. It prints the triage
 table and the `## Review decisions` block.
