@@ -9,7 +9,7 @@ Spec(s): docs/superpowers/specs/2026-11-19-grill-me-command-design.md
 
 | slice | plan | branch | parent | status | owns |
 |---|---|---|---|---|---|
-| 1 | docs/superpowers/plans/2026-11-19-grill-me-command-slice-1-command.md | feat/grill-me-command-slice-1-command | feat/grill-me-command | todo | the `/hitl:grill-me` entry command — a hitl design session that opens with a grill and hands its confirmed summary to the brainstorming skill — with its tests and its README and help text. |
+| 1 | docs/superpowers/plans/2026-11-19-grill-me-command-slice-1-command.md | feat/grill-me-command-slice-1-command | feat/grill-me-command | open #55 | the `/hitl:grill-me` entry command — a hitl design session that opens with a grill and hands its confirmed summary to the brainstorming skill — with its tests and its README and help text. |
 
 ## Umbrella PR body
 
