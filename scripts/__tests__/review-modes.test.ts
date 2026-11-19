@@ -1,5 +1,6 @@
 // scripts/__tests__/review-modes.test.ts
 // Review modes: the rules a script or another command relies on, pinned on both renders.
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -192,7 +193,9 @@ describe("/implement-stack in elaborate mode", () => {
     });
 
     it(`(${form}) treats complete like elaborate`, () => {
-      expect(text).toContain("`complete`, `elaborate` or `simple` → that is the mode for this slice. ");
+      expect(text).toContain(
+        "`complete`, `elaborate` or `simple` → that is the mode for this slice. ",
+      );
       expect(text).toContain("A slice in complete mode runs every step an elaborate one runs.");
     });
 
@@ -255,5 +258,29 @@ describe("doctrine and plugin commands", () => {
   it("/hitl:help and the README mention elaborate mode", () => {
     expect(read("commands/help.md")).toContain("elaborate");
     expect(read("README.md")).toContain("elaborate");
+  });
+});
+
+describe("the complete-mode spec fixture", () => {
+  const dir = join(ROOT, "templates/claude/fixtures");
+  const strip = (p: string) =>
+    readFileSync(join(dir, p), "utf8")
+      .split("\n")
+      .filter((l) => !l.startsWith("**Status:**") && !l.startsWith("**Review mode:**"))
+      .join("\n");
+  const mode = (p: string) =>
+    spawnSync("sh", [join(ROOT, "templates/scripts/review-mode.sh"), join(dir, p)], {
+      encoding: "utf8",
+    }).stdout.trim();
+
+  it("equals the elaborate fixture but for its status and mode lines", () => {
+    expect(strip("spec-fixture-complete-design.md")).toBe(
+      strip("spec-fixture-elaborate-design.md"),
+    );
+  });
+
+  it("reads as complete, and the elaborate fixture as elaborate", () => {
+    expect(mode("spec-fixture-complete-design.md")).toBe("complete");
+    expect(mode("spec-fixture-elaborate-design.md")).toBe("elaborate");
   });
 });

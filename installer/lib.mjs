@@ -68,6 +68,7 @@ const COMMANDS = [
 const FIXTURES = [
   "spec-fixture-design.md",
   "spec-fixture-elaborate-design.md",
+  "spec-fixture-complete-design.md",
   "plans/2026-09-06-spec-fixture-slice-1-schema.md",
   "plans/2026-09-06-spec-fixture-slice-2-api.md",
   "slice/slice-fixture.patch",

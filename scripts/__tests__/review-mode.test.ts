@@ -111,7 +111,10 @@ describe("review-mode.sh", () => {
       ),
       "complete",
     );
-    expectOk(run(spec("**Review mode:** complete"), spec("**Review mode:** elaborate")), "complete");
+    expectOk(
+      run(spec("**Review mode:** complete"), spec("**Review mode:** elaborate")),
+      "complete",
+    );
   });
 
   it("elaborate beats simple whatever the order", () => {

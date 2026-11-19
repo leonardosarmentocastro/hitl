@@ -69,6 +69,7 @@ describe("installer/lib primitives", () => {
         ".hitl/review-context.md",
         ".claude/fixtures/spec-fixture-design.md",
         ".claude/fixtures/spec-fixture-elaborate-design.md",
+        ".claude/fixtures/spec-fixture-complete-design.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-1-schema.md",
         ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md",
         ".claude/fixtures/slice/slice-fixture.patch",
@@ -79,7 +80,7 @@ describe("installer/lib primitives", () => {
         "scripts/hitl/wipe.mjs",
       ]),
     );
-    expect(paths).toHaveLength(27);
+    expect(paths).toHaveLength(28);
   });
 
   it("owns review-mode.sh in both forms", () => {

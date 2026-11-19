@@ -21,6 +21,7 @@
     ".claude/fixtures/plans/2026-09-06-spec-fixture-slice-2-api.md": "4844682a12664356822133235d8c59ce3bdb8182a6b845d9caf39c861cecd0ec",
     ".claude/fixtures/slice/2026-09-06-slice-fixture-slice-1-tag-export.md": "a2aeed64d927b69fcc596ba04e4d32a99993b844c8b1899619d12672c7efc63b",
     ".claude/fixtures/slice/slice-fixture.patch": "b6340ca516499e00b489ec37ed073e3cc03eadcf295a2ba63ce56233479c52b8",
+    ".claude/fixtures/spec-fixture-complete-design.md": "cae650660b905f39063d9fbef5975019f40e0ccb610fcb1ab6d19c7208b12abf",
     ".claude/fixtures/spec-fixture-design.md": "cbd4e622259ec14bfe21c9901a6e05c55c5865dfc5056a47f6c7cdad83d5ca7b",
     ".claude/fixtures/spec-fixture-elaborate-design.md": "0032eacfab766e5ed4e93a05b7516440f9bd4c6f3d752fb86ca1c43876aa92ac",
     ".claude/hooks/unreviewed-artifact.sh": "9f754e246f4e4bab44f84b36011cd2dc92627fda1ce4553a25f2e04d65ed454e",
