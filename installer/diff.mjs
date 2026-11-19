@@ -3,7 +3,9 @@
 // recorded version, the repository's file, the render at the plugin's version — and reports
 // exactly one state per file. Read-only unless --apply; even then it writes only files under
 // the repository. The only git it runs is rev-parse, archive and merge-file: branch, commit,
-// push and the PR belong to the command. Exit: 0 ok · 1 usage · 2 error · 3 refused.
+// push and the PR belong to the command. Every exit-0 report also carries `notes`: the plugin's
+// CHANGELOG.md sections after the recorded version up to the plugin's, newest first (empty when
+// the file is absent). Exit: 0 ok · 1 usage · 2 error · 3 refused.
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
@@ -25,9 +27,11 @@ import {
   MANIFEST_PATH,
   MOVES,
   OLD_MANIFEST_PATH,
+  changelogSections,
   compareVersions,
   gitignoreBlock,
   manifestFor,
+  notesBetween,
   pluginVersion,
   readManifestOf,
   renderAll,
@@ -255,9 +259,19 @@ export async function run(args) {
   // An apply that stopped between writing the new manifest and removing the old one.
   const leftovers =
     layout === "current" && existsSync(join(repo, OLD_MANIFEST_PATH)) ? [OLD_MANIFEST_PATH] : [];
+  // The release notes for the versions this upgrade skips; never a reason to refuse.
+  const changelogPath = join(pluginRoot, "CHANGELOG.md");
+  const notes = existsSync(changelogPath)
+    ? notesBetween(
+        changelogSections(readFileSync(changelogPath, "utf8")),
+        manifest.version,
+        latestVersion,
+      )
+    : [];
   const report = {
     recorded: manifest.version,
     latest: latestVersion,
+    notes,
     manifestPath,
     files,
     keptRemoved,
