@@ -212,28 +212,37 @@ describe("/implement-stack in elaborate mode", () => {
   for (const [form, text] of forms) {
     it(`(${form}) runs a second review and a second fix`, () => {
       for (const s of [
-        "**c2. Second review (elaborate mode).**",
-        "**d2. Second fix (elaborate mode).**",
+        "**c2. Second review (elaborate and complete modes).**",
+        "**d2. Second fix (elaborate and complete modes).**",
         "--step second",
         "Read the mode once per slice, when its review starts.",
         "In simple mode: no second review. The fixer's commits ship as they are.",
-        "In elaborate mode the second fixer's commits ship as they are; there is no third review.",
+        "In elaborate and complete modes the second fixer's commits ship as they are; there is no third review.",
         "The second review runs even when the first triage had no APPLY rows.",
         "The security follow-up did not run for this slice.",
         "Pass every path listed under `Spec(s):` to the script in one call.",
         "An invalid value or a missing spec file is a STOP, never simple.",
         "slice <N>: the second review produced nothing",
         "slice <N>: the review mode changed during the slice",
+        "`ADV` always; in complete mode `SEC` too",
+        "A `SEC:` line that reads `none` or is missing in complete mode is the same STOP",
+        "a `SEC:` or `FOL:` line that is not `none` in elaborate mode",
+        "the mode word in its `Review mode:` line differs from the mode read at step c, or it prints no such line",
+        "The `## Review decisions` section begins with the mode line for the mode read at step c, verbatim",
+        "In complete mode only: a `FOL:` file missing",
+        "Review mode: simple — cold review only.",
+        "Review mode: elaborate — cold review, then an adversarial review. No security review.",
+        "Review mode: complete — cold review, then an adversarial and a security review.",
       ])
         expect(text).toContain(s);
       expect(text).not.toMatch(/^No second review\. The fixer's commits ship as they are\./m);
     });
 
-    it(`(${form}) treats complete like elaborate`, () => {
+    it(`(${form}) reads complete as its own mode`, () => {
       expect(text).toContain(
         "`complete`, `elaborate` or `simple` → that is the mode for this slice. ",
       );
-      expect(text).toContain("A slice in complete mode runs every step an elaborate one runs.");
+      expect(text).not.toContain("A slice in complete mode runs every step an elaborate one runs.");
     });
 
     it(`(${form}) never reviews more often than the mode prescribes`, () => {
@@ -245,6 +254,9 @@ describe("/implement-stack in elaborate mode", () => {
     it(`(${form}) hands the PR to the second step in a fix-up`, () => {
       const fixup = text!.slice(text!.indexOf("## Fix-up"), text!.indexOf("## Never"));
       expect(fixup).toContain("--pr <number>");
+      expect(fixup).toContain(
+        "begins with the mode line for the mode read at the start of that section",
+      );
     });
   }
 });

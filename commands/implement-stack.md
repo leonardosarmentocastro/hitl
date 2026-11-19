@@ -1,5 +1,5 @@
 ---
-description: Orchestrate the implementation of a feature's remaining slices from its handover document — implementer, slice review (two steps in elaborate mode), fixer, PR per slice; draft umbrella PR at the end. Usage: /hitl:implement-stack docs/superpowers/handover/<feature>.md
+description: Orchestrate the implementation of a feature's remaining slices from its handover document — implementer, slice review (two steps in elaborate and complete mode), fixer, PR per slice; draft umbrella PR at the end. Usage: /hitl:implement-stack docs/superpowers/handover/<feature>.md
 argument-hint: docs/superpowers/handover/<feature>.md
 ---
 
@@ -60,7 +60,7 @@ convenience, never a gate.
 ## 1. For each slice in table order whose status is `todo` or `branched`
 
 A resumed `branched` slice that has no open PR runs b → c → d again (→ c2 → d2 in elaborate
-mode), so every review step runs again.
+and complete mode), so every review step runs again.
 
 **a. Branch.** Parent and branch name come from the row, never from a rule of your own.
 Resolve the parent before you cut anything. A parent branch deleted when its pull request
@@ -103,7 +103,7 @@ human. Never cut or keep the branch anyway.
 ```
 
 - Exit 2 → **STOP**: "slice <N>: <the script's message>", and ask the human. An invalid value or a missing spec file is a STOP, never simple.
-- `complete`, `elaborate` or `simple` → that is the mode for this slice. `absent` → `simple`. A slice in complete mode runs every step an elaborate one runs.
+- `complete`, `elaborate` or `simple` → that is the mode for this slice. `absent` → `simple`.
 
 Run `/hitl:review-slice <handover path>` on this branch. It prints the triage
 table and the `## Review decisions` block.
@@ -135,34 +135,38 @@ review file path, the APPLY rows. Wait.
 
 In simple mode: no second review. The fixer's commits ship as they are.
 
-In elaborate mode: continue with c2.
+In elaborate or complete mode: continue with c2.
 
-**c2. Second review (elaborate mode).** The second review runs even when the first triage had no APPLY rows. Run `/hitl:review-slice <handover path> --step second` on this branch as the
+**c2. Second review (elaborate and complete modes).** The second review runs even when the first triage had no APPLY rows. Run `/hitl:review-slice <handover path> --step second` on this branch as the
 first fixer left it, so the diff includes its commits; paste the stack table into the
-reviewers' briefs verbatim, as in c. It prints a triage table with a `Lens` column, a
-`## Review decisions` block, and three lines `ADV: <path>`, `SEC: <path>` and
-`FOL: <path>`. Then the same checks as in c, on the `ADV:` and `SEC:` files:
+reviewers' briefs verbatim, as in c. It prints its `Review mode:` line, a triage table (with
+a `Lens` column in complete mode), a `## Review decisions` block, and three lines
+`ADV: <path>`, `SEC: <path>` and `FOL: <path>` — in elaborate mode `SEC: none` and
+`FOL: none`. Which files must exist comes from the mode read at step c, never from what
+these lines say: `ADV` always; in complete mode `SEC` too. Then the same checks as in c, on
+each of those files:
 
 ```bash
-for f in "<ADV>" "<SEC>"; do
+for f in <"<ADV>", and in complete mode "<SEC>">; do
   [ -s "$f" ] && grep -q '| Verdict |' "$f" || echo "no review: $f"
 done
 ```
 
-- `no review` for either → **STOP**: "slice <N>: the second review produced nothing", name
-  the file and what the reviewer replied, and ask the human. Never open a PR for it.
+- `no review` for a checked file → **STOP**: "slice <N>: the second review produced nothing",
+  name the file and what the reviewer replied, and ask the human. Never open a PR for it. A `SEC:` line that reads `none` or is missing in complete mode is the same STOP: the security review did not run.
 - A `DECLINE: wrong gate` row because a finding needs a design change → **STOP**, as in c.
-- `/hitl:review-slice` refuses the second step — because the spec now says simple, or because
-  its value is now invalid → **STOP**:
-  "slice <N>: the review mode changed during the slice", with the refusal's message, and
-  ask the human.
-- A `FOL:` file missing or without a verdict row is not a stop: add the line "The security follow-up did not run for this slice." to the PR body's Review decisions.
+- The mode changed → **STOP**: "slice <N>: the review mode changed during the slice", with
+  what `/hitl:review-slice` printed, and ask the human. That is: `/hitl:review-slice` refuses the
+  second step (the spec now says simple, or its value is now invalid); or the mode word in its `Review mode:` line differs from the mode read at step c, or it prints no such line; or it prints a `SEC:` or `FOL:` line that is not `none` in elaborate mode.
+- In complete mode only: a `FOL:` file missing or without a verdict row is not a stop: add the line "The security follow-up did not run for this slice." to the PR body's Review decisions.
 
-**d2. Second fix (elaborate mode).** As in d, on the second triage's APPLY rows, with the
-three review file paths. `blocked` → **STOP** with the command and error verbatim; ask the
-human. `done` → fold its "not reproduced" items into the Review decisions block as in d.
+**d2. Second fix (elaborate and complete modes).** As in d, on the second triage's APPLY
+rows, with the review file paths: the adversarial review in elaborate mode; the
+adversarial, security and follow-up reviews in complete mode — every file whose path line
+is not `none`. `blocked` → **STOP** with the command and error verbatim; ask the human.
+`done` → fold its "not reproduced" items into the Review decisions block as in d.
 
-In elaborate mode the second fixer's commits ship as they are; there is no third review.
+In elaborate and complete modes the second fixer's commits ship as they are; there is no third review.
 
 **e. Push and open the PR.** Every record the shim returns carries `ref` — how this host
 writes a reference to the PR (`#12` on GitHub, `!12` on GitLab). Use `<ref>` in anything you
@@ -196,12 +200,19 @@ How — <2–5 sentences; the approach and any real choice made>
 <one section per pr-section fact in the hitl context block's project memory, written as that fact describes; none if there is no such fact>
 
 ## Review decisions
+<the mode line for the mode read at step c>
 <the blocks from both steps of /hitl:review-slice, plus both fixers' not-reproduced items; or "None — every finding was applied.">
 <any allowed plan edit the implementer made, one line each>
 ```
 
 A section a pr-section fact asks for that cannot be produced honestly (a screenshot that could
 not be taken) is written as `_not captured_ — <why>`, never invented.
+
+The `## Review decisions` section begins with the mode line for the mode read at step c, verbatim, in all three modes — also when the rest is "None — every finding was applied." The mode lines, one per mode:
+
+- `Review mode: simple — cold review only.`
+- `Review mode: elaborate — cold review, then an adversarial review. No security review.`
+- `Review mode: complete — cold review, then an adversarial and a security review.`
 
 Update the row in the handover document on this branch: status `open #<number>`, and — if a
 plan header changed — its `owns`. Commit `docs(handover): slice <N> open <ref>` and push.
@@ -247,10 +258,10 @@ For each `### Slice <N>` section under `## Fix-up`, in order:
    commits only. Pass that resolved commit itself: `--parent` is taken verbatim, without the
    `origin/` prefix the stack row's parent gets, so anything you pass must already resolve as
    written. The § 1c "no review" and "wrong gate" stops apply here too. Fixer on APPLY rows
-   as in 1d. In elaborate mode, then run `/hitl:review-slice <handover path> --parent <previous
+   as in 1d. In elaborate or complete mode, then run `/hitl:review-slice <handover path> --parent <previous
    tip> --step second --pr <number>` (the slice's PR, from the stack table's
    `open #<number>`) and the fixer on its APPLY rows; the c2 stops apply.
-3. Push (fast-forward). Append the Review decisions to the PR with
+3. Push (fast-forward). Append the Review decisions to the PR — the comment begins with the mode line for the mode read at the start of that section, as in step e — with
    `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" comment <number> --body-file <tmp>`.
 Then follow `### Restack order`: for each `<B> onto <A> (old parent tip: <sha>)`,
 `git checkout <B> && git rebase --onto <A> <sha>` — the sha is recorded in the handover's
