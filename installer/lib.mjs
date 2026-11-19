@@ -442,7 +442,7 @@ review → plans → cold plan review → handover → stacked slice PRs, each i
 and fixed by subagents, with a human deciding at every gate. The doctrine is \`.hitl/HITL.md\`.
 
 - Specs and plans live under \`docs/superpowers/\` for the life of a feature branch and
-  leave through a generated wipe PR, merged last. The PR description is the durable record.
+  leave through a generated wipe PR, merged last.
 - \`.claude/\` (agents, commands, hook) and \`.hitl/\` (the doctrine, the reviewer context) are
   reviewed like code: change them by pull request.
 - Installed by hitl ${version}. \`/hitl:diff\` shows what changed upstream since;

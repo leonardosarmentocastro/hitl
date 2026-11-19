@@ -3,6 +3,8 @@
 // only when something asks for the human, and folds what only agents read (`Plan:` and
 // `## Review decisions`) into one `<details>` block, last. The umbrella body and the doctrine
 // say the same.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderAll, THIS_REPO_CHOICES } from "../../installer/lib.mjs";
 
@@ -59,5 +61,45 @@ describe("PR body TL;DR (installed render)", () => {
     expect(cmd).toContain("`## TL;DR`, `## Why`, `## Slices` or `## Notes`");
     expect(cmd).toContain("opens as it is");
     expect(cmd).not.toContain("everything from `Plan:`");
+  });
+
+  it("the doctrine states the shape, and tuning cannot remove the reader rule", () => {
+    const installed = renderAll(ROOT, THIS_REPO_CHOICES);
+    const doc = installed.get(".hitl/HITL.md")!.content;
+    const pr = doc.slice(doc.indexOf("## Pull requests"), doc.indexOf("## Delivery slices"));
+    expect(pr).toContain("`## TL;DR`");
+    expect(pr).toContain("1 to 3 bullets");
+    expect(pr).toContain("`## Needs you`");
+    expect(pr).toContain("For agents — skip when reviewing");
+    expect(pr).toContain("The umbrella PR carries no `Plan:` line");
+    expect(pr).not.toContain("**How**");
+    expect(pr).not.toContain("human reviewers");
+    // What /hitl:customize may rewrite: from the line after an anchor to the next blank line
+    // or the next anchor line.
+    const ANCHOR = "<!-- hitl:knob pr-body-sections -->";
+    const lines = readFileSync(join(ROOT, "templates/HITL.md"), "utf8").split("\n");
+    const blocks: string[] = [];
+    lines.forEach((l, n) => {
+      if (l !== ANCHOR) return;
+      let end = n + 1;
+      while (end < lines.length && lines[end] !== "" && lines[end] !== ANCHOR) end += 1;
+      blocks.push(lines.slice(n + 1, end).join("\n"));
+    });
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toContain("`## TL;DR`");
+    expect(blocks[1]).toContain("`## Review decisions`");
+    for (const b of blocks)
+      for (const fixed of [
+        "Needs you",
+        "only if it has a reader",
+        "For agents — skip when reviewing",
+        "Exempt",
+      ])
+        expect(b).not.toContain(fixed);
+    expect(pr).toContain("A section enters a PR body only if it has a reader");
+    expect(readFileSync(join(ROOT, "installer/lib.mjs"), "utf8")).not.toContain("durable record");
+    expect(readFileSync(join(ROOT, "commands/customize.md"), "utf8")).toContain(
+      "TL;DR bullets plus Why",
+    );
   });
 });
