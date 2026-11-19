@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-19).
+**Reviewed:** round 1 (2026-11-19) · round 2 (2026-11-19).
 
 **Owns:** the ticket link — the `**Ticket:**` spec header line, the question that records it, the script that reads it, and the clickable title above the TL;DR in slice and umbrella PR bodies.
 
@@ -124,7 +124,8 @@ it("/review-spec asks for the ticket once and checks the answer before writing",
   const installed = renderAll(ROOT, THIS_REPO_CHOICES).get(".claude/commands/review-spec.md")!.content;
   const plugin = renderPlugin(ROOT).get("commands/review-spec.md")!.content;
   for (const t of [installed, plugin]) {
-    const s = t.slice(t.indexOf("### Ticket"));
+    // The template wraps at 100 columns: compare with whitespace collapsed.
+    const s = t.slice(t.indexOf("### Ticket")).replace(/\s+/g, " ");
     expect(t.indexOf("### Ticket")).toBeGreaterThan(t.indexOf("### Mode"));
     expect(s).toContain(
       "Is there a ticket for this? Paste its link — and its title, if you want it shown — or say none.",
@@ -196,7 +197,7 @@ scripts/hitl/ticket.sh "$SPEC"
 
 - [ ] **Step 4: Re-render**, run `pnpm test` — Expected: PASS.
 
-- [ ] **Step 5: Commit** — `git commit -m "feat(ticket): /review-spec asks for the feature's ticket"` (same `git add` as Task 1).
+- [ ] **Step 5: Commit** — `git commit -m "feat(ticket): /review-spec asks for the feature's ticket"`. Every commit in this plan uses Task 1's `git add` line; Task 4 adds `commands/customize.md`, which it already covers.
 
 ### Task 3: The ticket line in both PR bodies
 
@@ -345,4 +346,5 @@ This is a rehearsal: the implementer follows the re-rendered prompts by hand, be
 
 ## Review decisions
 
+- Round 2 — two test strings were split by the template's line wraps: applied (the test collapses whitespace).
 - Round 1 — the acceptance dry run cannot be run by the implementer as the spec first described it: applied as a rehearsal with a `blocked` outcome, and bubbled up to the spec's Acceptance section.

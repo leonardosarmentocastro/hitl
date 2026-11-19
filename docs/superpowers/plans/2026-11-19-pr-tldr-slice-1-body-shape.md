@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-19).
+**Reviewed:** round 1 (2026-11-19) · round 2 (2026-11-19).
 
 **Owns:** the shape of the slice PR body and the umbrella PR body — bullet TL;DR, Why, Needs you, the agent fold — and the doctrine rules that state it. Not the ticket line.
 
@@ -16,7 +16,7 @@
 
 ## Global Constraints
 
-- Edit only under `templates/`, `commands/customize.md` and `scripts/__tests__/`. Never hand-edit `.claude/`, `.hitl/HITL.md`, `scripts/hitl/`, `commands/` (other than `customize.md`), `agents/`, `doctrine/` or `runtime/`: they are renders.
+- Edit only under `templates/`, `installer/lib.mjs` (Task 3, one sentence), `commands/customize.md` and `scripts/__tests__/`. Never hand-edit `.claude/`, `.hitl/HITL.md`, `scripts/hitl/`, `commands/` (other than `customize.md`), `agents/`, `doctrine/` or `runtime/`: they are renders.
 - After every template change, re-render both ways, exactly as `AGENTS.md` gives it:
   ```bash
   rm .hitl/manifest.json
@@ -27,7 +27,7 @@
   and commit the renders with the template change.
 - Keep every `<!-- hitl:mode … -->` marker pair intact; text that differs between installed and no-install mode stays inside its markers.
 - A `<!-- hitl:knob pr-body-sections -->` anchor makes tunable everything from the line after it to the next blank line or the next anchor line (`commands/customize.md` § 3). Only the TL;DR/Why wording and the Review decisions wording may sit in such a block. The reader rule, the Needs-you list, the fold rule and the exemptions sit outside every block.
-- Tripwire: with the renders (`.claude/`, `.hitl/`, `commands/`, `agents/`, `doctrine/`, the manifest) this slice touches about 20 files. Justified: five sources and two test files; every other file is a mechanical re-render the drift tests demand.
+- Tripwire: with the renders (`.claude/`, `.hitl/`, `commands/`, `agents/`, `doctrine/`, the manifest) this slice touches about 20 files. Justified: seven sources (five templates, `installer/lib.mjs`, `commands/customize.md`) and two test files; every other file is a mechanical re-render the drift tests demand.
 - Summary text, exactly: `For agents — skip when reviewing`.
 - TL;DR limits, exactly: 1 to 3 bullets; one line each; about 15 words at most; a fragment, not a sentence.
 - The Needs-you list is closed: (1) a deferred gap the reviewer marked 🟠; (2) `The security follow-up did not run for this slice.`; (3) each allowed plan edit the implementer made.
@@ -58,6 +58,7 @@
 it("the slice body is TL;DR bullets, Why, Needs you, then the agent fold", () => {
   const installed = renderAll(ROOT, THIS_REPO_CHOICES);
   const text = installed.get(".claude/commands/implement-stack.md")!.content;
+  const slice = installed.get(".claude/commands/review-slice.md")!.content;
   const body = text.slice(text.indexOf("Body (write it"));
   const i = (s: string) => body.indexOf(s);
   expect(i("## TL;DR")).toBeGreaterThan(-1);
@@ -68,13 +69,16 @@ it("the slice body is TL;DR bullets, Why, Needs you, then the agent fold", () =>
   expect(i("\nPlan: <plan path>\n")).toBeGreaterThan(i("<summary>"));
   expect(i("## Review decisions")).toBeGreaterThan(i("\nPlan: <plan path>\n"));
   expect(i("</details>")).toBeGreaterThan(i("## Review decisions"));
+  // Blank lines inside the fold, or the Markdown in it does not render.
+  expect(body).toContain("</summary>\n\nPlan: <plan path>\n");
+  expect(body).toContain("\n\n</details>");
+  expect(slice).toContain("that PR's body `## Review decisions` and `## Needs you`");
   for (const gone of ["What — ", "How — ", "## What"]) expect(i(gone)).toBe(-1);
   expect(body).toContain("never more than three bullets");
   expect(body).toContain("No visible change:");
   expect(body).toContain("omit the whole section when there is none");
   // The security follow-up line now goes to Needs you, in both commands.
   expect(text).toMatch(/did not run for this slice\."\s+under the PR body's `## Needs you`/);
-  const slice = installed.get(".claude/commands/review-slice.md")!.content;
   expect(slice).toMatch(/marked\s+it 🟠, tell the human under the PR body's `## Needs you`/);
   expect(slice).toContain("`## Needs you` block");
   // A fix-up posts a comment, not a body: its Needs-you lines open that comment.
@@ -142,14 +146,14 @@ read the PR body reads the fold.
 
 In step c2, the `FOL:` bullet's ending changes from `add the line "The security follow-up did not run for this slice." to the PR body's Review decisions.` to `add the line "The security follow-up did not run for this slice." under the PR body's `## Needs you`.` In steps c and c2, where the text says `/review-slice` prints "the triage table and the `## Review decisions` block" (c2: "a triage table with a `Lens` column, a `## Review decisions` block"), add ``, and a `## Needs you` block when there is one``. In § Fix-up step 3, after the sentence "Append the Review decisions to the PR with … `comment <number> --body-file <tmp>`." (both mode variants end the same sentence; add once, after the `<!-- hitl:mode end -->` that closes them) add: ``The comment opens with a `## Needs you` block when there is one — the same three kinds of line as in the body — then the Review decisions. The PR body is not rewritten.``
 
-- [ ] **Step 4: Edit `templates/claude/commands/review-slice.md` § 2.** The DEFERRED bullet's last sentence becomes: ``If the reviewer marked it 🟠, tell the human under the PR body's `## Needs you` — it is a resequencing question.`` After the sentence that ends "No file, function or test names." add: ``Then, only if a 🟠 DEFERRED exists, a `## Needs you` block with one line for each; those lines are left out of the Review decisions block.`` The second step's closing sentence becomes: ``Print the triage table, the `## Review decisions` block and, when there is one, the `## Needs you` block as above, then the three path lines of § 1S.``
+- [ ] **Step 4: Edit `templates/claude/commands/review-slice.md` § 2.** The DEFERRED bullet's last sentence becomes: ``If the reviewer marked it 🟠, tell the human under the PR body's `## Needs you` — it is a resequencing question.`` After the sentence that ends "No file, function or test names." add: ``Then, only if a 🟠 DEFERRED exists, a `## Needs you` block with one line for each; those lines are left out of the Review decisions block.`` In the second step's paragraph on earlier declines, "that PR's body `## Review decisions` and every Review decisions comment on it" becomes "that PR's body `## Review decisions` and `## Needs you` and every Review decisions comment on it" — a 🟠 deferred gap now sits under Needs you and must still count as already decided. The second step's closing sentence becomes: ``Print the triage table, the `## Review decisions` block and, when there is one, the `## Needs you` block as above, then the three path lines of § 1S.``
 
 - [ ] **Step 5: Re-render** (Global Constraints), then run `pnpm test` — Expected: PASS, including the drift, self-manifest and plugin-drift tests.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add -A templates scripts/__tests__ .claude .hitl commands agents doctrine runtime scripts/hitl
+git add -A templates installer scripts/__tests__ .claude .hitl commands agents doctrine runtime scripts/hitl
 git commit -m "feat(pr-body): slice PRs open with a bullet TL;DR and fold what agents read"
 ```
 
@@ -344,3 +348,4 @@ This is a rehearsal: the implementer follows the re-rendered prompts by hand, be
 
 - Round 1 — the acceptance dry run cannot be run by the implementer as the spec first described it (it cannot spawn the handover agent): applied as a rehearsal with a `blocked` outcome, and bubbled up to the spec's Acceptance section.
 - Round 1 — a fix-up round's Needs-you lines had nowhere to go: applied (they open the fix-up comment) and bubbled up to the spec.
+- Round 2 — a deferred gap shown under Needs you would be raised again by a later review that only reads Review decisions: applied (that review reads both) and bubbled up to the spec.

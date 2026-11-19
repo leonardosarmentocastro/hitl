@@ -297,6 +297,9 @@ slice. Nothing about it is written into the PR body, which has no section withou
   implementer that blocks the slice when it fails, not a human-observed dry run reported in
   the PR: the implementer cannot run the real prompts, and a report section in the PR body
   would have no reader.
+- **Bubbled up from plan review (round 2)** — a later slice review that looks up what was
+  already decided on a PR reads `## Needs you` as well as `## Review decisions`, so a
+  deferred gap shown to the human is not raised again.
 - **Bubbled up from plan review (round 1)** — the installer's `AGENTS.md` block also called
   the PR description "the durable record"; that sentence goes.
 
