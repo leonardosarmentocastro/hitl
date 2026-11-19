@@ -81,21 +81,43 @@ describe("/review-spec", () => {
   ];
 
   for (const [form, text] of forms)
-    it(`(${form}) reads the mode line and runs the elaborate round 2`, () => {
+    it(`(${form}) reads the mode line and runs round 2 in elaborate and complete mode`, () => {
       for (const s of [
         "**Review mode:**",
-        "simple or elaborate?",
-        "## 1E. Elaborate round 2 — adversarial and security",
+        "simple, elaborate or complete?",
+        "## 1E. Round 2 — adversarial, and security in complete mode",
         "-spec-adversarial.md",
         "-spec-security.md",
         "-spec-security-followup.md",
         "docs(spec): record review mode",
         "Lens",
-        "Round 2 always runs in elaborate mode, whether or not round 1 changed the spec.",
-        "In elaborate mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to.",
+        "Round 2 always runs in elaborate and complete mode, whether or not round 1 changed the spec.",
+        "In elaborate and complete mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to.",
+        "Review mode: simple — cold review only.",
+        "Review mode: elaborate — cold review, then an adversarial review. No security review.",
+        "Review mode: complete — cold review, then an adversarial and a security review.",
+        "Print the mode line once per run, as soon as the mode is known",
+        "In elaborate mode, spawn the",
+        "agent alone, with its brief below and nothing else",
+        "cannot tell whether round 2 was a second cold round",
+        "round 2 failed (<YYYY-MM-DD>) — adversarial reviewer, <why>",
+        "In elaborate mode the table has no `Lens` column.",
       ])
         expect(text).toContain(s);
+      expect(text!.split("Adversarial review of the spec at")).toHaveLength(2);
     });
+
+  it("(installed) spawns the adversarial reviewer alone in elaborate mode", () => {
+    expect(forms[0][1]).toContain(
+      "In elaborate mode, spawn the `adversarial-reviewer` agent alone, with its brief below and nothing else",
+    );
+  });
+
+  it("(plugin) spawns the adversarial reviewer alone in elaborate mode", () => {
+    expect(forms[1][1]).toContain(
+      "In elaborate mode, spawn the `hitl:adversarial-reviewer` agent alone, with its brief below and nothing else",
+    );
+  });
 
   it("runs the installed script in the installed form", () => {
     expect(forms[0][1]).toContain('scripts/hitl/review-mode.sh "$SPEC"');

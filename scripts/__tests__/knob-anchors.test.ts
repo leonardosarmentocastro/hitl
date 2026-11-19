@@ -77,6 +77,7 @@ describe("knob anchors", () => {
       const paragraph: string[] = [];
       for (let j = i + 1; j < lines.length && lines[j].trim() !== ""; j++) paragraph.push(lines[j]);
       expect(paragraph.join("\n")).not.toMatch(/elaborate/i);
+      expect(paragraph.join("\n")).not.toMatch(/`complete`|complete mode/i);
     });
     expect(anchors).toBe(2);
   });
