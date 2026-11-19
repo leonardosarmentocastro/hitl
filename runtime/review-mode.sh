@@ -5,13 +5,14 @@
 # line starting `## `. The first such line in the header wins; one quoted further down does
 # not count. The value is read ignoring case, surrounding whitespace and one trailing period.
 #
-# stdout, one word, exit 0: `elaborate` if any spec says elaborate; else `simple` if any says
-# simple; else `absent`.
+# Three values: simple, elaborate, complete. The heaviest wins.
+# stdout, one word, exit 0: `complete` if any spec says complete; else `elaborate` if any says
+# elaborate; else `simple` if any says simple; else `absent`.
 # exit 2, one line on stderr, nothing on stdout:
 #   review-mode: <path>: no such file
-#   review-mode: <path>: invalid value '<value>' — use simple or elaborate
+#   review-mode: <path>: invalid value '<value>' — use simple, elaborate or complete
 #   review-mode: usage: review-mode.sh <spec>...
-# An invalid value in any spec is exit 2, even when another spec says elaborate.
+# An invalid value in any spec is exit 2, even when another spec carries a valid mode.
 set -eu
 
 if [ "$#" -eq 0 ]; then
@@ -37,6 +38,16 @@ read_line() {
   ' "$1"
 }
 
+# rank <mode> — absent 0, simple 1, elaborate 2, complete 3.
+rank() {
+  case $1 in
+    complete) echo 3 ;;
+    elaborate) echo 2 ;;
+    simple) echo 1 ;;
+    *) echo 0 ;;
+  esac
+}
+
 result=absent
 for spec in "$@"; do
   if [ ! -f "$spec" ]; then
@@ -46,11 +57,13 @@ for spec in "$@"; do
   line=$(read_line "$spec")
   [ "$line" = absent ] && continue
   value=${line#value:}
-  case $(printf '%s' "$value" | tr '[:upper:]' '[:lower:]') in
-    elaborate) result=elaborate ;;
-    simple) [ "$result" = elaborate ] || result=simple ;;
+  mode=$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')
+  case $mode in
+    simple | elaborate | complete)
+      if [ "$(rank "$mode")" -gt "$(rank "$result")" ]; then result=$mode; fi
+      ;;
     *)
-      echo "review-mode: $spec: invalid value '$value' — use simple or elaborate" >&2
+      echo "review-mode: $spec: invalid value '$value' — use simple, elaborate or complete" >&2
       exit 2
       ;;
   esac
