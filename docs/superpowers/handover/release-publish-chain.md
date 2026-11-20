@@ -9,7 +9,7 @@ Spec(s): docs/superpowers/specs/2026-11-19-release-publish-chain-design.md
 
 | slice | plan | branch | parent | status | owns |
 |---|---|---|---|---|---|
-| 1 | docs/superpowers/plans/2026-11-19-release-publish-chain-slice-1-one-workflow.md | fix/release-publish-chain-slice-1-one-workflow | fix/release-publish-chain | todo | a release on `main` is prepared and published in one `release` workflow run — publishing also after a failed prepare, on the version that run released, and a catch-up run only after a backfill — and the release instructions describe that workflow. |
+| 1 | docs/superpowers/plans/2026-11-19-release-publish-chain-slice-1-one-workflow.md | fix/release-publish-chain-slice-1-one-workflow | fix/release-publish-chain | open #75 | a release on `main` is prepared and published in one `release` workflow run — publishing also after a failed prepare, on the version that run released, and a catch-up run only after a backfill — and the release instructions describe that workflow. |
 
 ## Umbrella PR body
 
@@ -38,7 +38,7 @@ normal release ends in one run, and nothing beyond the token every run already h
 <!-- stack -->
 | slice | title | PR |
 |---|---|---|
-| 1 | one workflow | — |
+| 1 | one workflow | #75 |
 <!-- /stack -->
 
 ## Notes
