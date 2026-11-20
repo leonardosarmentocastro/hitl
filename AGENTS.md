@@ -73,7 +73,7 @@ the current version. The head branch prefix decides: any `feat/` branch → a mi
   reads the marketplace at `v<recorded version>` and refuses without it. When `publish` tags a
   version its own run did not release (a backfill), it starts `release` once more to catch up
   the pull requests that version held back.
-- **A failed publish:** "Re-run failed jobs" on that run. "Re-run all jobs" also works but adds
+- **A failed publish:** "Re-run failed jobs" on that run. "Re-run all jobs" also works but may add
   one empty catch-up run. On a run whose `prepare` was red, a re-run runs `prepare` again too;
   if pull requests were merged since, it may release a newer version and `publish` acts on that
   one — check afterwards that the older version got its Release. Until a version is tagged,
