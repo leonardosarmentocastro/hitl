@@ -111,6 +111,7 @@ export function ownedFiles(choices) {
       template: "scripts/review-mode.sh",
       executable: true,
     },
+    { repoPath: "scripts/hitl/ticket.sh", template: "scripts/ticket.sh", executable: true },
     {
       repoPath: "scripts/hitl/backend.sh",
       template: `scripts/backends/${choices.provider}.sh`,
@@ -341,6 +342,7 @@ export function pluginFiles() {
     },
     { pluginPath: "runtime/pr/host.mjs", template: "scripts/host.mjs", executable: false },
     { pluginPath: "runtime/review-mode.sh", template: "scripts/review-mode.sh", executable: true },
+    { pluginPath: "runtime/ticket.sh", template: "scripts/ticket.sh", executable: true },
     { pluginPath: "runtime/wipe-core.mjs", template: "scripts/wipe-core.mjs", executable: true },
   ];
 }

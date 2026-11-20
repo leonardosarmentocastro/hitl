@@ -76,6 +76,7 @@ describe("installer/lib primitives", () => {
         ".claude/fixtures/slice/2026-09-06-slice-fixture-slice-1-tag-export.md",
         "scripts/hitl/pr.sh",
         "scripts/hitl/review-mode.sh",
+        "scripts/hitl/ticket.sh",
         "scripts/hitl/backend.sh",
         "scripts/hitl/wipe.mjs",
       ]),
