@@ -87,6 +87,8 @@ Spec(s): <one path per line>
 
 ## Umbrella PR body
 
+### <ticket line>
+
 ## TL;DR
 
 - <what the feature changes, as someone using it would notice it: one line, about 15 words at most, a fragment and not a sentence>
@@ -121,6 +123,17 @@ newcomer. The TL;DR says only what changed — no why, no how, no risk; there is
 How. Never paste plan text.
 Project-memory `pr-section` facts shape slice PR bodies only; never add a section to the
 umbrella PR body for one.
+
+Read the feature's ticket, passing every path listed under `Spec(s):` to the script in one call:
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/runtime/ticket.sh" <every Spec(s): path>
+```
+
+Each line it prints is a ticket: write `### ` followed by it as the body's first line, one per
+ticket, then a blank line. With `none`, or nothing printed, the body starts at `## TL;DR`. On
+exit 2, use the tickets it still printed, write no line for the refused spec, and
+report the refusal in your reply; it never fails the handover.
 
 ## Commit and reply
 

@@ -68,8 +68,8 @@ node "${CLAUDE_PLUGIN_ROOT}/runtime/context.mjs" --repo "$PWD" --plugin-root "${
    `refused` or `error` in the output → stop and report it verbatim. Keep its `status` and
    `ref` for the stack block in step 2. The wipe branch is never a stack-table row.
 2. Build the body: everything under the handover document's `## Umbrella PR body` heading,
-   stopping at the first `##` heading that is not `## TL;DR`, `## Why`, `## Slices` or `## Notes`,
-   or at the end of the document. Never reshape it: a body written in an earlier shape (a
+   a `###` ticket line included, stopping at the first `##` heading that is not
+   `## TL;DR`, `## Why`, `## Slices` or `## Notes`, or at the end of the document. Never reshape it: a body written in an earlier shape (a
    `Plan:` line first, a `## Notes` section last) opens as it is, and a heading the feature
    added to its handover document is never copied. The `<!-- stack -->` table's PR column is refreshed from
 <!-- hitl:mode installed -->

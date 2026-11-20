@@ -150,4 +150,26 @@ describe("the ticket in the prompts", () => {
     expect(installed).toContain('scripts/hitl/ticket.sh "$SPEC"');
     expect(plugin).toContain('"${CLAUDE_PLUGIN_ROOT}/runtime/ticket.sh" "$SPEC"');
   });
+
+  it("both PR bodies start with the ticket line, and a refusal never stops the run", () => {
+    const installed = renderAll(ROOT, THIS_REPO_CHOICES);
+    const stack = installed.get(".claude/commands/implement-stack.md")!.content;
+    const body = stack.slice(stack.indexOf("Body (write it"));
+    expect(body.indexOf("### <ticket line>")).toBeGreaterThan(-1);
+    expect(body.indexOf("### <ticket line>")).toBeLessThan(body.indexOf("## TL;DR"));
+    expect(stack).toContain("scripts/hitl/ticket.sh <every Spec(s): path>");
+    expect(stack).toContain("is never a STOP");
+    const agent = installed.get(".claude/agents/handover.md")!.content;
+    const umbrella = agent.slice(agent.indexOf("\n## Umbrella PR body\n"));
+    expect(umbrella.indexOf("### <ticket line>")).toBeGreaterThan(-1);
+    expect(umbrella.indexOf("### <ticket line>")).toBeLessThan(umbrella.indexOf("## TL;DR"));
+    expect(agent).toContain("the body starts at `## TL;DR`");
+    expect(agent).toContain("scripts/hitl/ticket.sh <every Spec(s): path>");
+    expect(agent).toContain("report the refusal in your reply");
+    const plugin = renderPlugin(ROOT);
+    for (const f of ["commands/implement-stack.md", "agents/handover.md"])
+      expect(plugin.get(f)!.content).toContain(
+        '"${CLAUDE_PLUGIN_ROOT}/runtime/ticket.sh" <every Spec(s): path>',
+      );
+  });
 });

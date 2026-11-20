@@ -190,11 +190,24 @@ run that crashed after pushing — and the record on stdout is that PR's: take i
 put the body on it with `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" edit <number> --body-file <tmp>`, and carry on.
 Any other non-zero exit is a **STOP**.
 
+Read the feature's ticket once per slice, when its PR body is written. Pass every path listed
+under `Spec(s):` to the script in one call.
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/runtime/ticket.sh" <every Spec(s): path>
+```
+
+Each line it prints is a ticket, `[<label>](<url>)`; the word `none` means there is none.
+Exit 2 is never a STOP: a ticket is a link, not a rule about how the feature is reviewed. Use
+the tickets it still printed, and say in your report which spec's line was refused and why.
+
 <!-- hitl:knob pr-body-sections -->
 Body (write it in the register of explaining to a newcomer; no file, function or test names
 outside the `Plan:` line):
 
 ```
+### <ticket line>
+
 ## TL;DR
 
 - <what changed, as someone using it would notice it: one line, about 15 words at most, a fragment and not a sentence>
@@ -233,7 +246,9 @@ The `## Review decisions` section begins with the mode line for the mode read at
 
 The TL;DR says only what changed — no why, no how, no risk. A change nobody using the thing
 would notice says so in its one bullet: `No visible change: <what was reorganised>`. There is
-no What and no How section.
+no What and no How section. The body's first line is `### ` followed by a ticket the script
+printed — one such line per ticket, in the order printed, then a blank line. With `none`, or
+nothing printed, the body starts at `## TL;DR`.
 
 `## Needs you` holds only these, one line each, and they are not repeated in the fold: a
 deferred gap the reviewer marked 🟠 (it is a question about reordering the slices); "The
