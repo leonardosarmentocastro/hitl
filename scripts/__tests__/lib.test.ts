@@ -81,7 +81,7 @@ describe("installer/lib primitives", () => {
         "scripts/hitl/wipe.mjs",
       ]),
     );
-    expect(paths).toHaveLength(28);
+    expect(paths).toHaveLength(29);
   });
 
   it("owns review-mode.sh in both forms", () => {
