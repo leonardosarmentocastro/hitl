@@ -9,7 +9,7 @@ Spec(s): docs/superpowers/specs/2026-11-19-pr-tldr-design.md
 
 | slice | plan | branch | parent | status | owns |
 |---|---|---|---|---|---|
-| 1 | docs/superpowers/plans/2026-11-19-pr-tldr-slice-1-body-shape.md | feat/pr-tldr-slice-1-body-shape | feat/pr-tldr | todo | the shape of the slice PR body and the umbrella PR body — bullet TL;DR, Why, Needs you, the agent fold — and the doctrine rules that state it. Not the ticket line. |
+| 1 | docs/superpowers/plans/2026-11-19-pr-tldr-slice-1-body-shape.md | feat/pr-tldr-slice-1-body-shape | feat/pr-tldr | open #65 | the shape of the slice PR body and the umbrella PR body — bullet TL;DR, Why, Needs you, the agent fold — and the doctrine rules that state it. Not the ticket line. |
 | 2 | docs/superpowers/plans/2026-11-19-pr-tldr-slice-2-ticket-link.md | feat/pr-tldr-slice-2-ticket-link | feat/pr-tldr-slice-1-body-shape | todo | the ticket link — the `**Ticket:**` spec header line, the question that records it, the script that reads it, and the clickable title above the TL;DR in slice and umbrella PR bodies. |
 
 ## Umbrella PR body
