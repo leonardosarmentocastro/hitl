@@ -1,9 +1,11 @@
 // scripts/__tests__/release-prepare.test.ts — `scripts/release.mjs prepare`, against temporary
 // git repositories.
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as prettier from "prettier";
 import { describe, expect, it } from "vitest";
+import { changelogSections, compareVersions, pluginVersion } from "../../installer/lib.mjs";
 import { nextVersion } from "../release.mjs";
 import { type Pr, commit, git, prsFile, release, releaseRepo } from "./helpers/release-repo";
 
@@ -270,5 +272,60 @@ describe("release.mjs prepare — refusals and errors", () => {
     expect(notJson.status).toBe(2);
     expect(typeof notJson.out.error).toBe("string");
     expect(git(repo, "status", "--porcelain")).toBe("");
+  });
+});
+
+describe("release.mjs prepare — this repository's own files", () => {
+  it("on a copy of this repository's own four files, keeps what the changelog and manifest tests assert", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "hitl-self-"));
+    for (const f of [
+      "CHANGELOG.md",
+      ".claude-plugin/plugin.json",
+      ".claude-plugin/marketplace.json",
+      ".hitl/manifest.json",
+    ]) {
+      cpSync(join(process.cwd(), f), join(repo, f));
+    }
+    git(repo, "init", "-q", "-b", "main");
+    git(repo, "config", "user.email", "t@example.com");
+    git(repo, "config", "user.name", "t");
+    git(repo, "config", "commit.gpgsign", "false");
+    commit(repo, "the four files", {});
+    git(repo, "tag", `v${pluginVersion(process.cwd())}`);
+    const sha = commit(repo, "feature");
+    const before = pluginVersion(repo);
+    const r = release([
+      "prepare",
+      "--repo",
+      repo,
+      "--prs",
+      prsFile([pr(1, "A feature", "feat/x", sha)]),
+    ]);
+    expect(r.out.released).toBe(true);
+    const sections = changelogSections(read(repo, "CHANGELOG.md"));
+    expect(sections[0]).toEqual({ version: "Unreleased", text: "" });
+    const versions = sections.slice(1).map((s) => s.version);
+    for (let i = 1; i < versions.length; i++)
+      expect(compareVersions(versions[i - 1], versions[i])).toBe(1);
+    expect(versions[0]).toBe(r.out.version);
+    expect(compareVersions(r.out.version, before)).toBe(1);
+    expect(pluginVersion(repo)).toBe(r.out.version);
+    expect(JSON.parse(read(repo, ".claude-plugin/marketplace.json")).plugins[0].version).toBe(
+      r.out.version,
+    );
+    expect(JSON.parse(read(repo, ".hitl/manifest.json")).version).toBe(r.out.version);
+    // every section released before keeps its exact text
+    const old = changelogSections(readFileSync(join(process.cwd(), "CHANGELOG.md"), "utf8")).slice(
+      1,
+    );
+    for (const s of old) expect(sections.find((x) => x.version === s.version)?.text).toBe(s.text);
+    for (const f of [
+      ".claude-plugin/plugin.json",
+      ".claude-plugin/marketplace.json",
+      ".hitl/manifest.json",
+    ]) {
+      const options = await prettier.resolveConfig(join(process.cwd(), f));
+      expect(await prettier.check(read(repo, f), { ...options, filepath: f }), f).toBe(true);
+    }
   });
 });
