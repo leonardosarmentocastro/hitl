@@ -29,7 +29,7 @@
     "scripts/hitl/backend.sh": "65b10f8b2ede1738f49c7221e2a1cf67432279eac026edb893cd4481f0e69df8",
     "scripts/hitl/pr.sh": "55d6de45b491a5c515d51ae5331e0d34c60bc835bb8a018ddc7989c7e0304ff1",
     "scripts/hitl/review-mode.sh": "098d7befa59f4c0412f9331f63ea91e1611f41dfb2076a2df6dfcfa9db2e84fa",
-    "scripts/hitl/ticket.sh": "d662b9c160b9f49606fbed35bafab7047ed4667eda087562f19de397a700db9d",
+    "scripts/hitl/ticket.sh": "70ee9c0c1ab148d1b9155038e0db460384be671a8c928a9c2d797928b89e892f",
     "scripts/hitl/wipe.mjs": "bc519d4fad1ee26995a84f179d3818ae7cf4ecb5e12f40972b3e0a87fcc38556"
   }
 }

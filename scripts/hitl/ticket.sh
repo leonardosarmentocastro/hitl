@@ -7,7 +7,8 @@
 # trailing period; a spec with no line has no ticket.
 #
 # A link is accepted when the whole value is `[label](url)`: the label is non-empty and holds
-# no `]`, `@` or backtick; the url starts `http://` or `https://` and holds no space and no `)`.
+# no `[`, `]`, `@` or backtick; the url starts `http://` or `https://` and holds no space and
+# no `)`.
 #
 # stdout: one line per accepted ticket, `[<label>](<url>)`, in argument order, one per distinct
 # url (the first label wins); or the single word `none` when no spec has a ticket.
@@ -54,7 +55,7 @@ is_link() {
   rest=${inner#*"]"}
   [ -n "$label" ] || return 1
   case $label in
-    *"@"* | *"\`"*) return 1 ;;
+    *"["* | *"@"* | *"\`"*) return 1 ;;
   esac
   case $rest in
     "("*")") ;;

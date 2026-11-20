@@ -99,8 +99,13 @@ describe("ticket.sh", () => {
       expectRefused(run(spec(`**Ticket:** ${v}`)), "invalid value");
   });
 
-  it("refuses ], @ or a backtick in the label", () => {
-    for (const v of ["[a]b](https://a/b)", "[hi @sam](https://a/b)", "[a`b](https://a/b)"])
+  it("refuses [, ], @ or a backtick in the label", () => {
+    for (const v of [
+      "[![i](https://e/x.png)",
+      "[a]b](https://a/b)",
+      "[hi @sam](https://a/b)",
+      "[a`b](https://a/b)",
+    ])
       expectRefused(run(spec(`**Ticket:** ${v}`)), "invalid value");
   });
 
