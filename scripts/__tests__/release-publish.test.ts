@@ -42,6 +42,8 @@ describe("release.mjs target", () => {
   });
   it("skips commits where plugin.json is missing or not JSON", () => {
     const repo = releaseRepo();
+    git(repo, "rm", "-q", ".claude-plugin/plugin.json");
+    commit(repo, "deleted");
     commit(repo, "broken", { ".claude-plugin/plugin.json": "not json" });
     const set = commit(repo, "set", plugin("0.4.0"));
     expect(release(["target", "--repo", repo, "--version", "0.4.0"]).out.commit).toBe(set);
