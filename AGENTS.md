@@ -65,6 +65,16 @@ into `CHANGELOG.md` and commits `chore(release): <version>`.
   squashed or rebased: the wipe commit carries `[skip ci]`, and a push whose head commit
   carries it starts no release run. If a release was skipped, start `release-prepare` from
   the Actions tab.
+- `release-publish` runs after every `release-prepare`: it tags `v<version>` on the commit
+  that set the version (`scripts/release.mjs target`) and creates the GitHub Release from
+  that version's changelog section (`scripts/release.mjs notes`). `/hitl:diff` needs the
+  tag: it reads the marketplace at `v<recorded version>` and refuses without it.
+- **A failed publish:** start `release-publish` from the Actions tab. It creates whichever
+  of the tag and the Release is missing and, if it created the tag, starts `release-prepare`
+  itself. Until the
+  version is tagged, `release-prepare` refuses (`tag-missing`) and its runs are red.
+- **A major version** is raised by hand, in a pull request that changes the three version
+  files and adds the `## <version>` section; `release-publish` tags it when it merges.
 
 ## Test-driven development, here
 
