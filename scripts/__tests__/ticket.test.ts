@@ -1,9 +1,10 @@
 // scripts/__tests__/ticket.test.ts
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { renderAll, renderPlugin, THIS_REPO_CHOICES } from "../../installer/lib.mjs";
 
 const ROOT = process.cwd();
 const SCRIPT = join(ROOT, "templates/scripts/ticket.sh");
@@ -120,5 +121,33 @@ describe("ticket.sh", () => {
 
   it("refuses no arguments", () => {
     expectRefused(run(), "ticket: usage: ticket.sh <spec>...");
+  });
+});
+
+describe("the ticket in the prompts", () => {
+  it("/review-spec asks for the ticket once and checks the answer before writing", () => {
+    const installed = renderAll(ROOT, THIS_REPO_CHOICES).get(
+      ".claude/commands/review-spec.md",
+    )!.content;
+    const plugin = renderPlugin(ROOT).get("commands/review-spec.md")!.content;
+    for (const t of [installed, plugin]) {
+      // The template wraps at 100 columns: compare with whitespace collapsed.
+      const s = t.slice(t.indexOf("### Ticket")).replace(/\s+/g, " ");
+      expect(t.indexOf("### Ticket")).toBeGreaterThan(t.indexOf("### Mode"));
+      expect(s).toContain(
+        "Is there a ticket for this? Paste its link — and its title, if you want it shown — or say none.",
+      );
+      expect(s).toContain("already gave a ticket link in this session");
+      expect(s).toContain('git commit -m "docs(spec): record ticket" -- "$SPEC"');
+      expect(s).toContain("ask again");
+      expect(s).toContain("capital letters and digits, a dash, digits");
+      expect(s).toContain("`@` and backticks are dropped");
+      expect(s).toContain("`[` and `]` are written as `(` and `)`");
+      expect(s).toContain("Never fetch anything from the tracker");
+      expect(s).toContain("remove the line, commit nothing");
+      expect(s).toContain("not a dry run");
+    }
+    expect(installed).toContain('scripts/hitl/ticket.sh "$SPEC"');
+    expect(plugin).toContain('"${CLAUDE_PLUGIN_ROOT}/runtime/ticket.sh" "$SPEC"');
   });
 });
