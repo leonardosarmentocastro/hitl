@@ -1,5 +1,7 @@
 # Releases publish in the same run — design
 
+**Review mode:** elaborate
+
 ## Problem
 
 On `main`, a release is two workflows: `release-prepare` (raise the version, write the
