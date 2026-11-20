@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 // This repository's release chores (never rendered into a target repository). `prepare` decides
 // from the pull requests merged into main whether a release is due and, if so, writes the four
-// release files. Exit: 0 ok · 1 usage · 2 error · 3 refused. A refusal writes nothing.
+// release files. `target` names the commit a version's tag belongs on. Exit: 0 ok · 1 usage ·
+// 2 error · 3 refused. A refusal writes nothing.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { changelogSections, emit, parseArgs } from "../installer/lib.mjs";
 
-const USAGE = "usage: release.mjs prepare --repo <path> --prs <file>";
+const USAGE =
+  "usage: release.mjs prepare --repo <path> --prs <file> | target --repo <path> --version <x.y.z>";
 
 /** True when `oid` is an ancestor of `ref`; an unknown commit is never one. */
 function isAncestor(repo, oid, ref) {
@@ -129,7 +131,49 @@ function prepare({ repo, prs: prsPath }) {
   return { code: 0, out: { released: true, ...next, prs: listed.map((pr) => pr.number) } };
 }
 
-const COMMANDS = { prepare: { required: ["repo", "prs"], fn: prepare } };
+/** The `version` of plugin.json at `sha`, or null when the file is missing or not JSON. */
+function versionAt(repo, sha) {
+  const r = spawnSync("git", ["-C", repo, "show", `${sha}:.claude-plugin/plugin.json`], {
+    encoding: "utf8",
+  });
+  if (r.status !== 0) return null;
+  try {
+    return JSON.parse(r.stdout).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The oldest first-parent commit of HEAD whose plugin.json holds `version`. A merge is compared
+ * with its first parent, so a version raised on a merged branch names the merge commit.
+ */
+function target({ repo, version }) {
+  const r = spawnSync(
+    "git",
+    [
+      "-C",
+      repo,
+      "log",
+      "--first-parent",
+      "--reverse",
+      "--format=%H",
+      "--",
+      ".claude-plugin/plugin.json",
+    ],
+    { encoding: "utf8" },
+  );
+  if (r.status !== 0) return { code: 2, out: { error: r.stderr.trim() } };
+  for (const sha of r.stdout.split("\n").filter(Boolean)) {
+    if (versionAt(repo, sha) === version) return { code: 0, out: { version, commit: sha } };
+  }
+  return refuse({ refused: "version-not-on-main", version });
+}
+
+const COMMANDS = {
+  prepare: { required: ["repo", "prs"], fn: prepare },
+  target: { required: ["repo", "version"], fn: target },
+};
 
 export function run(command, args) {
   const spec = COMMANDS[command];
