@@ -37,6 +37,15 @@ export function commit(repo: string, message: string, files?: Record<string, str
   return git(repo, "rev-parse", "HEAD");
 }
 
+/** Initialises a repository on `main` with a local identity and commit and tag signing off. */
+export function initRepo(repo: string) {
+  git(repo, "init", "-q", "-b", "main");
+  git(repo, "config", "user.email", "t@example.com");
+  git(repo, "config", "user.name", "t");
+  git(repo, "config", "commit.gpgsign", "false");
+  git(repo, "config", "tag.gpgsign", "false");
+}
+
 /** The four release files at version `v`. */
 function releaseFiles(v: string, changelog: string): Record<string, string> {
   return {
@@ -55,11 +64,7 @@ export function releaseRepo(
   const changelog =
     opts.changelog ?? "# Changelog\n\nintro\n\n## Unreleased\n\n## 0.3.0\n\n- three\n";
   const repo = mkdtempSync(join(tmpdir(), "hitl-release-"));
-  git(repo, "init", "-q", "-b", "main");
-  git(repo, "config", "user.email", "t@example.com");
-  git(repo, "config", "user.name", "t");
-  git(repo, "config", "commit.gpgsign", "false");
-  git(repo, "config", "tag.gpgsign", "false");
+  initRepo(repo);
   commit(repo, version, releaseFiles(version, changelog));
   if (opts.tag !== false) git(repo, "tag", `v${version}`);
   return repo;

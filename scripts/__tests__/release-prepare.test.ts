@@ -8,7 +8,15 @@ import * as prettier from "prettier";
 import { describe, expect, it } from "vitest";
 import { changelogSections, compareVersions, pluginVersion } from "../../installer/lib.mjs";
 import { nextVersion } from "../release.mjs";
-import { type Pr, commit, git, prsFile, release, releaseRepo } from "./helpers/release-repo";
+import {
+  type Pr,
+  commit,
+  git,
+  initRepo,
+  prsFile,
+  release,
+  releaseRepo,
+} from "./helpers/release-repo";
 
 function read(repo: string, path: string): string {
   return readFileSync(join(repo, path), "utf8");
@@ -298,10 +306,7 @@ describe("release.mjs prepare — this repository's own files", () => {
     ]) {
       cpSync(join(process.cwd(), f), join(repo, f));
     }
-    git(repo, "init", "-q", "-b", "main");
-    git(repo, "config", "user.email", "t@example.com");
-    git(repo, "config", "user.name", "t");
-    git(repo, "config", "commit.gpgsign", "false");
+    initRepo(repo);
     commit(repo, "the four files", {});
     git(repo, "tag", `v${pluginVersion(process.cwd())}`);
     const sha = commit(repo, "feature");
