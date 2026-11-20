@@ -10,7 +10,7 @@ Spec(s): docs/superpowers/specs/2026-11-19-release-process-design.md
 | slice | plan | branch | parent | status | owns |
 |---|---|---|---|---|---|
 | 1 | docs/superpowers/plans/2026-11-19-release-process-slice-1-prepare.md | feat/release-process-slice-1-prepare | feat/release-process | open #70 | a merged `feat/` or `fix/` pull request becomes a release commit on `main` — version raised in the three files, a new changelog section from the pull request titles. |
-| 2 | docs/superpowers/plans/2026-11-19-release-process-slice-2-publish.md | feat/release-process-slice-2-publish | feat/release-process-slice-1-prepare | todo | a released version on `main` gets its tag `v<version>` and its GitHub Release, retryable on its own, and users are told how to receive it. |
+| 2 | docs/superpowers/plans/2026-11-19-release-process-slice-2-publish.md | feat/release-process-slice-2-publish | feat/release-process-slice-1-prepare | open #71 | a released version on `main` gets its tag `v<version>` and its GitHub Release, retryable on its own, and users are told how to receive it. |
 
 ## Umbrella PR body
 
