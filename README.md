@@ -213,6 +213,14 @@ that repository's own rules instead.
 - **`/hitl:customize`**: change one rule at a time (round limits, slice size, testing
   rules, ...). It asks you questions, then edits the marked paragraph. It refuses to touch
   the few lines the scripts parse.
+- **New versions arrive by themselves.** Every feature or fix merged here is released
+  automatically, so a new version exists within minutes of the merge. Claude Code does not
+  update plugins from this marketplace on its own by default; to turn that on once, run
+  `/plugin`, open **Marketplaces**, pick `hitl` and enable auto-update. Claude Code then
+  updates shortly after a session starts. To update by hand: `claude plugin marketplace
+  update hitl`, then `claude plugin update hitl`, then a new session or `/reload-plugins`. In
+  a repository where hitl is installed, `/hitl:diff` then shows what changed, with each
+  version's notes.
 - **`/hitl:diff`**: shows what changed upstream since your installed version, file by file,
   next to your own edits. `--apply` opens the upgrade PR.
 - **`/hitl:help`**: shows where your install stands, what to run next, and what is
