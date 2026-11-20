@@ -46,7 +46,12 @@ jobs:
         id: prepare
         run: |
           node scripts/release.mjs prepare --repo . --prs "$RUNNER_TEMP/prs.json" | tee "$RUNNER_TEMP/prepare.json"
-          echo "released=$(jq -r .released "$RUNNER_TEMP/prepare.json")" >> "$GITHUB_OUTPUT"
+          released=$(jq -r .released "$RUNNER_TEMP/prepare.json")
+          case "$released" in
+            true | false) ;;
+            *) echo "::error::release.mjs prepare printed no released flag (got '$released')"; exit 1 ;;
+          esac
+          echo "released=$released" >> "$GITHUB_OUTPUT"
           echo "version=$(jq -r '.version // empty' "$RUNNER_TEMP/prepare.json")" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v6
         if: steps.prepare.outputs.released == 'true'

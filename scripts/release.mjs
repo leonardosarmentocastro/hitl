@@ -3,9 +3,9 @@
 // from the pull requests merged into main whether a release is due and, if so, writes the four
 // release files. Exit: 0 ok · 1 usage · 2 error · 3 refused. A refusal writes nothing.
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { changelogSections, emit, parseArgs } from "../installer/lib.mjs";
 
 const USAGE = "usage: release.mjs prepare --repo <path> --prs <file>";
@@ -143,7 +143,13 @@ export function run(command, args) {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Compare realpaths: Node resolves symlinks in import.meta.url but not in argv[1].
+const isMain =
+  process.argv[1] !== undefined &&
+  existsSync(process.argv[1]) &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+
+if (isMain) {
   const [command, ...rest] = process.argv.slice(2);
   emit(run(command, parseArgs(rest)));
 }

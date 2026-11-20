@@ -1,6 +1,7 @@
 // scripts/__tests__/release-prepare.test.ts — `scripts/release.mjs prepare`, against temporary
 // git repositories.
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { cpSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as prettier from "prettier";
@@ -63,6 +64,17 @@ describe("release.mjs prepare — nothing to release", () => {
     expect(release(["prepare", "--repo", repo, "--prs", prsFile(prs)]).out).toEqual({
       released: false,
     });
+  });
+  it("runs when started through a symlinked checkout path", () => {
+    const link = join(mkdtempSync(join(tmpdir(), "hitl-release-link-")), "checkout");
+    symlinkSync(process.cwd(), link);
+    const r = spawnSync(
+      process.execPath,
+      [join(link, "scripts/release.mjs"), "prepare", "--repo", releaseRepo(), "--prs", prsFile([])],
+      { encoding: "utf8" },
+    );
+    expect(r.status, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual({ released: false });
   });
   it("prints usage for an unknown command or a missing argument", () => {
     expect(release(["nope"]).status).toBe(1);
