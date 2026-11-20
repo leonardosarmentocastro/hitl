@@ -1,5 +1,7 @@
 // scripts/__tests__/release-publish.test.ts — `scripts/release.mjs target` and `notes`, against
 // temporary git repositories.
+import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { commit, git, release, releaseRepo } from "./helpers/release-repo";
 
@@ -50,5 +52,27 @@ describe("release.mjs target", () => {
       status: 3,
       out: { refused: "version-not-on-main", version: "9.9.9" },
     });
+  });
+});
+
+describe("release.mjs notes", () => {
+  const changelog =
+    "# Changelog\n\n## Unreleased\n\n- later\n\n## 0.4.0\n\n- by hand\n\n- Add (#5)\n\n## 0.3.5\n\n## 0.3.0\n\n- three\n";
+  it("prints the section body of the version", () => {
+    const repo = releaseRepo({ changelog });
+    expect(release(["notes", "--repo", repo, "--version", "0.4.0"])).toEqual({
+      status: 0,
+      out: { version: "0.4.0", notes: "- by hand\n\n- Add (#5)" },
+    });
+  });
+  it("refuses a version with no section, an empty section, or no changelog", () => {
+    const repo = releaseRepo({ changelog });
+    for (const v of ["0.5.0", "0.3.5", "Unreleased"]) {
+      const r = release(["notes", "--repo", repo, "--version", v]);
+      expect(r.status, v).toBe(3);
+      expect(r.out.refused, v).toBe("no-notes");
+    }
+    rmSync(join(repo, "CHANGELOG.md"));
+    expect(release(["notes", "--repo", repo, "--version", "0.4.0"]).status).toBe(3);
   });
 });

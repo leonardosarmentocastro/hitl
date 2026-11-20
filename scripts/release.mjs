@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // This repository's release chores (never rendered into a target repository). `prepare` decides
 // from the pull requests merged into main whether a release is due and, if so, writes the four
-// release files. `target` names the commit a version's tag belongs on. Exit: 0 ok · 1 usage ·
-// 2 error · 3 refused. A refusal writes nothing.
+// release files. `target` names the commit a version's tag belongs on and `notes` prints a
+// version's changelog section. Exit: 0 ok · 1 usage · 2 error · 3 refused. A refusal writes
+// nothing.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { changelogSections, emit, parseArgs } from "../installer/lib.mjs";
 
 const USAGE =
-  "usage: release.mjs prepare --repo <path> --prs <file> | target --repo <path> --version <x.y.z>";
+  "usage: release.mjs prepare --repo <path> --prs <file> | target --repo <path> --version <x.y.z> | notes --repo <path> --version <x.y.z>";
 
 /** True when `oid` is an ancestor of `ref`; an unknown commit is never one. */
 function isAncestor(repo, oid, ref) {
@@ -170,9 +171,22 @@ function target({ repo, version }) {
   return refuse({ refused: "version-not-on-main", version });
 }
 
+/** The trimmed body of `## <version>` in CHANGELOG.md; refused when missing or empty. */
+function notes({ repo, version }) {
+  const changelogPath = join(repo, "CHANGELOG.md");
+  const noNotes = refuse({ refused: "no-notes", version });
+  if (!/^\d+\.\d+\.\d+$/.test(version) || !existsSync(changelogPath)) return noNotes;
+  const section = changelogSections(readFileSync(changelogPath, "utf8")).find(
+    (s) => s.version === version,
+  );
+  if (!section || section.text === "") return noNotes;
+  return { code: 0, out: { version, notes: section.text } };
+}
+
 const COMMANDS = {
   prepare: { required: ["repo", "prs"], fn: prepare },
   target: { required: ["repo", "version"], fn: target },
+  notes: { required: ["repo", "version"], fn: notes },
 };
 
 export function run(command, args) {
