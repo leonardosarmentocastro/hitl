@@ -1,7 +1,7 @@
 # Automatic releases — design
 
 **Review mode:** simple
-**Reviewed:** round 1 (2026-11-19).
+**Reviewed:** round 1 (2026-11-19) · round 2 (2026-11-19).
 
 ## Intent
 
@@ -45,7 +45,8 @@ remember — no version to pick, no changelog entry to write.
 
 - Running the gates on pull requests (a general CI). Only a run that releases executes them.
 - Major versions. Nothing in a branch prefix says "breaking"; a major is cut by hand when
-  1.0 comes (raise the three files and tag, as today).
+  1.0 comes: a pull request raises the three files and adds the `## <version>` section, and
+  `release-publish` tags it.
 - Releasing commits pushed to `main` without a pull request.
 - Publishing anywhere other than this repository (no npm, no other marketplace).
 
@@ -91,9 +92,13 @@ Where the release signal and the notes come from:
 
 ### Which pull requests are unreleased
 
-A pull request is *unreleased* when it is merged into `main` and its merge commit is not an
-ancestor of the tag `v<current version>`. Ancestry, not dates, so a pull request merged
-while a release run is in flight is picked up by the next run, never lost.
+A pull request is *unreleased* when it is merged into `main`, its merge commit is in the
+checked-out history of `main`, and that commit is not an ancestor of the tag
+`v<current version>`. Ancestry, not dates, so a pull request merged while a release run is
+in flight (its merge commit is not in that run's checkout, or not yet known) is left for the
+next run, never lost and never released twice.
+
+Titles are trusted as release notes because only a maintainer merges into `main`.
 
 ### The release script — `scripts/release.mjs`
 
@@ -118,7 +123,7 @@ against temporary git repositories.
   - `CHANGELOG.md`: a new `## <next>` section is inserted between `## Unreleased` and the
     newest released section; `## Unreleased` stays the first section and is left empty. The
     new section's body is, in order: whatever text stood under `## Unreleased` (may be
-    none), then one line per unreleased `feat/` and `fix/` pull request, oldest first:
+    none), then one line per unreleased `feat/` and `fix/` pull request, in number order:
     `- <title> (#<number>)`. Pull requests with any other prefix are not listed. No released
     section changes.
   - `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`: the version string
@@ -137,12 +142,19 @@ against temporary git repositories.
   (`Unreleased` first, versions newest first, the three versions equal the newest section),
   and that Prettier accepts the two `.claude-plugin` files.
 
+**`target --version <x.y.z>`** — prints the commit a version's tag belongs on: the oldest
+commit in `main`'s first-parent history at which `.claude-plugin/plugin.json` holds that
+version. For an automatic release that is the `chore(release)` commit; for a version raised
+by hand in a pull request it is that pull request's merge into `main`. Non-zero when no
+commit holds it.
+
 **`notes --version <x.y.z>`** — prints that version's changelog section body, using
 `changelogSections`. Non-zero when the section is missing or empty.
 
 ### Workflow 1 — `.github/workflows/release-prepare.yml`
 
-- Trigger: `push` to `main`. Its own `concurrency` group, never cancelling a run in
+- Triggers: `push` to `main`; and `workflow_dispatch`, the catch-up — started by
+  `release-publish` (below) or by a human. Its own `concurrency` group, never cancelling a run in
   progress; a waiting run replaced by a newer one loses nothing, because every run reads the
   head of `main` and all unreleased pull requests. Permissions: `contents: write`,
   `pull-requests: read`.
@@ -155,23 +167,34 @@ against temporary git repositories.
   is lost, since the pull requests stay unreleased for the next run.
 - No loop: a push made with `GITHUB_TOKEN` starts no workflow, and the release commit
   belongs to no pull request.
-- A push whose head commit message carries `[skip ci]` starts no run; the next push
-  releases what it skipped.
+- A push whose head commit message carries `[skip ci]` starts no run. The wipe commit
+  carries it, so the rule is: the wipe pull request and the pull request into `main` are
+  merged with a merge commit (as every one has been so far), never squashed or rebased —
+  the head commit of the push is then GitHub's merge commit. If a push is skipped anyway,
+  nothing fails and nothing is lost: the next push, or a human starting `release-prepare`
+  from the Actions tab, releases what was skipped.
 
 ### Workflow 2 — `.github/workflows/release-publish.yml`
 
 - Triggers: `workflow_run` of `release-prepare`, `completed`, whatever its conclusion; and
   `workflow_dispatch`, the retry. `workflow_run` is used because the release commit's own
   push cannot start a workflow. Its own `concurrency` group.
-  `permissions: contents: write`.
+  Permissions: `contents: write`, `actions: write`.
 - Steps: check out `main` with full history and tags; read the version from
   `.claude-plugin/plugin.json`. Then, independently:
-  - if the tag `v<version>` is missing, create it on the commit that set this version in
-    `plugin.json` and push it;
+  - if the tag `v<version>` is missing, create it on the commit `target` prints and push it;
   - if the GitHub Release `v<version>` is missing, create it with the output of `notes` as
     its body.
+- Then, only when this run created the tag, it starts `release-prepare` once
+  (`workflow_dispatch`). A `release-prepare` run that began before the tag existed refused
+  and failed; this catch-up releases the pull requests that run left behind, also after a
+  human retried a failed publish. It ends by itself: the catch-up either releases (one more
+  round) or releases nothing, and a publish run that creates no tag starts nothing.
 - Idempotent: it runs after every `release-prepare` and does nothing when both exist. It
   never tags a version other than the current one.
+- A failed publish shows as a red run, which GitHub reports to the maintainer; until it is
+  retried, every `release-prepare` refuses, red as well. Nothing is released half-way in
+  silence.
 
 ### Documentation
 
@@ -202,6 +225,8 @@ against temporary git repositories.
 - That run is also the first time the test suite executes on a GitHub runner. If a gate
   fails there for a reason unrelated to the release, nothing is released; the fix arrives as
   an ordinary pull request and its merge releases everything pending.
+- After the first release, the human starts `release-publish` once from the Actions tab and
+  watches it do nothing: the retry path, observed.
 
 ## Known consequences
 
@@ -210,6 +235,9 @@ against temporary git repositories.
 - Release notes are as good as pull request titles. A note that needs more than a title —
   an instruction to upgrade by hand — goes under `## Unreleased`, and that is optional and
   subject to the misplaced-bullet risk described under approach Z.
+- Any pull request merged into `main` from a `feat/` or `fix/` branch counts, whatever the
+  rest of its name. A slice or wipe pull request that GitHub retargets to `main` and that
+  is merged there would be released under its own title.
 - More than 100 pull requests merged between two releases would hide the oldest from
   `prepare`. Not expected at this repository's pace.
 
@@ -221,6 +249,11 @@ against temporary git repositories.
   text there is carried as written.
 - *Forwarded to the plan gate:* `prepare` refuses a current version that is not plain
   `x.y.z`.
+- *Forwarded to the plan gate:* the pull request listing must be the most recently
+  *merged*, not the most recently created.
+- Round 2, finding 1 (a `prepare` run that starts before the previous version is tagged):
+  publish starts `release-prepare` after creating a tag; `prepare` keeps refusing rather
+  than tagging itself, so tagging stays in one place.
 
 ## Left to the builder
 
@@ -236,5 +269,5 @@ against temporary git repositories.
 1. **prepare** — a merged `feat/` or `fix/` pull request becomes a release commit:
    `scripts/release.mjs prepare`, its tests, `release-prepare.yml`, the `AGENTS.md` section.
 2. **publish** — a released version on `main` gets its tag and GitHub Release:
-   `scripts/release.mjs notes`, its tests, `release-publish.yml`, the `README.md` section,
+   `scripts/release.mjs target` and `notes`, their tests, `release-publish.yml`, the `README.md` section,
    the rest of the `AGENTS.md` section.
