@@ -230,6 +230,11 @@ documents.
 - A spec may carry a **`**Review mode:**`** line in its header block —
   `simple`, `elaborate` or `complete` (see § Review modes). Case, surrounding whitespace and one trailing period are
   ignored; any other value is refused, never read as simple.
+- A spec may carry a **`**Ticket:**`** line in its header block — `none`, or one Markdown
+  link `[<label>](<url>)` to the feature's ticket in any tracker. `/hitl:review-spec` asks for it
+  once, when a spec has no line and no review recorded yet; otherwise only the human changes
+  it. hitl never fetches from the tracker. A malformed line is refused at the spec gate and
+  skipped, with a report, when a PR body is written — it never stops an implementation run.
 - Every slice plan declares **`**Owns:**`** in its header block — the lines between
   the `#` title and the first `##` heading — stating the one capability that slice is
   responsible for. The handover agent copies it into the stack table's `owns` column,
@@ -306,6 +311,8 @@ repo-specific reviewer context comes from the project memory (its `review-contex
   How section.
 - Exempt from this section's rules: the generated wipe PR, whose body is written by
   `wipe.mjs`, and the upgrade PR `/hitl:diff --apply` opens, whose body is a merge report.
+- When the feature's spec has a ticket, every slice PR and the umbrella PR open with it as a
+  clickable title above `## TL;DR`: `### [<label>](<url>)`. No ticket, no line.
 - A slice PR shows `## Needs you` after `## Why` only when one of these happened, one line
   each, and nothing else is ever written there: a deferred gap the reviewer marked 🟠; "The
   security follow-up did not run for this slice."; an allowed plan edit the implementer made.
@@ -394,6 +401,7 @@ one together with its parser, by PR.
 - The `**Reviewed:**` header line of a spec or plan — the Stop hook and the review commands.
 - The `**Owns:**` header line of a slice plan — the handover agent and the slice reviewer.
 - The `**Review mode:**` header line of a spec — `/hitl:review-spec`, `/hitl:review-slice` and `/hitl:implement-stack`.
+- The `**Ticket:**` header line of a spec — `/hitl:review-spec`, `/hitl:implement-stack` and the handover agent.
 - The `Plan:` line of a PR body — the slice reviewer.
 - The spec and plan filename patterns `<YYYY-MM-DD>-<topic>-design.md` and
   `<YYYY-MM-DD>-<feature>-slice-<N>-<label>.md` — the review commands, the handover agent.

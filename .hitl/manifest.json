@@ -24,7 +24,7 @@
     ".claude/fixtures/spec-fixture-design.md": "cbd4e622259ec14bfe21c9901a6e05c55c5865dfc5056a47f6c7cdad83d5ca7b",
     ".claude/fixtures/spec-fixture-elaborate-design.md": "0032eacfab766e5ed4e93a05b7516440f9bd4c6f3d752fb86ca1c43876aa92ac",
     ".claude/hooks/unreviewed-artifact.sh": "9f754e246f4e4bab44f84b36011cd2dc92627fda1ce4553a25f2e04d65ed454e",
-    ".hitl/HITL.md": "f81a7f753701781c72022d836553aea178bc4bce060ec65bdb7aab81b6e7b336",
+    ".hitl/HITL.md": "291afeff9fd6f7c97b2127ce4b48acfa68a93f978f5c7e6c4dc4e91a8b905336",
     ".hitl/review-context.md": "d81b7b6bee52f2bfd6af66af8f2da3e119b7a8922986747db48a0f1f2182fdc2",
     "scripts/hitl/backend.sh": "65b10f8b2ede1738f49c7221e2a1cf67432279eac026edb893cd4481f0e69df8",
     "scripts/hitl/pr.sh": "55d6de45b491a5c515d51ae5331e0d34c60bc835bb8a018ddc7989c7e0304ff1",

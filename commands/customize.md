@@ -39,7 +39,7 @@ rule. `grep -rn --exclude-dir=worktrees "hitl:knob <id>" .hitl/ AGENTS.md .claud
 ## 1. Refuse an invariant
 
 If the human asks to change anything in `## Load-bearing invariants` — the `**Reviewed:**`
-line, the `**Owns:**` line, the `**Review mode:**` line, the `Plan:` line, the spec and plan filename patterns, the
+line, the `**Owns:**` line, the `**Review mode:**` line, the `**Ticket:**` line, the `Plan:` line, the spec and plan filename patterns, the
 stack-table columns, the seven finding-type names, the `docs/superpowers/` path — reply
 exactly: "that is a load-bearing invariant; change it together with its parser, by PR" and
 change nothing. Renaming a finding type is such a request; redefining a severity is not.

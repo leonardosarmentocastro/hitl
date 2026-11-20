@@ -172,4 +172,17 @@ describe("the ticket in the prompts", () => {
         '"${CLAUDE_PLUGIN_ROOT}/runtime/ticket.sh" <every Spec(s): path>',
       );
   });
+
+  it("the doctrine defines the Ticket line and names it load-bearing", () => {
+    const doc = renderAll(ROOT, THIS_REPO_CHOICES).get(".hitl/HITL.md")!.content;
+    const specs = doc.slice(doc.indexOf("## Specs and plans"), doc.indexOf("## Review gates"));
+    expect(specs).toContain("`**Ticket:**`");
+    const pr = doc.slice(doc.indexOf("## Pull requests"), doc.indexOf("## Delivery slices"));
+    expect(pr).toContain("`### [<label>](<url>)`");
+    const inv = doc.slice(doc.indexOf("## Load-bearing invariants"));
+    expect(inv).toContain("The `**Ticket:**` header line of a spec");
+    expect(readFileSync(join(ROOT, "commands/customize.md"), "utf8")).toContain(
+      "the `**Ticket:**` line",
+    );
+  });
 });
