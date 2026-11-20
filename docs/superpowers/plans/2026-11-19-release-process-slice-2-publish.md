@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-19).
+
 **Owns:** a released version on `main` gets its tag `v<version>` and its GitHub Release, retryable on its own, and users are told how to receive it.
 
 **Goal:** `scripts/release.mjs target` and `notes` answer "which commit gets the tag" and "what are this version's notes"; `release-publish.yml` uses them to create the tag and the GitHub Release after every `release-prepare` run, then restarts `release-prepare` once when it created a tag.
@@ -175,7 +177,7 @@ git commit -m "feat(release): notes prints a version's changelog section"
 **Files:**
 - Create: `.github/workflows/release-publish.yml`
 - Modify: `AGENTS.md` (the **Releasing.** section slice 1 wrote — append)
-- Modify: `README.md` (a new "Updating" section)
+- Modify: `README.md` (the existing "## Make it yours, keep it current" section)
 
 No test: workflow YAML is validated by the human watching it run; the rest is prose.
 
@@ -245,11 +247,11 @@ jobs:
           node scripts/release.mjs notes --repo . --version "$VERSION" | jq -r .notes > "$RUNNER_TEMP/notes.md"
           gh release create "v$VERSION" --title "v$VERSION" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
       - name: Catch up pull requests merged while this version had no tag
-        if: steps.tag.outputs.created == 'true'
+        if: ${{ !cancelled() && steps.tag.outputs.created == 'true' }}
         run: gh workflow run release-prepare.yml --ref main
 ```
 
-`target` and `notes` exit non-zero on a refusal; with `shell: bash` the step runs under `set -eo pipefail`, so the pipe into `jq` fails the step and nothing is tagged or released from a refusal. The catch-up runs only when this run created the tag, so the two workflows cannot loop: a `release-prepare` that releases nothing leads to a `release-publish` that creates nothing.
+`target` and `notes` exit non-zero on a refusal; with `shell: bash` the step runs under `set -eo pipefail`, so the pipe into `jq` fails the step and nothing is tagged or released from a refusal. The catch-up runs whenever this run created the tag — also when the Release step after it failed (`!cancelled()`), because a retry would find the tag present and never catch up — and only then, so the two workflows cannot loop: a `release-prepare` that releases nothing leads to a `release-publish` that creates nothing.
 
 - [ ] **Step 2: Append to the Releasing section of `AGENTS.md`**
 
@@ -259,15 +261,16 @@ jobs:
   that version's changelog section (`scripts/release.mjs notes`). `/hitl:diff` needs the
   tag: it reads the marketplace at `v<recorded version>` and refuses without it.
 - **A failed publish:** start `release-publish` from the Actions tab. It creates whichever
-  of the tag and the Release is missing, then starts `release-prepare` itself. Until the
+  of the tag and the Release is missing and, if it created the tag, starts `release-prepare`
+  itself. Until the
   version is tagged, `release-prepare` refuses (`tag-missing`) and its runs are red.
 - **A major version** is raised by hand, in a pull request that changes the three version
   files and adds the `## <version>` section; `release-publish` tags it when it merges.
 ```
 
-- [ ] **Step 3: Add the "Updating" section to `README.md`**
+- [ ] **Step 3: Say in `README.md` how a new version arrives**
 
-Read `commands/help.md` for the update commands it prints and re-check the Claude Code documentation (`code.claude.com/docs/en/plugins/install.md`, "Keep plugins updated") before writing; use the same commands `/hitl:help` prints. Place the section after the install instructions. Content, in the README's own voice:
+Read `commands/help.md` for the update commands it prints and re-check the Claude Code documentation (`code.claude.com/docs/en/plugins/install.md`, "Keep plugins updated") before writing; use the same commands `/hitl:help` prints. The README already has "## Make it yours, keep it current", which covers `/hitl:diff` and `/hitl:help`: add to that section, before its `/hitl:diff` part, rather than opening a second one. Content, in the README's own voice:
 
 - Every feature or fix merged here is released automatically; a new version exists within minutes of the merge.
 - Claude Code does not update plugins from this marketplace by itself by default. To turn that on once: `/plugin` → **Marketplaces** → `hitl` → enable auto-update. Claude Code then updates shortly after a session starts.

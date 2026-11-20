@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Reviewed:** round 1 (2026-11-19).
+
 **Owns:** a merged `feat/` or `fix/` pull request becomes a release commit on `main` — version raised in the three files, a new changelog section from the pull request titles.
 
 **Goal:** `scripts/release.mjs prepare` decides from the merged pull requests whether to release and writes the four files; `release-prepare.yml` runs it on every push to `main` and commits the result.
@@ -93,7 +95,7 @@ Expected: FAIL — `scripts/release.mjs` does not exist.
 
 - [ ] **Step 3: Implement the helper, the CLI shell and the unreleased filter**
 
-In `scripts/release.mjs`: `unreleasedPrs(repo, prs, version)` keeps a pull request when `mergeCommit?.oid` is an ancestor of `HEAD` and not an ancestor of `v<version>` (`git -C <repo> merge-base --is-ancestor <oid> <ref>`: exit `0` ancestor, `1` not; any other exit — an unknown commit — counts as "not in this checkout"). The prefix is the text of `headRefName` before the first `/`; a name without `/` has no prefix. `prepare` returns `{ released: false }` when no kept pull request has prefix `feat` or `fix`.
+In `scripts/release.mjs`: `unreleasedPrs(repo, prs, version)` keeps a pull request when `mergeCommit?.oid` is an ancestor of `HEAD` and not an ancestor of `v<version>` (`git -C <repo> merge-base --is-ancestor <oid> <ref>`: exit `0` ancestor, `1` not; any other exit — an unknown commit — counts as "not in this checkout"). The prefix is the text of `headRefName` before the first `/`; a name without `/` has no prefix. `prepare` returns `{ released: false }` when no kept pull request has prefix `feat` or `fix`. These tests cannot tell the filter from a constant `released: false` until Task 2 adds the release path; implement the filter now all the same — Task 2's tests mix released, foreign-prefix and unreleased pull requests and prove it.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -115,7 +117,7 @@ git commit -m "feat(release): prepare releases nothing without an unreleased fea
 
 **Interfaces:**
 - Consumes: Task 1's helper and `unreleasedPrs`.
-- Produces: `export function nextVersion(current: string, prefixes: string[]): { version: string; bump: "minor" | "patch" } | null` — any `"feat"` → minor (`0.3.0` → `0.4.0`, patch reset to 0); otherwise any `"fix"` → patch (`0.3.0` → `0.3.1`); otherwise `null`. `prepare` output on release: `{ released: true, version, bump, prs: number[] }` (`prs` = the listed numbers, ascending).
+- Produces: `export function nextVersion(current: string, prefixes: string[]): { version: string; bump: "minor" | "patch" } | null` — any `"feat"` → minor (`0.3.0` → `0.4.0`, patch reset to 0); otherwise any `"fix"` → patch (`0.3.0` → `0.3.1`); otherwise `null`. `prepare` output on release: `{ released: true, version, bump, prs: number[] }` (`prs` = the listed numbers, ascending — an addition to the spec's output line, for the run log; the workflow reads only `released` and `version`).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -196,8 +198,19 @@ One `it` per reason. Each builds `releaseRepo(...)` with one unreleased `feat/` 
 ```ts
 const cases: [string, (repo: string) => void][] = [
   ["versions-disagree", (repo) => commit(repo, "x", { ".hitl/manifest.json": '{\n  "version": "0.2.0"\n}\n' })],
-  ["bad-version", (repo) => { /* all three files at "0.3.0-rc.1", tag v0.3.0-rc.1 */ }],
+  ["bad-version", (repo) => {
+    commit(repo, "x", {
+      ".claude-plugin/plugin.json": '{\n  "name": "hitl",\n  "version": "0.3.0-rc.1"\n}\n',
+      ".claude-plugin/marketplace.json": '{\n  "plugins": [{ "name": "hitl", "version": "0.3.0-rc.1", "source": "./" }]\n}\n',
+      ".hitl/manifest.json": '{\n  "version": "0.3.0-rc.1"\n}\n',
+    });
+    git(repo, "tag", "v0.3.0-rc.1");
+  }],
   ["no-unreleased-section", (repo) => commit(repo, "x", { "CHANGELOG.md": "# Changelog\n\n## 0.3.0\n\n- three\n" })],
+  // present, but not the first section
+  ["no-unreleased-section", (repo) => commit(repo, "x", { "CHANGELOG.md": "# Changelog\n\n## 0.3.0\n\n- three\n\n## Unreleased\n" })],
+  // the version string occurs zero times in the expected `"version": "<current>"` form
+  ["version-not-found", (repo) => commit(repo, "x", { ".hitl/manifest.json": '{"version":"0.3.0"}\n' })],
   ["section-exists", (repo) => commit(repo, "x", { "CHANGELOG.md": "# Changelog\n\n## Unreleased\n\n## 0.4.0\n\n- early\n\n## 0.3.0\n\n- three\n" })],
   ["version-not-found", (repo) => commit(repo, "x", { ".claude-plugin/plugin.json": '{\n  "version": "0.3.0",\n  "x": { "version": "0.3.0" }\n}\n' })],
 ];
@@ -222,7 +235,7 @@ it("exits 2 when the pull request file is missing or not JSON", () => {
 });
 ```
 
-The `tag-missing`, `versions-disagree` and `bad-version` checks run before the pull requests are read, so they refuse even when nothing would be released; `section-exists` and `version-not-found` only when a release is due.
+The `versions-disagree`, `bad-version`, `tag-missing` and `no-unreleased-section` checks run, in that order, before the pull requests are read, so they refuse even when nothing would be released; `section-exists` and `version-not-found` only when a release is due. In each case the breakage is committed *after* the unreleased pull request's commit, so the pull request stays unreleased.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -253,6 +266,8 @@ git commit -m "feat(release): prepare refuses an untagged, inconsistent or alrea
 - Consumes: `changelogSections`, `compareVersions`, `pluginVersion` from `installer/lib.mjs`; `prettier` (already a dev dependency).
 
 - [ ] **Step 1: Write the test**
+
+This is a characterization test: it is written after the behaviour exists and has no red step. It is the spec's named proof that a release keeps the gates green, which temporary fixtures alone cannot show.
 
 ```ts
 it("on a copy of this repository's own four files, keeps what the changelog and manifest tests assert", async () => {
@@ -304,6 +319,7 @@ git commit -m "test(release): prepare keeps this repository's changelog, version
 **Files:**
 - Create: `.github/workflows/release-prepare.yml`
 - Modify: `AGENTS.md` (the **Releasing.** paragraph, lines 50–54)
+- Modify: `scripts/__tests__/changelog.test.ts` (one test title)
 
 No test: workflow YAML is validated by the human watching the first run; `AGENTS.md` is prose.
 
@@ -380,7 +396,7 @@ jobs:
           git push origin HEAD:main
 ```
 
-`--search "sort:updated-desc"` lists the most recently updated pull requests first, so the window holds the most recently *merged* ones, not the most recently created (forwarded from the spec review).
+`--search "sort:updated-desc"` lists the most recently *updated* pull requests first, where the default is the most recently created (forwarded from the spec review). Updated is not the same as merged — a comment on an old pull request moves it up — but a merge is itself an update, so a pull request merged since the last release can only fall outside the window if 100 other merged pull requests were touched after it.
 
 - [ ] **Step 2: Replace the Releasing paragraph in `AGENTS.md`**
 
@@ -405,14 +421,18 @@ into `CHANGELOG.md` and commits `chore(release): <version>`.
   the Actions tab.
 ```
 
-- [ ] **Step 3: Run both gates**
+- [ ] **Step 3: Rename the test that names the old rule**
+
+In `scripts/__tests__/changelog.test.ts`, the case `"a release renames Unreleased"` keeps its body and becomes `"while Unreleased holds a note, the plugin version is still the newest released section"`. Nothing else in that file states the hand-written duty.
+
+- [ ] **Step 4: Run both gates**
 
 Run: `pnpm test && pnpm format:check`
 Expected: both pass (`pnpm format` if Prettier reports the YAML).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add .github/workflows/release-prepare.yml AGENTS.md
+git add .github/workflows/release-prepare.yml AGENTS.md scripts/__tests__/changelog.test.ts
 git commit -m "feat(release): release-prepare commits a release on every push to main that carries one"
 ```
