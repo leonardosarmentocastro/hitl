@@ -71,10 +71,11 @@ into `CHANGELOG.md` and commits `chore(release): <version>`.
   tag: it reads the marketplace at `v<recorded version>` and refuses without it.
 - **A failed publish:** start `release-publish` from the Actions tab. It creates whichever
   of the tag and the Release is missing and, if it created the tag, starts `release-prepare`
-  itself. Until the
-  version is tagged, `release-prepare` refuses (`tag-missing`) and its runs are red.
+  itself. Until the version is tagged, `release-prepare` refuses (`tag-missing`) and its runs
+  are red.
 - **A major version** is raised by hand, in a pull request that changes the three version
-  files and adds the `## <version>` section; `release-publish` tags it when it merges.
+  files and adds the `## <version>` section. Its merge first gives a red `release-prepare` run
+  (`tag-missing`), which is expected: the `release-publish` run that follows tags it.
 
 ## Test-driven development, here
 
