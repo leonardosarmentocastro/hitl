@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { emit, parseArgs, pluginVersion } from "../installer/lib.mjs";
+import { changelogSections, emit, parseArgs } from "../installer/lib.mjs";
 
 const USAGE = "usage: release.mjs prepare --repo <path> --prs <file>";
 
@@ -64,9 +64,43 @@ function withSection(text, version, prs) {
   return `${head}\n\n## ${version}\n\n${body}\n${rest ? `\n${rest}\n` : ""}`;
 }
 
+function tagExists(repo, tag) {
+  return (
+    spawnSync("git", ["-C", repo, "rev-parse", "--verify", "--quiet", `refs/tags/${tag}`])
+      .status === 0
+  );
+}
+
+function readJson(repo, file) {
+  return JSON.parse(readFileSync(join(repo, file), "utf8"));
+}
+
+const refuse = (out) => ({ code: 3, out });
+
 function prepare({ repo, prs: prsPath }) {
-  const version = pluginVersion(repo);
-  const prs = JSON.parse(readFileSync(prsPath, "utf8"));
+  const versions = {
+    plugin: readJson(repo, ".claude-plugin/plugin.json").version,
+    marketplace: readJson(repo, ".claude-plugin/marketplace.json").plugins?.[0]?.version,
+    manifest: readJson(repo, ".hitl/manifest.json").version,
+  };
+  const version = versions.plugin;
+  if (versions.marketplace !== version || versions.manifest !== version) {
+    return refuse({ refused: "versions-disagree", versions });
+  }
+  if (!/^\d+\.\d+\.\d+$/.test(version)) return refuse({ refused: "bad-version", version });
+  if (!tagExists(repo, `v${version}`))
+    return refuse({ refused: "tag-missing", tag: `v${version}` });
+  const changelogPath = join(repo, "CHANGELOG.md");
+  const changelog = readFileSync(changelogPath, "utf8");
+  const sections = changelogSections(changelog);
+  if (sections[0]?.version !== "Unreleased") return refuse({ refused: "no-unreleased-section" });
+
+  let prs;
+  try {
+    prs = JSON.parse(readFileSync(prsPath, "utf8"));
+  } catch (e) {
+    return { code: 2, out: { error: `cannot read the pull request list: ${e.message}` } };
+  }
   const listed = unreleasedPrs(repo, prs, version).filter((pr) =>
     ["feat", "fix"].includes(prefixOf(pr.headRefName)),
   );
@@ -77,12 +111,20 @@ function prepare({ repo, prs: prsPath }) {
   if (!next) return { code: 0, out: { released: false } };
   listed.sort((a, b) => a.number - b.number);
 
-  const changelog = join(repo, "CHANGELOG.md");
-  writeFileSync(changelog, withSection(readFileSync(changelog, "utf8"), next.version, listed));
+  if (sections.some((sec) => sec.version === next.version)) {
+    return refuse({ refused: "section-exists", version: next.version });
+  }
+  const current = `"version": "${version}"`;
+  const texts = {};
   for (const f of VERSION_FILES) {
-    const path = join(repo, f);
-    const text = readFileSync(path, "utf8");
-    writeFileSync(path, text.replace(`"version": "${version}"`, `"version": "${next.version}"`));
+    texts[f] = readFileSync(join(repo, f), "utf8");
+    if (texts[f].split(current).length !== 2)
+      return refuse({ refused: "version-not-found", file: f });
+  }
+
+  writeFileSync(changelogPath, withSection(changelog, next.version, listed));
+  for (const f of VERSION_FILES) {
+    writeFileSync(join(repo, f), texts[f].replace(current, `"version": "${next.version}"`));
   }
   return { code: 0, out: { released: true, ...next, prs: listed.map((pr) => pr.number) } };
 }
@@ -94,7 +136,11 @@ export function run(command, args) {
   if (!spec || !args || spec.required.some((k) => typeof args[k] !== "string")) {
     return { code: 1, out: { error: USAGE } };
   }
-  return spec.fn(args);
+  try {
+    return spec.fn(args);
+  } catch (e) {
+    return { code: 2, out: { error: String(e.message) } };
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

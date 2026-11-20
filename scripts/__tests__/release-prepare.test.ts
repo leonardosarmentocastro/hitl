@@ -1,6 +1,7 @@
 // scripts/__tests__/release-prepare.test.ts — `scripts/release.mjs prepare`, against temporary
 // git repositories.
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { nextVersion } from "../release.mjs";
@@ -141,5 +142,133 @@ describe("release.mjs prepare — a release", () => {
     expect(read(repo, "CHANGELOG.md")).toBe(
       "# Changelog\n\n## Unreleased\n\n## 0.4.0\n\n- by hand\n\n- Add (#5)\n\n## 0.3.0\n\n- three\n",
     );
+  });
+});
+
+describe("release.mjs prepare — refusals and errors", () => {
+  const cases: [string, (repo: string) => void][] = [
+    [
+      "versions-disagree",
+      (repo) => commit(repo, "x", { ".hitl/manifest.json": '{\n  "version": "0.2.0"\n}\n' }),
+    ],
+    [
+      "bad-version",
+      (repo) => {
+        commit(repo, "x", {
+          ".claude-plugin/plugin.json": '{\n  "name": "hitl",\n  "version": "0.3.0-rc.1"\n}\n',
+          ".claude-plugin/marketplace.json":
+            '{\n  "plugins": [{ "name": "hitl", "version": "0.3.0-rc.1", "source": "./" }]\n}\n',
+          ".hitl/manifest.json": '{\n  "version": "0.3.0-rc.1"\n}\n',
+        });
+        git(repo, "tag", "v0.3.0-rc.1");
+      },
+    ],
+    [
+      "no-unreleased-section",
+      (repo) => commit(repo, "x", { "CHANGELOG.md": "# Changelog\n\n## 0.3.0\n\n- three\n" }),
+    ],
+    // present, but not the first section
+    [
+      "no-unreleased-section",
+      (repo) =>
+        commit(repo, "x", {
+          "CHANGELOG.md": "# Changelog\n\n## 0.3.0\n\n- three\n\n## Unreleased\n",
+        }),
+    ],
+    // the version string occurs zero times in the expected `"version": "<current>"` form
+    [
+      "version-not-found",
+      (repo) => commit(repo, "x", { ".hitl/manifest.json": '{"version":"0.3.0"}\n' }),
+    ],
+    [
+      "section-exists",
+      (repo) =>
+        commit(repo, "x", {
+          "CHANGELOG.md":
+            "# Changelog\n\n## Unreleased\n\n## 0.4.0\n\n- early\n\n## 0.3.0\n\n- three\n",
+        }),
+    ],
+    // the version string occurs twice
+    [
+      "version-not-found",
+      (repo) =>
+        commit(repo, "x", {
+          ".claude-plugin/plugin.json":
+            '{\n  "version": "0.3.0",\n  "x": { "version": "0.3.0" }\n}\n',
+        }),
+    ],
+  ];
+  for (const [i, [reason, breakIt]] of cases.entries()) {
+    it(`refuses ${reason} (case ${i + 1}) and writes nothing`, () => {
+      const repo = releaseRepo();
+      const sha = commit(repo, "feature");
+      breakIt(repo);
+      expect(git(repo, "status", "--porcelain")).toBe("");
+      const r = release([
+        "prepare",
+        "--repo",
+        repo,
+        "--prs",
+        prsFile([pr(5, "Add", "feat/x", sha)]),
+      ]);
+      expect(r.status).toBe(3);
+      expect(r.out.refused).toBe(reason);
+      expect(git(repo, "status", "--porcelain")).toBe("");
+    });
+  }
+  it("names the disagreeing versions, the existing section and the file without the version", () => {
+    const repo = releaseRepo();
+    const sha = commit(repo, "feature");
+    commit(repo, "x", { ".hitl/manifest.json": '{\n  "version": "0.2.0"\n}\n' });
+    const prs = prsFile([pr(5, "Add", "feat/x", sha)]);
+    expect(release(["prepare", "--repo", repo, "--prs", prs]).out).toEqual({
+      refused: "versions-disagree",
+      versions: { plugin: "0.3.0", marketplace: "0.3.0", manifest: "0.2.0" },
+    });
+    commit(repo, "y", { ".hitl/manifest.json": '{"version":"0.3.0"}\n' });
+    expect(release(["prepare", "--repo", repo, "--prs", prs]).out).toEqual({
+      refused: "version-not-found",
+      file: ".hitl/manifest.json",
+    });
+    commit(repo, "z", {
+      ".hitl/manifest.json": '{\n  "version": "0.3.0"\n}\n',
+      "CHANGELOG.md": "# Changelog\n\n## Unreleased\n\n## 0.4.0\n\n- early\n",
+    });
+    expect(release(["prepare", "--repo", repo, "--prs", prs]).out).toEqual({
+      refused: "section-exists",
+      version: "0.4.0",
+    });
+  });
+  it("refuses while the current version has no tag", () => {
+    const repo = releaseRepo({ tag: false });
+    const r = release([
+      "prepare",
+      "--repo",
+      repo,
+      "--prs",
+      prsFile([pr(5, "Add", "feat/x", commit(repo, "x"))]),
+    ]);
+    expect(r.status).toBe(3);
+    expect(r.out).toEqual({ refused: "tag-missing", tag: "v0.3.0" });
+    expect(git(repo, "status", "--porcelain")).toBe("");
+  });
+  it("refuses an untagged current version even when nothing would be released", () => {
+    const repo = releaseRepo({ tag: false });
+    expect(release(["prepare", "--repo", repo, "--prs", prsFile([])]).out).toEqual({
+      refused: "tag-missing",
+      tag: "v0.3.0",
+    });
+  });
+  it("exits 2 when the pull request file is missing or not JSON", () => {
+    const repo = releaseRepo();
+    const missing = release(["prepare", "--repo", repo, "--prs", "/nonexistent.json"]);
+    expect(missing.status).toBe(2);
+    expect(typeof missing.out.error).toBe("string");
+    const bad = join(mkdtempSync(join(tmpdir(), "hitl-prs-")), "prs.json");
+    writeFileSync(bad, "not json");
+    const notJson = release(["prepare", "--repo", repo, "--prs", bad]);
+    expect(notJson.status).toBe(2);
+    expect(typeof notJson.out.error).toBe("string");
+    expect(git(repo, "status", "--porcelain")).toBe("");
   });
 });
