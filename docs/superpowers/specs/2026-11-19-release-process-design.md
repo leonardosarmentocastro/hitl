@@ -134,9 +134,15 @@ against temp directories.
 - `AGENTS.md`, **Releasing**: replaced by what is true now — a bullet under `## Unreleased`
   is what causes a release; the `**Breaking:**` and `**Fix:**` markers and what each does;
   the two workflows; how to retry a failed publish; never bump a version by hand.
-- `README.md`: how a user gets a new version (the update commands, and automatic updates if
-  Claude Code offers them for this marketplace), stated from the Claude Code documentation,
-  not from memory.
+- `README.md`: how a user gets a new version, as the Claude Code documentation states it
+  (checked 2026-11-19; the builder re-checks the wording against the docs):
+  - Claude Code detects an update by the `version` in `plugin.json`; commits without a
+    version change reach nobody. Tags and GitHub Releases play no part in that — they serve
+    `/hitl:diff` and human readers.
+  - Automatic updates are off by default for a marketplace like this one. Turning them on
+    once: `/plugin` → **Marketplaces** → `hitl` → enable auto-update. Claude Code then
+    updates shortly after a session starts.
+  - By hand: `claude plugin update hitl@hitl`, then a new session or `/reload-plugins`.
 
 ### Rollout
 
