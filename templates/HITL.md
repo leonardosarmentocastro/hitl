@@ -317,6 +317,11 @@ documents.
 - A spec may carry a **`**Review mode:**`** line in its header block —
   `simple`, `elaborate` or `complete` (see § Review modes). Case, surrounding whitespace and one trailing period are
   ignored; any other value is refused, never read as simple.
+- A spec may carry a **`**Ticket:**`** line in its header block — `none`, or one Markdown
+  link `[<label>](<url>)` to the feature's ticket in any tracker. `/review-spec` asks for it
+  once, when a spec has no line and no review recorded yet; otherwise only the human changes
+  it. hitl never fetches from the tracker. A malformed line is refused at the spec gate and
+  skipped, with a report, when a PR body is written — it never stops an implementation run.
 - Every slice plan declares **`**Owns:**`** in its header block — the lines between
   the `#` title and the first `##` heading — stating the one capability that slice is
   responsible for. The handover agent copies it into the stack table's `owns` column,
@@ -399,30 +404,43 @@ repo-specific reviewer context comes from the project memory (its `review-contex
 
 ## Pull requests
 
-- Every PR body includes a line pointing to the slice's plan, so the slice reviewer
-  and human reviewers can check the diff against what was planned:
+- Every slice PR body includes a line pointing to the slice's plan, for the agents that check
+  the diff against what was planned:
 
   `Plan: docs/superpowers/plans/<file>.md`
 
-  Omit only when there is genuinely no plan (e.g. this convention's own bootstrap
-  PR); the reviewer then falls back to searching `docs/superpowers/plans/`.
-  The generated wipe PR is exempt from this rule and the next: its body is written by
-  `wipe.mjs` and has no `Plan:` line and no `## TL;DR`.
-<!-- hitl:knob pr-body-sections -->
-- Every PR body answers, briefly and in plain words (explain it as you would to an
-  intern), concise and realistic — do not invent rationale to fill space; if a section
-  has nothing meaningful to say (e.g. a trivial change), one honest line is fine:
-  - **What** — what this change is.
-  - **Why** — why it is needed.
-  - **How** — the approach taken, and why this one over an alternative *if* a real
-    choice was made.
+  It sits inside the fold (below), on a line of its own. Omit only when there is genuinely no
+  plan (e.g. this convention's own bootstrap PR); the reviewer then falls back to searching
+  `docs/superpowers/plans/`. The umbrella PR carries no `Plan:` line.
+- A section enters a PR body only if it has a reader: the human, above the fold and short, or
+  an agent, inside the fold. A section with neither is not written. There is no What and no
+  How section.
+- Exempt from this section's rules: the generated wipe PR, whose body is written by
+  `wipe.mjs`, and the upgrade PR `/hitl:diff --apply` opens, whose body is a merge report.
+- When the feature's spec has a ticket, every slice PR and the umbrella PR open with it as a
+  clickable title above `## TL;DR`: `### [<label>](<url>)`. No ticket, no line.
+- A slice PR shows `## Needs you` after `## Why` only when one of these happened, one line
+  each, and nothing else is ever written there: a deferred gap the reviewer marked 🟠; "The
+  security follow-up did not run for this slice."; an allowed plan edit the implementer made.
+  In a fix-up, the same lines open the comment the fix-up posts.
+- A slice PR ends with one `<details>` block whose summary is exactly
+  `For agents — skip when reviewing`. The label addresses the human; an agent told to read
+  the PR body reads the fold. It holds the `Plan:` line and `## Review decisions`.
 
-  These answers sit under a `## TL;DR` heading at the top of the body, after the `Plan:`
-  line.
 <!-- hitl:knob pr-body-sections -->
-- A PR opened by `/implement-stack` also carries `## Review decisions`: every declined or
-  deferred review finding in plain words — the concern as a user or the data would
-  experience it, the decision, the reason — never file, function or test names. A human
+- Every PR body has a `## TL;DR`: 1 to 3 bullets, each one line of about 15 words at
+  most, a fragment and not a sentence, saying only what changed as someone using the thing
+  would notice it — no why, no how, no risk, no file, function or test names. A change nobody
+  using the thing would notice says `No visible change: <what was reorganised>`. Then
+  `## Why`: 2–3 sentences in plain words (explain it as you would to an intern), concise and
+  realistic — do not invent rationale to fill space; one honest line is fine for a trivial
+  change. An umbrella PR summarises the feature, never one bullet per slice, and then lists
+  its slices.
+
+<!-- hitl:knob pr-body-sections -->
+- A PR opened by `/implement-stack` carries `## Review decisions` inside the fold: every
+  declined or deferred review finding in plain words — the concern as a user or the data
+  would experience it, the decision, the reason — never file, function or test names. A human
   overturns one by commenting on the PR.
 
 The `## Review decisions` section of a slice PR, and of every Review decisions comment a
@@ -495,6 +513,7 @@ one together with its parser, by PR.
 - The `**Reviewed:**` header line of a spec or plan — the Stop hook and the review commands.
 - The `**Owns:**` header line of a slice plan — the handover agent and the slice reviewer.
 - The `**Review mode:**` header line of a spec — `/review-spec`, `/review-slice` and `/implement-stack`.
+- The `**Ticket:**` header line of a spec — `/review-spec`, `/implement-stack` and the handover agent.
 - The `Plan:` line of a PR body — the slice reviewer.
 - The spec and plan filename patterns `<YYYY-MM-DD>-<topic>-design.md` and
   `<YYYY-MM-DD>-<feature>-slice-<N>-<label>.md` — the review commands, the handover agent.

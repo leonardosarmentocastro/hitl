@@ -106,7 +106,7 @@ human. Never cut or keep the branch anyway.
 - `complete`, `elaborate` or `simple` → that is the mode for this slice. `absent` → `simple`.
 
 Run `/hitl:review-slice <handover path>` on this branch. It prints the triage
-table and the `## Review decisions` block.
+table and the `## Review decisions` block, and a `## Needs you` block when there is one.
 
 Paste the `## Stack` table from the handover document on this branch into the reviewer's
 brief **verbatim**. That table is the reviewer's only authority on which slice owns what — it
@@ -140,11 +140,11 @@ In elaborate or complete mode: continue with c2.
 **c2. Second review (elaborate and complete modes).** The second review runs even when the first triage had no APPLY rows. In a fix-up, the mode read at step c means the mode read at the start of that `### Slice <N>` section, in this step and its stops. Run `/hitl:review-slice <handover path> --step second` on this branch as the
 first fixer left it, so the diff includes its commits; paste the stack table into the
 reviewers' briefs verbatim, as in c. It prints its `Review mode:` line, a triage table (with
-a `Lens` column in complete mode), a `## Review decisions` block, and three lines
-`ADV: <path>`, `SEC: <path>` and `FOL: <path>` — in elaborate mode `SEC: none` and
-`FOL: none`. Which files must exist comes from the mode read at step c, never from what
-these lines say: `ADV` always; in complete mode `SEC` too. Then the same checks as in c, on
-each of those files. In elaborate mode, check `<ADV>` only:
+a `Lens` column in complete mode), a `## Review decisions` block, a `## Needs you` block when
+there is one, and three lines `ADV: <path>`, `SEC: <path>` and `FOL: <path>` — in elaborate
+mode `SEC: none` and `FOL: none`. Which files must exist comes from the mode read at step c,
+never from what these lines say: `ADV` always; in complete mode `SEC` too. Then the same
+checks as in c, on each of those files. In elaborate mode, check `<ADV>` only:
 
 ```bash
 [ -s "<ADV>" ] && grep -q '| Verdict |' "<ADV>" || echo "no review: <ADV>"
@@ -164,7 +164,7 @@ done
 - The mode changed → **STOP**: "slice <N>: the review mode changed during the slice", with
   what `/hitl:review-slice` printed, and ask the human. That is: `/hitl:review-slice` refuses the
   second step (the spec now says simple, or its value is now invalid); or the mode word in its `Review mode:` line differs from the mode read at step c, or it prints no such line; or it prints a `SEC:` or `FOL:` line that is not `none` in elaborate mode.
-- In complete mode only: a `FOL:` file missing or without a verdict row is not a stop: add the line "The security follow-up did not run for this slice." to the PR body's Review decisions.
+- In complete mode only: a `FOL:` file missing or without a verdict row is not a stop: add the line "The security follow-up did not run for this slice." under the PR body's `## Needs you`.
 
 **d2. Second fix (elaborate and complete modes).** As in d, on the second triage's APPLY
 rows, with the review file paths: the adversarial review in elaborate mode; the
@@ -190,25 +190,49 @@ run that crashed after pushing — and the record on stdout is that PR's: take i
 put the body on it with `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" edit <number> --body-file <tmp>`, and carry on.
 Any other non-zero exit is a **STOP**.
 
+Read the feature's ticket once per slice, when its PR body is written. Pass every path listed
+under `Spec(s):` to the script in one call.
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/runtime/ticket.sh" <every Spec(s): path>
+```
+
+Each line it prints is a ticket, `[<label>](<url>)`; the word `none` means there is none.
+Exit 2 is never a STOP: a ticket is a link, not a rule about how the feature is reviewed. Use
+the tickets it still printed, and say in your report which spec's line was refused and why.
+
 <!-- hitl:knob pr-body-sections -->
 Body (write it in the register of explaining to a newcomer; no file, function or test names
 outside the `Plan:` line):
 
 ```
-Plan: <plan path>
+### <ticket line>
 
 ## TL;DR
 
-What — <2–3 sentences>
-Why — <2–3 sentences>
-How — <2–5 sentences; the approach and any real choice made>
+- <what changed, as someone using it would notice it: one line, about 15 words at most, a fragment and not a sentence>
+- <a second or third change, only if there is one; never more than three bullets>
+
+## Why
+
+<2–3 sentences: the problem this solves>
+
+## Needs you
+
+<one line per case in the list below; omit the whole section when there is none>
 
 <one section per pr-section fact in the hitl context block's project memory, written as that fact describes; none if there is no such fact>
 
+<details>
+<summary>For agents — skip when reviewing</summary>
+
+Plan: <plan path>
+
 ## Review decisions
 <the mode line for the mode read at step c>
-<the blocks from both steps of /hitl:review-slice, plus both fixers' not-reproduced items; or "None — every finding was applied.">
-<any allowed plan edit the implementer made, one line each>
+<the blocks from both steps of /hitl:review-slice, plus both fixers' not-reproduced items, minus the Needs-you lines; or "None — every finding was applied.">
+
+</details>
 ```
 
 A section a pr-section fact asks for that cannot be produced honestly (a screenshot that could
@@ -219,6 +243,18 @@ The `## Review decisions` section begins with the mode line for the mode read at
 - `Review mode: simple — cold review only.`
 - `Review mode: elaborate — cold review, then an adversarial review. No security review.`
 - `Review mode: complete — cold review, then an adversarial and a security review.`
+
+The TL;DR says only what changed — no why, no how, no risk. A change nobody using the thing
+would notice says so in its one bullet: `No visible change: <what was reorganised>`. There is
+no What and no How section. The body's first line is `### ` followed by a ticket the script
+printed — one such line per ticket, in the order printed, then a blank line. With `none`, or
+nothing printed, the body starts at `## TL;DR`.
+
+`## Needs you` holds only these, one line each, and they are not repeated in the fold: a
+deferred gap the reviewer marked 🟠 (it is a question about reordering the slices); "The
+security follow-up did not run for this slice."; each allowed plan edit the implementer made.
+Nothing else is ever written there. The fold's label addresses the human: an agent told to
+read the PR body reads the fold.
 
 Update the row in the handover document on this branch: status `open #<number>`, and — if a
 plan header changed — its `owns`. Commit `docs(handover): slice <N> open <ref>` and push.
@@ -269,6 +305,8 @@ For each `### Slice <N>` section under `## Fix-up`, in order:
    `open #<number>`) and the fixer on its APPLY rows; the c2 stops apply.
 3. Push (fast-forward). Append the Review decisions to the PR — the comment begins with the mode line for the mode read at the start of that section, as in step e — with
    `"${CLAUDE_PLUGIN_ROOT}/runtime/pr/pr.sh" comment <number> --body-file <tmp>`.
+   The comment opens with a `## Needs you` block when there is one — the same three kinds of
+   line as in the body — then the Review decisions. The PR body is not rewritten.
 Then follow `### Restack order`: for each `<B> onto <A> (old parent tip: <sha>)`,
 `git checkout <B> && git rebase --onto <A> <sha>` — the sha is recorded in the handover's
 Fix-up section by the handover agent, never recomputed here. Before ANY force-push, stop

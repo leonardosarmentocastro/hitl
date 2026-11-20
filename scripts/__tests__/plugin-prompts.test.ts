@@ -69,7 +69,8 @@ describe("the plugin's no-install prompts", () => {
     expect(h).toContain('"Host:" is neither, do not run the PR shim');
     expect(h).not.toContain('"Host:" is not github');
     expect(h).toContain("constrains every branch name you derive");
-    expect(h).toContain('"Base:" line');
+    // The umbrella body no longer carries a Notes section, so no "Base:" line note either.
+    expect(h).not.toContain("## Notes");
   });
 
   for (const a of ["spec-reviewer", "plan-reviewer"])
@@ -152,12 +153,10 @@ describe("the plugin's no-install prompts", () => {
     expect(stack).toContain("pr-section fact");
     expect(stack).toContain("_not captured_");
     for (const a of ["implementer", "fixer"]) expect(stack).toContain("`hitl:" + a + "`");
-    expect(stack.indexOf("## TL;DR")).toBeGreaterThan(stack.indexOf("Plan: <plan path>"));
-    const body = stack.slice(stack.indexOf("Plan: <plan path>"));
+    const body = stack.slice(stack.indexOf("Body (write it"));
     const section = body.indexOf("<one section per pr-section fact");
-    expect(section).toBeGreaterThan(body.indexOf("## TL;DR"));
-    expect(section).toBeGreaterThan(body.indexOf("How —"));
-    expect(section).toBeLessThan(body.indexOf("## Review decisions"));
+    expect(section).toBeGreaterThan(body.indexOf("## Needs you"));
+    expect(section).toBeLessThan(body.indexOf("<details>"));
     expect(stack.indexOf("--require no-install,host,gates")).toBeGreaterThan(-1);
     expect(stack.indexOf("--require no-install,host,gates")).toBeLessThan(
       stack.indexOf("git fetch"),
@@ -252,9 +251,10 @@ describe("the umbrella PR body says where the documents go", () => {
   it("the installed handover agent no longer promises removal from main after merge", () => {
     const text = renderAll(ROOT, THIS_REPO_CHOICES).get(".claude/agents/handover.md")!.content;
     expect(text).not.toContain("removed from `main` after merge");
-    expect(text).toContain(
-      "leave through the generated wipe PR before\nthis feature merges into `main`",
-    );
+    // The umbrella body has no Notes section any more: it neither promises a removal nor
+    // calls itself the durable record.
+    expect(text).not.toContain("## Notes");
+    expect(text).not.toContain("durable record");
   });
 });
 

@@ -169,13 +169,15 @@ Read `<OUT>`. For each finding (table and Also noticed), decide:
   **DECLINE: not worth it**.
 - A **DEFERRED** finding is never applied in this slice. It is recorded as a scheduling
   note: "slice <M> owns this; executable meanwhile because <reason>". If the reviewer marked
-  it 🟠, tell the human in the PR body's Review decisions — it is a resequencing question.
+  it 🟠, tell the human under the PR body's `## Needs you` — it is a resequencing question.
 
 Verify each claim against the code before deciding. Print the triage table
 (`# · Sev · Type · Finding · Verdict · one-line reason`). Then print, as a ready-to-paste
 block, the `## Review decisions` section for the PR body: every DECLINE and DEFERRED in
 plain words — the concern as a user or the data would experience it, the decision, the
-reason. No file, function or test names.
+reason. No file, function or test names. Then, only if a 🟠 DEFERRED exists, a
+`## Needs you` block with one line for each; those lines are left out of the Review
+decisions block.
 
 **The second step.** In complete mode, triage `<ADV>`, `<SEC>` and `<FOL>` as one list. The
 table gains a `Lens` column (`# · Sev · Type · Lens · Finding · Verdict · one-line reason`),
@@ -183,16 +185,17 @@ whose value is `adversarial`, `security` or `chained` (the follow-up). The same 
 raised from two lenses is one row naming both. In elaborate mode, triage `<ADV>` alone. In elaborate mode the table has no `Lens` column. In both modes, a finding that repeats something already declined for this
 slice is declined again for the same reason and adds no new line to the block. The earlier
 declines are this session's earlier Review decisions block and, when `--pr <number>` is
-given, that PR's body `## Review decisions` and every Review decisions comment on it — a
-fix-up posts its decisions as a comment, and the shim's `view` returns the body and the
-comments. A line beginning "Review mode:" is not a decline and is skipped.
+given, that PR's body `## Review decisions` and `## Needs you` and every Review decisions
+comment on it — a fix-up posts its decisions as a comment, and the shim's `view` returns the
+body and the comments. A line beginning "Review mode:" is not a decline and is skipped.
 
 ```bash
 scripts/hitl/pr.sh view <number>
 ```
 
-Without `--pr`, only this session's block is used. Print the triage table and the
-`## Review decisions` block as above, then the three path lines of § 1S.
+Without `--pr`, only this session's block is used. Print the triage table, the
+`## Review decisions` block and, when there is one, the `## Needs you` block as above, then
+the three path lines of § 1S.
 
 ## 3. Stop
 

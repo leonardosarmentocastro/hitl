@@ -53,6 +53,44 @@ The mode line, one per mode, exactly:
 
 Print the mode line once per run, as soon as the mode is known: after the answer to the one-time question has been written and committed, when one was asked; on a dry run; and before the "two rounds have run" stop. On the script's exit 2, print its message instead.
 
+### Ticket
+
+The spec's `**Ticket:**` header line links the feature's ticket: `none`, or one Markdown link
+`[<label>](<url>)`. Read it:
+
+```bash
+scripts/hitl/ticket.sh "$SPEC"
+```
+
+- Exit 2 → print its message, review nothing, and stop. The human fixes the line.
+- A link, or `none` with a `**Ticket:**` line in the header → nothing to do.
+- `none` with no `**Ticket:**` line → nothing is asked, **unless** no `**Reviewed:** round` is
+  recorded in the spec header and this is not a dry run. Then, whether or not the spec has a
+  `**Review mode:**` line: if the human already gave a ticket link in this session, use it and
+  ask nothing; otherwise ask once, "Is there a ticket for this? Paste its link — and its
+  title, if you want it shown — or say none."
+
+  Build the line from the answer. Never fetch anything from the tracker.
+  - `none` → `**Ticket:** none`.
+  - The key is the last part of the URL's path shaped like `PROJ-123`: capital letters and
+    digits, a dash, digits; case matters.
+  - A URL and a title → the label is `<KEY>: <title>` when there is a key, else the title.
+    A bare URL → the label is the key, else the URL itself.
+  - In a title, `[` and `]` are written as `(` and `)`; `@` and backticks are dropped.
+  - The URL must start `http://` or `https://` and hold no space and no `)`. If it does not,
+    or the answer is neither a link nor none, say why and ask again on the spot: it is the
+    same question, not a second one. Write nothing until the answer is usable.
+
+  Write `**Ticket:** <value>` in the spec's header block (between the `#` title and the first
+  `##`) and run the script again. If it refuses the line, remove the line, commit nothing,
+  say why and ask again. Otherwise commit it alone:
+
+  ```bash
+  git commit -m "docs(spec): record ticket" -- "$SPEC"
+  ```
+
+  No other case sets or changes the line: the human edits it by hand, in a commit.
+
 In elaborate and complete mode, before applying the count below: the limit is two recorded rounds, whatever that count has been tuned to. Count the recorded rounds as the next paragraph describes, ignoring its limit. If two are recorded, stop, and add to the stop message: "this command cannot tell whether round 2 was a second cold round or this mode's own round; if the mode line was changed after two cold rounds, the adversarial round did not run, and nothing is rerun."
 
 <!-- hitl:knob review-rounds -->

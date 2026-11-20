@@ -32,14 +32,14 @@ rule. `grep -rn --exclude-dir=worktrees "hitl:knob <id>" .hitl/ AGENTS.md .claud
 | `small-lane` | whether any change may skip the chain | `.hitl/HITL.md` § Delivery chain | none — size shrinks the artefact, never the gate |
 | `effective-date-pilots` | the areas a new rule applies to first | `AGENTS.md` hitl block, `## Effective-date pilots` | none until the humans name one; grandfathered code is never a finding |
 | `local-gates` | the commands the implementer and fixer run before "done" | `AGENTS.md` hitl block, `## Local gates` | discovered at init from the repository's scripts |
-| `pr-body-sections` | what every PR body must answer | `.hitl/HITL.md` § Pull requests (the What/Why/How bullet and the Review decisions bullet, both anchored); `implement-stack.md`, the body block | What / Why / How plus Review decisions — a newcomer can follow it |
+| `pr-body-sections` | what every PR body must answer | `.hitl/HITL.md` § Pull requests (the TL;DR and Why bullet and the Review decisions bullet, both anchored); `implement-stack.md`, the body block | TL;DR bullets plus Why, with Review decisions in the agent fold — a newcomer can follow it |
 | `scare-anchors` | the scare-score ladder reviewers calibrate on | `.hitl/review-context.md` | treasury's ladder with 5–8 left as placeholders for this repository's own risky change classes |
 | `testing-rules` | which testing principles `.hitl/HITL.md` carries | `.hitl/HITL.md` § Testing and gates | the choices made at init |
 
 ## 1. Refuse an invariant
 
 If the human asks to change anything in `## Load-bearing invariants` — the `**Reviewed:**`
-line, the `**Owns:**` line, the `**Review mode:**` line, the `Plan:` line, the spec and plan filename patterns, the
+line, the `**Owns:**` line, the `**Review mode:**` line, the `**Ticket:**` line, the `Plan:` line, the spec and plan filename patterns, the
 stack-table columns, the seven finding-type names, the `docs/superpowers/` path — reply
 exactly: "that is a load-bearing invariant; change it together with its parser, by PR" and
 change nothing. Renaming a finding type is such a request; redefining a severity is not.
