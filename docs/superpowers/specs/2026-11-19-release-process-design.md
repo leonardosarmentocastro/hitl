@@ -1,5 +1,7 @@
 # Automatic releases — design
 
+**Review mode:** simple
+
 ## Intent
 
 A feature merged to `main` does not reach anyone's Claude Code until someone runs the manual
