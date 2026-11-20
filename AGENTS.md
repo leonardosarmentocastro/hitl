@@ -47,11 +47,24 @@ so the plugin-drift test fails until they are rendered again; from the repositor
 node installer/render-plugin.mjs --plugin-root .
 ```
 
-**Releasing.** In one commit, bump `version` in `.claude-plugin/plugin.json` and
-`.claude-plugin/marketplace.json`, and rename `## Unreleased` in `CHANGELOG.md` to
-`## <version>`, leaving a new empty `## Unreleased` above it; then tag `v<version>`. A change
-that an installed repository or a no-install user will notice adds a bullet under
-`## Unreleased` in its own PR.
+**Releasing.** Releases are automatic; never raise a version by hand below 1.0. On every push
+to `main`, `release-prepare` (`.github/workflows/`, `scripts/release.mjs prepare`) looks at the
+pull requests merged into `main` since the tag of the current version. The head branch prefix
+decides: any `feat/` branch → a minor release, only `fix/` branches → a patch, anything else
+(`docs/`, `chore/`) → no release. It then raises `version` in `.claude-plugin/plugin.json`,
+`.claude-plugin/marketplace.json` and `.hitl/manifest.json`, writes a `## <version>` section
+into `CHANGELOG.md` and commits `chore(release): <version>`.
+
+- **The pull request title is the release note.** `/hitl:diff` prints it to every installed
+  repository, so the title of a pull request into `main` says, in plain words, what changes
+  for a user.
+- `## Unreleased` in `CHANGELOG.md` is optional: text written there by hand (an upgrade
+  instruction a title cannot carry) is moved into the next release's section. It never
+  causes a release.
+- Merge the wipe pull request and the pull request into `main` with a merge commit, never
+  squashed or rebased: the wipe commit carries `[skip ci]`, and a push whose head commit
+  carries it starts no release run. If a release was skipped, start `release-prepare` from
+  the Actions tab.
 
 ## Test-driven development, here
 

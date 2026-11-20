@@ -67,7 +67,7 @@ describe("this repository's CHANGELOG.md", () => {
     );
     expect(hits).toHaveLength(1);
   });
-  it("a release renames Unreleased", () => {
+  it("while Unreleased holds a note, the plugin version is still the newest released section", () => {
     if (sections()[0].text !== "") expect(pluginVersion(ROOT)).toBe(released()[0].version);
   });
   it("the two version files agree", () => {
