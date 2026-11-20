@@ -1,7 +1,18 @@
 // scripts/__tests__/release-prepare.test.ts — `scripts/release.mjs prepare`, against temporary
 // git repositories.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { nextVersion } from "../release.mjs";
 import { type Pr, commit, git, prsFile, release, releaseRepo } from "./helpers/release-repo";
+
+function read(repo: string, path: string): string {
+  return readFileSync(join(repo, path), "utf8");
+}
+
+function readAt(repo: string, ref: string, path: string): string {
+  return `${git(repo, "show", `${ref}:${path}`)}\n`;
+}
 
 function pr(number: number, title: string, headRefName: string, oid: string): Pr {
   return { number, title, headRefName, mergeCommit: { oid } };
@@ -63,5 +74,72 @@ describe("release.mjs prepare — nothing to release", () => {
       release(["prepare", "--repo", repo, "--prs", prsFile([pr(9, "Side", "feat/side", side)])])
         .out,
     ).toEqual({ released: false });
+  });
+});
+
+describe("release.mjs prepare — a release", () => {
+  it("computes the next version from the prefixes", () => {
+    expect(nextVersion("0.3.0", ["docs", "feat", "fix"])).toEqual({
+      version: "0.4.0",
+      bump: "minor",
+    });
+    expect(nextVersion("0.3.2", ["feat"])).toEqual({ version: "0.4.0", bump: "minor" });
+    expect(nextVersion("0.3.0", ["fix", "chore"])).toEqual({ version: "0.3.1", bump: "patch" });
+    expect(nextVersion("1.2.3", ["fix"])).toEqual({ version: "1.2.4", bump: "patch" });
+    expect(nextVersion("0.3.0", ["docs"])).toBeNull();
+  });
+  it("writes the four files for a feat pull request", () => {
+    const repo = releaseRepo({ tag: false });
+    const old = commit(repo, "old");
+    git(repo, "tag", "v0.3.0");
+    const a = commit(repo, "a");
+    const b = commit(repo, "b");
+    const c = commit(repo, "c");
+    const prs = [
+      pr(7, "Fix a thing", "fix/thing", b),
+      pr(5, "  Add a thing ", "feat/thing", a),
+      pr(8, "Docs", "docs/x", c),
+      pr(3, "Old feature", "feat/old", old), // already released
+      pr(4, "Elsewhere", "feat/elsewhere", "0".repeat(40)), // not in this checkout
+      { number: 6, title: "Null", headRefName: "feat/null", mergeCommit: null },
+    ];
+    const r = release(["prepare", "--repo", repo, "--prs", prsFile(prs)]);
+    expect(r.status).toBe(0);
+    expect(r.out).toEqual({ released: true, version: "0.4.0", bump: "minor", prs: [5, 7] });
+    expect(read(repo, "CHANGELOG.md")).toBe(
+      "# Changelog\n\nintro\n\n## Unreleased\n\n## 0.4.0\n\n- Add a thing (#5)\n- Fix a thing (#7)\n\n## 0.3.0\n\n- three\n",
+    );
+    for (const f of [
+      ".claude-plugin/plugin.json",
+      ".claude-plugin/marketplace.json",
+      ".hitl/manifest.json",
+    ]) {
+      expect(read(repo, f)).toBe(
+        readAt(repo, "HEAD", f).replace('"version": "0.3.0"', '"version": "0.4.0"'),
+      );
+    }
+  });
+  it("cuts a patch when only fix pull requests are unreleased", () => {
+    const repo = releaseRepo({ tag: false });
+    const old = commit(repo, "old");
+    git(repo, "tag", "v0.3.0");
+    const prs = [pr(3, "Old feature", "feat/old", old), pr(9, "Fix", "fix/x", commit(repo, "x"))];
+    const r = release(["prepare", "--repo", repo, "--prs", prsFile(prs)]);
+    expect(r.out).toEqual({ released: true, version: "0.3.1", bump: "patch", prs: [9] });
+  });
+  it("carries the text under Unreleased into the new section and empties Unreleased", () => {
+    const repo = releaseRepo({
+      changelog: "# Changelog\n\n## Unreleased\n\n- by hand\n\n## 0.3.0\n\n- three",
+    });
+    release([
+      "prepare",
+      "--repo",
+      repo,
+      "--prs",
+      prsFile([pr(5, "Add", "feat/x", commit(repo, "x"))]),
+    ]);
+    expect(read(repo, "CHANGELOG.md")).toBe(
+      "# Changelog\n\n## Unreleased\n\n## 0.4.0\n\n- by hand\n\n- Add (#5)\n\n## 0.3.0\n\n- three\n",
+    );
   });
 });

@@ -3,7 +3,8 @@
 // from the pull requests merged into main whether a release is due and, if so, writes the four
 // release files. Exit: 0 ok · 1 usage · 2 error · 3 refused. A refusal writes nothing.
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { emit, parseArgs, pluginVersion } from "../installer/lib.mjs";
 
@@ -29,14 +30,61 @@ export function unreleasedPrs(repo, prs, version) {
   });
 }
 
+const VERSION_FILES = [
+  ".claude-plugin/plugin.json",
+  ".claude-plugin/marketplace.json",
+  ".hitl/manifest.json",
+];
+
+/** Any `feat` → the next minor; otherwise any `fix` → the next patch; otherwise null. */
+export function nextVersion(current, prefixes) {
+  const [major, minor, patch] = current.split(".").map(Number);
+  if (prefixes.includes("feat")) return { version: `${major}.${minor + 1}.0`, bump: "minor" };
+  if (prefixes.includes("fix")) return { version: `${major}.${minor}.${patch + 1}`, bump: "patch" };
+  return null;
+}
+
+/**
+ * The changelog with a `## <version>` section between `## Unreleased` and the newest released
+ * section: the old Unreleased text, then one line per pull request. Unreleased is left empty.
+ */
+function withSection(text, version, prs) {
+  const lines = text.split("\n");
+  const start = lines.findIndex((l) => l.startsWith("## "));
+  let end = lines.findIndex((l, i) => i > start && l.startsWith("## "));
+  if (end === -1) end = lines.length;
+  const head = lines.slice(0, start + 1).join("\n");
+  const carried = lines
+    .slice(start + 1, end)
+    .join("\n")
+    .trim();
+  const rest = lines.slice(end).join("\n").trimEnd();
+  const bullets = prs.map((pr) => `- ${pr.title.trim()} (#${pr.number})`).join("\n");
+  const body = carried ? `${carried}\n\n${bullets}` : bullets;
+  return `${head}\n\n## ${version}\n\n${body}\n${rest ? `\n${rest}\n` : ""}`;
+}
+
 function prepare({ repo, prs: prsPath }) {
   const version = pluginVersion(repo);
   const prs = JSON.parse(readFileSync(prsPath, "utf8"));
   const listed = unreleasedPrs(repo, prs, version).filter((pr) =>
     ["feat", "fix"].includes(prefixOf(pr.headRefName)),
   );
-  if (listed.length === 0) return { code: 0, out: { released: false } };
-  return { code: 0, out: { released: false } }; // the release path arrives with nextVersion
+  const next = nextVersion(
+    version,
+    listed.map((pr) => prefixOf(pr.headRefName)),
+  );
+  if (!next) return { code: 0, out: { released: false } };
+  listed.sort((a, b) => a.number - b.number);
+
+  const changelog = join(repo, "CHANGELOG.md");
+  writeFileSync(changelog, withSection(readFileSync(changelog, "utf8"), next.version, listed));
+  for (const f of VERSION_FILES) {
+    const path = join(repo, f);
+    const text = readFileSync(path, "utf8");
+    writeFileSync(path, text.replace(`"version": "${version}"`, `"version": "${next.version}"`));
+  }
+  return { code: 0, out: { released: true, ...next, prs: listed.map((pr) => pr.number) } };
 }
 
 const COMMANDS = { prepare: { required: ["repo", "prs"], fn: prepare } };
