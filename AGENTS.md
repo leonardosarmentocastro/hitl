@@ -48,12 +48,13 @@ node installer/render-plugin.mjs --plugin-root .
 ```
 
 **Releasing.** Releases are automatic; never raise a version by hand below 1.0. On every push
-to `main`, `release-prepare` (`.github/workflows/`, `scripts/release.mjs prepare`) looks at the
-pull requests merged into `main` since the tag of the current version. The head branch prefix
-decides: any `feat/` branch → a minor release, only `fix/` branches → a patch, anything else
-(`docs/`, `chore/`) → no release. It then raises `version` in `.claude-plugin/plugin.json`,
-`.claude-plugin/marketplace.json` and `.hitl/manifest.json`, writes a `## <version>` section
-into `CHANGELOG.md` and commits `chore(release): <version>`.
+to `main`, the `prepare` job of `release` (`.github/workflows/release.yml`,
+`scripts/release.mjs prepare`) looks at the pull requests merged into `main` since the tag of
+the current version. The head branch prefix decides: any `feat/` branch → a minor release, only
+`fix/` branches → a patch, anything else (`docs/`, `chore/`) → no release. It then raises
+`version` in `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` and
+`.hitl/manifest.json`, writes a `## <version>` section into `CHANGELOG.md` and commits
+`chore(release): <version>`.
 
 - **The pull request title is the release note.** `/hitl:diff` prints it to every installed
   repository, so the title of a pull request into `main` says, in plain words, what changes
@@ -63,19 +64,29 @@ into `CHANGELOG.md` and commits `chore(release): <version>`.
   causes a release.
 - Merge the wipe pull request and the pull request into `main` with a merge commit, never
   squashed or rebased: the wipe commit carries `[skip ci]`, and a push whose head commit
-  carries it starts no release run. If a release was skipped, start `release-prepare` from
-  the Actions tab.
-- `release-publish` runs after every `release-prepare`: it tags `v<version>` on the commit
-  that set the version (`scripts/release.mjs target`) and creates the GitHub Release from
-  that version's changelog section (`scripts/release.mjs notes`). `/hitl:diff` needs the
-  tag: it reads the marketplace at `v<recorded version>` and refuses without it.
-- **A failed publish:** start `release-publish` from the Actions tab. It creates whichever
-  of the tag and the Release is missing and, if it created the tag, starts `release-prepare`
-  itself. Until the version is tagged, `release-prepare` refuses (`tag-missing`) and its runs
-  are red.
+  carries it starts no release run. If a release was skipped, start `release` from the
+  Actions tab.
+- The `publish` job runs after `prepare` in the same run, also when `prepare` is red: it tags
+  `v<version>` on the commit that set the version (`scripts/release.mjs target`) — the version
+  that run released, else the version on `main` — and creates its GitHub Release from that
+  version's changelog section (`scripts/release.mjs notes`). `/hitl:diff` needs the tag: it
+  reads the marketplace at `v<recorded version>` and refuses without it. When `publish` tags a
+  version its own run did not release (a backfill), it starts `release` once more to catch up
+  the pull requests that version held back.
+- **A failed publish:** "Re-run failed jobs" on that run. "Re-run all jobs" runs `prepare`
+  again and acts on the version `main` now carries: if a newer release landed since, it skips
+  the older one, and it may add one empty catch-up run. A run whose `prepare` was red runs
+  `prepare` again on any re-run, with the same effect. After either, check that the older
+  version got its Release. Until a version is tagged, `prepare` refuses (`tag-missing`) and its
+  runs are red. A catch-up that did not start, a backfill run someone cancelled, and a waiting
+  run cancelled because a retry joined the queue: start `release` from the Actions tab. An
+  older version still without its Release after a retry acted on a newer one:
+  `node scripts/release.mjs notes --repo . --version <version> | jq -r .notes > <file>` for its
+  notes (the command prints JSON), then
+  `gh release create v<version> --title v<version> --notes-file <file> --verify-tag`.
 - **A major version** is raised by hand, in a pull request that changes the three version
-  files and adds the `## <version>` section. Its merge first gives a red `release-prepare` run
-  (`tag-missing`), which is expected: the `release-publish` run that follows tags it.
+  files and adds the `## <version>` section. Its run shows a red `prepare` (`tag-missing`),
+  then a green `publish` that tags it, then one catch-up run — all expected.
 
 ## Test-driven development, here
 
