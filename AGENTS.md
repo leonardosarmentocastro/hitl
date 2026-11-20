@@ -73,16 +73,17 @@ the current version. The head branch prefix decides: any `feat/` branch → a mi
   reads the marketplace at `v<recorded version>` and refuses without it. When `publish` tags a
   version its own run did not release (a backfill), it starts `release` once more to catch up
   the pull requests that version held back.
-- **A failed publish:** "Re-run failed jobs" on that run. "Re-run all jobs" also works but may add
-  one empty catch-up run. On a run whose `prepare` was red, a re-run runs `prepare` again too;
-  if pull requests were merged since, it may release a newer version and `publish` acts on that
-  one — check afterwards that the older version got its Release. Until a version is tagged,
-  `prepare` refuses (`tag-missing`) and its runs are red. A catch-up that did not start, and a
-  backfill run someone cancelled: start `release` from the Actions tab. An older version still
-  without its Release after a backfill retry acted on a newer one:
+- **A failed publish:** "Re-run failed jobs" on that run. "Re-run all jobs" runs `prepare`
+  again and acts on the version `main` now carries: if a newer release landed since, it skips
+  the older one, and it may add one empty catch-up run. A run whose `prepare` was red runs
+  `prepare` again on any re-run, with the same effect. After either, check that the older
+  version got its Release. Until a version is tagged, `prepare` refuses (`tag-missing`) and its
+  runs are red. A catch-up that did not start, a backfill run someone cancelled, and a waiting
+  run cancelled because a retry joined the queue: start `release` from the Actions tab. An
+  older version still without its Release after a retry acted on a newer one:
   `node scripts/release.mjs notes --repo . --version <version> | jq -r .notes > <file>` for its
   notes (the command prints JSON), then
-  `gh release create v<version> --notes-file <file> --verify-tag`.
+  `gh release create v<version> --title v<version> --notes-file <file> --verify-tag`.
 - **A major version** is raised by hand, in a pull request that changes the three version
   files and adds the `## <version>` section. Its run shows a red `prepare` (`tag-missing`),
   then a green `publish` that tags it, then one catch-up run — all expected.
