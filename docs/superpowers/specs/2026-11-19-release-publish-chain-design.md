@@ -76,7 +76,7 @@ starting anything, including a version released by the catch-up run.
   not start (the tag exists, so a re-run will not start it again) and a backfill run someone
   cancelled are retried by starting `release` from the Actions tab. An older version still
   without its GitHub Release, after a backfill retry acted on a newer one, is created by hand:
-  `node scripts/release.mjs notes` for its notes, then `gh release create v<version>`. A
+  `node scripts/release.mjs notes … | jq -r .notes` for its notes, then `gh release create v<version>`. A
   hand-raised major version gives a red `prepare` job followed by a green `publish` job in the
   same run, then one catch-up run, which is expected.
 
@@ -115,3 +115,4 @@ never describe workflows that do not exist.
   in a different concurrency group from the new `release` run, so the two can race to push.
   It recovers on its own (the new run's `publish` backfills the tag and starts a catch-up);
   the plan says so, so the first watcher is not surprised.
+- **Bubbled up from plan review (round 1)** — the hand-made Release recovery reads the notes with `jq -r .notes`, because `notes` prints JSON.

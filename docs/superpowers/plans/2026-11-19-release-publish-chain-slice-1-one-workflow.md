@@ -4,6 +4,8 @@
 
 **Owns:** a release on `main` is prepared and published in one `release` workflow run — publishing also after a failed prepare, on the version that run released, and a catch-up run only after a backfill — and the release instructions describe that workflow.
 
+**Reviewed:** round 1 (2026-11-19).
+
 **Goal:** Replace `release-prepare.yml` and `release-publish.yml` with one `release.yml` whose `publish` job follows its `prepare` job, so no release depends on GitHub starting one workflow when another completes.
 
 **Architecture:** One workflow, two jobs. `prepare` is today's `release-prepare` job plus job outputs set only once the release commit is pushed. `publish` is today's `release-publish` job, run after `prepare` unless cancelled, acting on `prepare`'s version when it released one and on `main`'s otherwise, and dispatching `release` again only after a backfill.
@@ -78,15 +80,15 @@ git commit -m "fix(release): prepare and publish in one release run, catch up on
 
 - [ ] **Step 1: Rewrite the Releasing section**
 
-Every mention of `release-prepare` becomes the `prepare` job of the `release` workflow, every mention of `release-publish` the `publish` job. Keep the paragraph on what decides a release and the bullets on titles, `## Unreleased` and merge commits (with "start `release` from the Actions tab" for a skipped release). Replace the last three bullets with ones that say, from the spec's §Design `AGENTS.md` bullet:
+Every mention of `release-prepare` becomes the `prepare` job of the `release` workflow, every mention of `release-publish` the `publish` job. The first paragraph's pointer "`release-prepare` (`.github/workflows/`, …)" becomes "the `prepare` job of `release` (`.github/workflows/release.yml`, `scripts/release.mjs prepare`)". Keep the paragraph on what decides a release and the bullets on titles, `## Unreleased` and merge commits (with "start `release` from the Actions tab" for a skipped release). Replace the last three bullets with ones that say, from the spec's §Design `AGENTS.md` bullet:
 - `publish` runs after `prepare` in the same run, also when `prepare` is red; it tags the version that run released (else the version on `main`) and creates its GitHub Release; `/hitl:diff` needs the tag.
-- **A failed publish:** "Re-run failed jobs". "Re-run all jobs" also works but adds one empty catch-up run. A catch-up that did not start, and a backfill run someone cancelled: start `release` from the Actions tab. An older version still without its Release after a backfill retry acted on a newer one: `node scripts/release.mjs notes --repo . --version <version>` for its notes, then `gh release create v<version> --notes-file <file> --verify-tag`.
+- **A failed publish:** "Re-run failed jobs". "Re-run all jobs" also works but adds one empty catch-up run. A catch-up that did not start, and a backfill run someone cancelled: start `release` from the Actions tab. An older version still without its Release after a backfill retry acted on a newer one: `node scripts/release.mjs notes --repo . --version <version> | jq -r .notes > <file>` for its notes (the command prints JSON), then `gh release create v<version> --notes-file <file> --verify-tag`.
 - **A major version** is raised by hand, in a pull request that changes the three version files and adds the `## <version>` section. Its run shows a red `prepare` (`tag-missing`), then a green `publish` that tags it, then one catch-up run — all expected.
 
 - [ ] **Step 2: Check nothing else names the old workflows**
 
-Run: `grep -rn 'release-prepare\|release-publish' --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=docs . | grep -v '^./scripts/__tests__/release-'`
-Expected: no output. (The two test files name their own file, not a workflow.)
+Run: `grep -rn 'release-prepare\|release-publish' --exclude-dir=node_modules --exclude-dir=.git --exclude=.git --exclude-dir=docs . | grep -v '^./scripts/__tests__/release-'`
+Expected: no output. (The two test files name their own file, not a workflow. `--exclude=.git` skips a worktree's `.git` file, which names the worktree.)
 
 - [ ] **Step 3: Gates and commit**
 
