@@ -57,7 +57,9 @@ starting anything, including a version released by the catch-up run.
   `main` — the backfill. So "Re-run failed jobs" on an older run finishes that run's own
   version even after later releases have moved `main` (GitHub keeps the outputs of the jobs it
   does not re-run). Limit: a backfill whose Release step failed, retried after `main` has
-  moved, acts on the newer version; that older version's Release is then created by hand.
+  moved, acts on the newer version; that older version's Release is then created by hand. The
+  same happens when "Re-run failed jobs" re-runs a red `prepare` that now releases a newer
+  version, so the instructions say to check the older version's Release after such a retry.
 - The catch-up: `publish` starts `release` again with `workflow_dispatch` only when it created
   a tag for a version this run's `prepare` did not release — a backfill, such as a version
   left untagged or a hand-raised major version. A normal release, whose `prepare` released the
@@ -116,3 +118,4 @@ never describe workflows that do not exist.
   It recovers on its own (the new run's `publish` backfills the tag and starts a catch-up);
   the plan says so, so the first watcher is not surprised.
 - **Bubbled up from plan review (round 1)** — the hand-made Release recovery reads the notes with `jq -r .notes`, because `notes` prints JSON.
+- **Bubbled up from plan review (round 2)** — a re-run of a red-`prepare` backfill run can release a newer version and skip the older one's Release; added to the Limit and the instructions.

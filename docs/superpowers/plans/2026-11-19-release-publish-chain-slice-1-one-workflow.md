@@ -4,7 +4,7 @@
 
 **Owns:** a release on `main` is prepared and published in one `release` workflow run — publishing also after a failed prepare, on the version that run released, and a catch-up run only after a backfill — and the release instructions describe that workflow.
 
-**Reviewed:** round 1 (2026-11-19).
+**Reviewed:** round 1 (2026-11-19) · round 2 (2026-11-19).
 
 **Goal:** Replace `release-prepare.yml` and `release-publish.yml` with one `release.yml` whose `publish` job follows its `prepare` job, so no release depends on GitHub starting one workflow when another completes.
 
@@ -50,7 +50,7 @@
   - No workflow-level `permissions:`. `defaults: run: shell: bash` as today.
   - Job `prepare`: `permissions: contents: write, pull-requests: read`. Steps copied from `release-prepare.yml` unchanged, except the last step ("Commit and push the release") gets `id: commit` and, after `git push origin HEAD:main`, writes `released=true` and `version=$VERSION` to `$GITHUB_OUTPUT`. Job `outputs:` `released: ${{ steps.commit.outputs.released }}`, `version: ${{ steps.commit.outputs.version }}` — from the commit step, never from the `prepare` step, so a release that failed its gates or its push is not published.
   - Job `publish`: `needs: prepare`, `if: ${{ !cancelled() }}`, `permissions: contents: write, actions: write`, `env: GH_TOKEN: ${{ github.token }}`. Steps copied from `release-publish.yml`, with these changes:
-    - "Read the version" (`id: version`): if `needs.prepare.outputs.released == 'true'`, `version=${{ needs.prepare.outputs.version }}`; otherwise `jq -r .version .claude-plugin/plugin.json` as today. Also write `backfill=false` in the first case and `backfill=true` in the second.
+    - "Read the version" (`id: version`): pass `needs.prepare.outputs.released` and `needs.prepare.outputs.version` in through `env:` (as the other steps pass `VERSION`), never as `${{ }}` inside `run:`. If released is `true`, `version=` that version; otherwise `jq -r .version .claude-plugin/plugin.json` as today. Also write `backfill=false` in the first case and `backfill=true` in the second.
     - The catch-up step: `if: ${{ !cancelled() && steps.tag.outputs.created == 'true' && steps.version.outputs.backfill == 'true' }}`, running `gh workflow run release.yml --ref main`. Rename it "Catch up pull requests held back while this version had no tag".
     - Tag and Release steps unchanged otherwise.
 
@@ -82,7 +82,7 @@ git commit -m "fix(release): prepare and publish in one release run, catch up on
 
 Every mention of `release-prepare` becomes the `prepare` job of the `release` workflow, every mention of `release-publish` the `publish` job. The first paragraph's pointer "`release-prepare` (`.github/workflows/`, …)" becomes "the `prepare` job of `release` (`.github/workflows/release.yml`, `scripts/release.mjs prepare`)". Keep the paragraph on what decides a release and the bullets on titles, `## Unreleased` and merge commits (with "start `release` from the Actions tab" for a skipped release). Replace the last three bullets with ones that say, from the spec's §Design `AGENTS.md` bullet:
 - `publish` runs after `prepare` in the same run, also when `prepare` is red; it tags the version that run released (else the version on `main`) and creates its GitHub Release; `/hitl:diff` needs the tag.
-- **A failed publish:** "Re-run failed jobs". "Re-run all jobs" also works but adds one empty catch-up run. A catch-up that did not start, and a backfill run someone cancelled: start `release` from the Actions tab. An older version still without its Release after a backfill retry acted on a newer one: `node scripts/release.mjs notes --repo . --version <version> | jq -r .notes > <file>` for its notes (the command prints JSON), then `gh release create v<version> --notes-file <file> --verify-tag`.
+- **A failed publish:** "Re-run failed jobs". "Re-run all jobs" also works but adds one empty catch-up run. On a run whose `prepare` was red, a re-run runs `prepare` again too; if pull requests were merged since, it may release a newer version and `publish` acts on that one — check afterwards that the older version got its Release. Until a version is tagged, `prepare` refuses (`tag-missing`) and its runs are red. A catch-up that did not start, and a backfill run someone cancelled: start `release` from the Actions tab. An older version still without its Release after a backfill retry acted on a newer one: `node scripts/release.mjs notes --repo . --version <version> | jq -r .notes > <file>` for its notes (the command prints JSON), then `gh release create v<version> --notes-file <file> --verify-tag`.
 - **A major version** is raised by hand, in a pull request that changes the three version files and adds the `## <version>` section. Its run shows a red `prepare` (`tag-missing`), then a green `publish` that tags it, then one catch-up run — all expected.
 
 - [ ] **Step 2: Check nothing else names the old workflows**
@@ -99,4 +99,4 @@ git add AGENTS.md
 git commit -m "docs(agents): releases run as one release workflow"
 ```
 
-The slice PR body notes, for the human: the two settings to read (Review Focus lines 1–2), the throwaway-copy run the spec asks for before this merges into `main`, and the possible race with a `release-prepare` run in progress at merge time.
+The slice PR body notes, for the human: the two settings to read (Review Focus lines 1–2), the throwaway-copy run the spec asks for before this merges into `main`, the possible race with a `release-prepare` run in progress at merge time, and that a `release-publish` run still in flight at merge time dispatches `release-prepare.yml`, which no longer exists — that catch-up fails, and starting `release` from the Actions tab recovers it.
