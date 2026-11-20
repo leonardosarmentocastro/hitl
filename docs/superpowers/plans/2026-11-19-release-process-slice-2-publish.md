@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-19).
+**Reviewed:** round 1 (2026-11-19) · round 2 (2026-11-19).
 
 **Owns:** a released version on `main` gets its tag `v<version>` and its GitHub Release, retryable on its own, and users are told how to receive it.
 
@@ -42,7 +42,7 @@
 - Test: `scripts/__tests__/release-publish.test.ts`
 
 **Interfaces:**
-- Consumes: slice 1's `scripts/__tests__/helpers/release-repo.ts` — `releaseRepo(opts?)`, `commit(repo, message, files?)`, `release(args)`; slice 1's `run(command, args)` dispatch in `scripts/release.mjs`.
+- Consumes: slice 1's `scripts/__tests__/helpers/release-repo.ts` — `releaseRepo(opts?)`, `commit(repo, message, files?)`, `release(args)`, `git(repo, ...args)`; slice 1's `run(command, args)` dispatch in `scripts/release.mjs`.
 - Produces: `node scripts/release.mjs target --repo <dir> --version <x.y.z>` → code `0`, `{ version, commit: <full sha> }`; code `3`, `{ refused: "version-not-on-main", version }` when no first-parent commit holds it.
 
 - [ ] **Step 1: Write the failing tests**

@@ -119,7 +119,7 @@ against temporary git repositories.
   | none of either | no release |
 
 - No release → writes nothing, prints `{"released":false}`, exits 0.
-- Otherwise writes, then prints `{"released":true,"version":"<next>","bump":"minor|patch"}`:
+- Otherwise writes, then prints `{"released":true,"version":"<next>","bump":"minor|patch","prs":[<numbers listed>]}`:
   - `CHANGELOG.md`: a new `## <next>` section is inserted between `## Unreleased` and the
     newest released section; `## Unreleased` stays the first section and is left empty. The
     new section's body is, in order: whatever text stood under `## Unreleased` (may be
@@ -251,6 +251,8 @@ commit holds it.
   `x.y.z`.
 - *Forwarded to the plan gate:* the pull request listing must be the most recently
   *merged*, not the most recently created.
+- **Bubbled up from plan review (round 2)** — `prepare`'s output also carries `prs`, the
+  numbers of the pull requests it listed, so the run log says what a release contains.
 - Round 2, finding 1 (a `prepare` run that starts before the previous version is tagged):
   publish starts `release-prepare` after creating a tag; `prepare` keeps refusing rather
   than tagging itself, so tagging stays in one place.

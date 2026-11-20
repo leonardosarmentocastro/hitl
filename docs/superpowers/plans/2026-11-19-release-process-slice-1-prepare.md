@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Reviewed:** round 1 (2026-11-19).
+**Reviewed:** round 1 (2026-11-19) · round 2 (2026-11-19).
 
 **Owns:** a merged `feat/` or `fix/` pull request becomes a release commit on `main` — version raised in the three files, a new changelog section from the pull request titles.
 
@@ -48,6 +48,7 @@
   - `commit(repo: string, message: string, files?: Record<string, string>): string` — writes the files (or an empty commit), commits, returns the full sha.
   - `prsFile(prs: Pr[]): string` where `type Pr = { number: number; title: string; headRefName: string; mergeCommit: { oid: string } | null }` — writes the JSON to a temporary file, returns its path.
   - `release(args: string[]): { status: number; out: any }` — spawns `node scripts/release.mjs …`, parses stdout as JSON.
+  - `git(repo: string, ...args: string[]): string` — runs `git -C <repo> …`, returns stdout trimmed, throws on a non-zero exit.
 - Produces (script): `export function run(command: string, args: object): { code: number; out: object }`; the CLI is `node scripts/release.mjs <command> --name value …`, usage error (code `1`, `{ error: "usage: …" }`) for an unknown command or a missing argument.
 
 - [ ] **Step 1: Write the failing tests**
@@ -86,7 +87,19 @@ describe("release.mjs prepare — nothing to release", () => {
 });
 ```
 
-`pr(number, title, headRefName, oid)` and `git(repo, ...args)` are local helpers of the test file.
+`pr(number, title, headRefName, oid)` is a local helper of the test file; `git` comes from the helper file.
+
+Add to the same `describe`:
+
+```ts
+  it("ignores a pull request whose merge commit exists but is not in main's history", () => {
+    const repo = releaseRepo();
+    git(repo, "checkout", "-q", "-b", "side");
+    const side = commit(repo, "side work");
+    git(repo, "checkout", "-q", "main");
+    expect(release(["prepare", "--repo", repo, "--prs", prsFile([pr(9, "Side", "feat/side", side)])]).out).toEqual({ released: false });
+  });
+```
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -95,7 +108,7 @@ Expected: FAIL — `scripts/release.mjs` does not exist.
 
 - [ ] **Step 3: Implement the helper, the CLI shell and the unreleased filter**
 
-In `scripts/release.mjs`: `unreleasedPrs(repo, prs, version)` keeps a pull request when `mergeCommit?.oid` is an ancestor of `HEAD` and not an ancestor of `v<version>` (`git -C <repo> merge-base --is-ancestor <oid> <ref>`: exit `0` ancestor, `1` not; any other exit — an unknown commit — counts as "not in this checkout"). The prefix is the text of `headRefName` before the first `/`; a name without `/` has no prefix. `prepare` returns `{ released: false }` when no kept pull request has prefix `feat` or `fix`. These tests cannot tell the filter from a constant `released: false` until Task 2 adds the release path; implement the filter now all the same — Task 2's tests mix released, foreign-prefix and unreleased pull requests and prove it.
+In `scripts/release.mjs`: `unreleasedPrs(repo, prs, version)` keeps a pull request when `mergeCommit?.oid` is an ancestor of `HEAD` and not an ancestor of `v<version>` (`git -C <repo> merge-base --is-ancestor <oid> <ref>`: exit `0` ancestor, `1` not; any other exit — an unknown commit — counts as "not in this checkout"). The prefix is the text of `headRefName` before the first `/`; a name without `/` has no prefix. `prepare` returns `{ released: false }` when no kept pull request has prefix `feat` or `fix`. These tests cannot tell the filter from a constant `released: false` until Task 2 adds the release path; implement the filter now all the same — Task 2's tests hand `prepare` released, not-in-checkout, foreign-prefix and unreleased pull requests together and prove it.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -131,9 +144,16 @@ describe("release.mjs prepare — a release", () => {
     expect(nextVersion("0.3.0", ["docs"])).toBeNull();
   });
   it("writes the four files for a feat pull request", () => {
-    const repo = releaseRepo();
+    const repo = releaseRepo({ tag: false });
+    const old = commit(repo, "old");
+    git(repo, "tag", "v0.3.0");
     const a = commit(repo, "a"); const b = commit(repo, "b"); const c = commit(repo, "c");
-    const prs = [pr(7, "Fix a thing", "fix/thing", b), pr(5, "  Add a thing ", "feat/thing", a), pr(8, "Docs", "docs/x", c)];
+    const prs = [
+      pr(7, "Fix a thing", "fix/thing", b), pr(5, "  Add a thing ", "feat/thing", a), pr(8, "Docs", "docs/x", c),
+      pr(3, "Old feature", "feat/old", old), // already released
+      pr(4, "Elsewhere", "feat/elsewhere", "0".repeat(40)), // not in this checkout
+      { number: 6, title: "Null", headRefName: "feat/null", mergeCommit: null },
+    ];
     const r = release(["prepare", "--repo", repo, "--prs", prsFile(prs)]);
     expect(r.status).toBe(0);
     expect(r.out).toEqual({ released: true, version: "0.4.0", bump: "minor", prs: [5, 7] });
@@ -145,9 +165,12 @@ describe("release.mjs prepare — a release", () => {
     }
   });
   it("cuts a patch when only fix pull requests are unreleased", () => {
-    const repo = releaseRepo();
-    const r = release(["prepare", "--repo", repo, "--prs", prsFile([pr(9, "Fix", "fix/x", commit(repo, "x"))])]);
-    expect(r.out).toMatchObject({ released: true, version: "0.3.1", bump: "patch" });
+    const repo = releaseRepo({ tag: false });
+    const old = commit(repo, "old");
+    git(repo, "tag", "v0.3.0");
+    const prs = [pr(3, "Old feature", "feat/old", old), pr(9, "Fix", "fix/x", commit(repo, "x"))];
+    const r = release(["prepare", "--repo", repo, "--prs", prsFile(prs)]);
+    expect(r.out).toEqual({ released: true, version: "0.3.1", bump: "patch", prs: [9] });
   });
   it("carries the text under Unreleased into the new section and empties Unreleased", () => {
     const repo = releaseRepo({ changelog: "# Changelog\n\n## Unreleased\n\n- by hand\n\n## 0.3.0\n\n- three" });
@@ -225,6 +248,10 @@ it("refuses while the current version has no tag", () => {
   expect(r.status).toBe(3);
   expect(r.out).toEqual({ refused: "tag-missing", tag: "v0.3.0" });
   expect(git(repo, "status", "--porcelain")).toBe("");
+});
+it("refuses an untagged current version even when nothing would be released", () => {
+  const repo = releaseRepo({ tag: false });
+  expect(release(["prepare", "--repo", repo, "--prs", prsFile([])]).out).toEqual({ refused: "tag-missing", tag: "v0.3.0" });
 });
 it("exits 2 when the pull request file is missing or not JSON", () => {
   const repo = releaseRepo();
@@ -436,3 +463,8 @@ Expected: both pass (`pnpm format` if Prettier reports the YAML).
 git add .github/workflows/release-prepare.yml AGENTS.md scripts/__tests__/changelog.test.ts
 git commit -m "feat(release): release-prepare commits a release on every push to main that carries one"
 ```
+
+## Review decisions
+
+- Forwarded from the spec gate, "the listing must be the most recently merged": answered with `--search "sort:updated-desc"`, an accepted approximation. A pull request merged since the last release is missed only if 100 other merged pull requests into `main` were touched after it; a date-bounded search would need the previous release's date and gains nothing at this repository's pace.
+- Round 2, "Task 4 has no red step": declined, not worth it. The test is the spec's named proof and reads this repository's real files; writing it first would only reorder the same assertions.
